@@ -43,8 +43,8 @@ jobs:
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y thrift-compiler=0.13.0-2build2
         thrift --version
-        mkdir -p thirdparty/installed/bin/
-        cd thirdparty/installed/bin/ && ln -s /usr/bin/thrift thrift
+        touch custom_env.sh
+        echo 'export THRIFT_BIN=/usr/bin/thrift' >> custom_env.sh
 
     - name: Build spark connector v2
       run: |
