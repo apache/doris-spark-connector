@@ -31,5 +31,6 @@ header:
     - '**/*.md5'
     - '**/*.patch'
     - '**/*.log'
+    - 'custom_env.sh.tpl'
 
   comment: on-failure
