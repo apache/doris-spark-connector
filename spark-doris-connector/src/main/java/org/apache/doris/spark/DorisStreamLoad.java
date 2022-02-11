@@ -193,7 +193,7 @@ public class DorisStreamLoad implements Serializable{
             beConn = getConnection(loadUrlStr, label);
             // send data to be
             BufferedOutputStream bos = new BufferedOutputStream(beConn.getOutputStream());
-            bos.write(value.getBytes());
+            bos.write(value.getBytes("UTF-8"));
             bos.close();
 
             // get respond
