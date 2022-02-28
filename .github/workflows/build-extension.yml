@@ -48,9 +48,9 @@ jobs:
 
     - name: Build spark connector v2
       run: |
-        cd spark-doris-connector/ && /bin/bash build.sh 2.3.4 2.11
+        cd spark-doris-connector/ && /bin/bash build.sh --spark 2.3.4 --scala 2.11
 
     - name: Build spark connector v3
       run: |
-        cd spark-doris-connector/ && /bin/bash build.sh 3.1.2 2.12
+        cd spark-doris-connector/ && /bin/bash build.sh --spark 3.1.2 --scala 2.12
 
