@@ -23,14 +23,17 @@ import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.execution.streaming.Sink
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.slf4j.{Logger, LoggerFactory}
+
 import java.io.IOException
 import java.util
-
 import org.apache.doris.spark.rest.RestService
+import org.apache.spark.unsafe.types.UTF8String
 
 import scala.util.control.Breaks
 
 private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSettings) extends Sink with Serializable {
+
+  private val NULL_VALUE: String = "\\N"
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisStreamLoadSink].getName)
   @volatile private var latestBatchId = -1L
@@ -53,7 +56,10 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
       iter.foreach(row => {
         val line: util.List[Object] = new util.ArrayList[Object](maxRowCount)
         for (i <- 0 until row.numFields) {
-          val field = row.copy().getUTF8String(i)
+          var field = row.copy().getUTF8String(i)
+          if (field == null) {
+            field = UTF8String.fromString(NULL_VALUE)
+          }
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
