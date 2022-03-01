@@ -32,6 +32,8 @@ import scala.util.control.Breaks
 
 private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSettings) extends Sink with Serializable {
 
+  private val NULL_VALUE: String = "\\N"
+
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisStreamLoadSink].getName)
   @volatile private var latestBatchId = -1L
   val maxRowCount: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
@@ -53,7 +55,10 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
       iter.foreach(row => {
         val line: util.List[Object] = new util.ArrayList[Object](maxRowCount)
         for (i <- 0 until row.numFields) {
-          val field = row.copy().getUTF8String(i)
+          var field = row.copy().getUTF8String(i)
+          if (field == null) {
+            field = NULL_VALUE
+          }
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
