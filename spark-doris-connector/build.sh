@@ -25,25 +25,38 @@
 
 set -eo pipefail
 
-usage() {
-  echo "
-  Usage:
-    $0 spark_version scala_version
-  e.g.:
-    $0 2.3.4 2.11
-    $0 3.1.2 2.12
-  "
-  exit 1
-}
-
-if [ $# -ne 2 ]; then
-    usage
-fi
-
 ROOT=$(dirname "$0")
 ROOT=$(cd "$ROOT"; pwd)
 
 export DORIS_HOME=${ROOT}/../
+
+usage() {
+  echo "
+  Usage:
+    $0 --spark version --scala version # specify spark and scala version
+    $0 --tag                           # this is a build from tag
+  e.g.:
+    $0 --spark 2.3.4 --scala 2.11
+    $0 --spark 3.1.2 --scala 2.12
+    $0 --tag
+  "
+  exit 1
+}
+
+OPTS=$(getopt \
+  -n $0 \
+  -o '' \
+  -o 'h' \
+  -l 'spark:' \
+  -l 'scala:' \
+  -l 'tag' \
+  -- "$@")
+
+if [ $# == 0 ] ; then
+    usage
+fi
+
+eval set -- "$OPTS"
 
 . "${DORIS_HOME}"/env.sh
 
@@ -52,15 +65,32 @@ if [[ -f ${DORIS_HOME}/custom_env.sh ]]; then
     . "${DORIS_HOME}"/custom_env.sh
 fi
 
+BUILD_FROM_TAG=0
+SPARK_VERSION=0
+SCALA_VERSION=0
+while true; do
+    case "$1" in
+        --spark) SPARK_VERSION=$2 ; shift 2 ;;
+        --scala) SCALA_VERSION=$2 ; shift 2 ;;
+        --tag) BUILD_FROM_TAG=1 ; shift ;;
+        --) shift ;  break ;;
+        *) echo "Internal error" ; exit 1 ;;
+    esac
+done
 
-${MVN_BIN} clean package -Dscala.version=$2 -Dspark.version=$1
+if [[ ${BUILD_FROM_TAG} -eq 1 ]]; then
+    rm -rf ${ROOT}/output/
+    ${MVN_BIN} clean package
+else
+    rm -rf ${ROOT}/output/
+    ${MVN_BIN} clean package -Dspark.version=${SPARK_VERSION} -Dscala.version=${SCALA_VERSION}
+fi
 
-mkdir -p output/
-cp target/doris-spark-*.jar ./output/
+mkdir ${ROOT}/output/
+cp ${ROOT}/target/doris-spark-*.jar ${ROOT}/output/
 
 echo "*****************************************"
 echo "Successfully build Spark-Doris-Connector"
 echo "*****************************************"
 
 exit 0
-

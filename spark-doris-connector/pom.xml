@@ -38,9 +38,9 @@
         </license>
     </licenses>
     <scm>
-        <connection>scm:git:https://git@github.com/apache/incubator-doris.git</connection>
-        <developerConnection>scm:git:https://git@github.com/apache/incubator-doris.git</developerConnection>
-        <url>scm:git:https://git@github.com/apache/incubator-doris.git</url>
+        <connection>scm:git:https://git@github.com/apache/incubator-doris-spark-connector.git</connection>
+        <developerConnection>scm:git:https://git@github.com/apache/incubator-doris-spark-connector.git</developerConnection>
+        <url>scm:git:https://git@github.com/apache/incubator-doris-spark-connector.git</url>
         <tag>HEAD</tag>
     </scm>
     <issueManagement>
@@ -215,6 +215,19 @@
     </dependencies>
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <!-- add gensrc java build src dir -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
