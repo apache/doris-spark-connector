@@ -41,6 +41,8 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
   with StreamSinkProvider
   with Serializable {
 
+  private val NULL_VALUE = "\\N"
+
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisSourceProvider].getName)
 
   override def shortName(): String = SHORT_NAME
@@ -70,7 +72,10 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
       partition.foreach(row => {
         val line: util.List[Object] = new util.ArrayList[Object]()
         for (i <- 0 until row.size) {
-          val field = row.get(i)
+          var field = row.get(i)
+          if (field == null) {
+            field = NULL_VALUE
+          }
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
