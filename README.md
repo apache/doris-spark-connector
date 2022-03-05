@@ -24,11 +24,11 @@ under the License.
 
 ### Spark Doris Connector
 
-More information about compilation and usage, please visit [Spark Doris Connector](http://doris.apache.org/extending-doris/spark-doris-connector.html)
+More information about compilation and usage, please visit [Spark Doris Connector](https://doris.apache.org/extending-doris/spark-doris-connector.html)
 
 ## License
 
-[Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+[Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 
 ## Report issues or submit pull request
 
@@ -40,10 +40,10 @@ Contact us through the following mailing list.
 
 | Name                                                                          | Scope                           |                                                                 |                                                                     |                                                                              |
 |:------------------------------------------------------------------------------|:--------------------------------|:----------------------------------------------------------------|:--------------------------------------------------------------------|:-----------------------------------------------------------------------------|
-| [dev@doris.apache.org](mailto:dev@doris.apache.org)     | Development-related discussions | [Subscribe](mailto:dev-subscribe@doris.apache.org)   | [Unsubscribe](mailto:dev-unsubscribe@doris.apache.org)   | [Archives](http://mail-archives.apache.org/mod_mbox/doris-dev/)   |
+| [dev@doris.apache.org](mailto:dev@doris.apache.org)     | Development-related discussions | [Subscribe](mailto:dev-subscribe@doris.apache.org)   | [Unsubscribe](mailto:dev-unsubscribe@doris.apache.org)   | [Archives](https://mail-archives.apache.org/mod_mbox/doris-dev/)   |
 
 ## Links
 
-* Doris official site - <http://doris.incubator.apache.org>
+* Doris official site - <https://doris.incubator.apache.org>
 * Developer Mailing list - <dev@doris.apache.org>. Mail to <dev-subscribe@doris.apache.org>, follow the reply to subscribe the mail list.
 * Slack channel - [Join the Slack](https://join.slack.com/t/apachedoriscommunity/shared_invite/zt-11jb8gesh-7IukzSrdea6mqoG0HB4gZg)
