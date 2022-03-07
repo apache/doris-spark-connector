@@ -62,9 +62,9 @@
         </mailingList>
     </mailingLists>
     <properties>
-        <scala.version>${env.scala.version}</scala.version>
-        <spark.version>${env.spark.version}</spark.version>
-        <spark.minor.version>${env.spark.minor.version}</spark.minor.version>
+        <scala.version>2.11</scala.version>
+        <spark.version>2.3.4</spark.version>
+        <spark.minor.version>2.3</spark.minor.version>
         <libthrift.version>0.13.0</libthrift.version>
         <arrow.version>5.0.0</arrow.version>
         <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
