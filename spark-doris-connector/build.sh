@@ -95,7 +95,7 @@ else
 fi
 
 mkdir ${ROOT}/output/
-cp ${ROOT}/target/doris-spark-*.jar ${ROOT}/output/
+cp ${ROOT}/target/spark-doris-*.jar ${ROOT}/output/
 
 echo "*****************************************"
 echo "Successfully build Spark-Doris-Connector"
