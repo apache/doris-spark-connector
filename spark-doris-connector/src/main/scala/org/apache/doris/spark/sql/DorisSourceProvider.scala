@@ -60,7 +60,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     val sparkSettings = new SparkSettings(sqlContext.sparkContext.getConf)
     sparkSettings.merge(Utils.params(parameters, logger).asJava)
     // init stream loader
-    val dorisStreamLoader = new DorisStreamLoad(sparkSettings)
+    val dorisStreamLoader = new DorisStreamLoad(sparkSettings,data.columns)
 
     val maxRowCount = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
     val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
@@ -93,7 +93,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
           for (i <- 1 to maxRetryTimes) {
             try {
-              dorisStreamLoader.load(rowsBuffer)
+              dorisStreamLoader.loadV2(rowsBuffer)
               rowsBuffer.clear()
               loop.break()
             }

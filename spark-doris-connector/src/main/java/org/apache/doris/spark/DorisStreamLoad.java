@@ -16,7 +16,10 @@
 // under the License.
 package org.apache.doris.spark;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
 import org.apache.doris.spark.exception.DorisException;
@@ -35,13 +38,7 @@ import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Calendar;
-import java.util.List;
-import java.util.StringJoiner;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * DorisStreamLoad
@@ -63,6 +60,7 @@ public class DorisStreamLoad implements Serializable{
     private String tbl;
     private String authEncoding;
     private String columns;
+    private String[] dfColumns;
 
     public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
         this.hostPort = hostPort;
@@ -74,7 +72,7 @@ public class DorisStreamLoad implements Serializable{
         this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
     }
 
-    public DorisStreamLoad(SparkSettings settings) throws IOException, DorisException {
+    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
         String hostPort = RestService.randomBackendV2(settings, LOG);
         this.hostPort = hostPort;
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
@@ -85,6 +83,7 @@ public class DorisStreamLoad implements Serializable{
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
         this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
+        this.dfColumns = dfColumns;
     }
 
     public String getLoadUrlStr() {
@@ -115,6 +114,8 @@ public class DorisStreamLoad implements Serializable{
         }
         conn.setDoOutput(true);
         conn.setDoInput(true);
+        conn.addRequestProperty("format", "json");
+        conn.addRequestProperty("strip_outer_array", "true");
         return conn;
     }
 
@@ -159,6 +160,25 @@ public class DorisStreamLoad implements Serializable{
         String records = listToString(rows);
         load(records);
     }
+
+    public void loadV2(List<List<Object>> rows) throws StreamLoadException, JsonProcessingException {
+        List<Map<Object,Object>> dataList = new ArrayList<>();
+        try {
+            for (List<Object> row : rows) {
+                Map<Object,Object> dataMap = new HashMap<>();
+                if (dfColumns.length == row.size()) {
+                    for (int i = 0; i < dfColumns.length; i++) {
+                        dataMap.put(dfColumns[i], row.get(i) == null ? NULL_VALUE : row.get(i));
+                    }
+                }
+                dataList.add(dataMap);
+            }
+        } catch (Exception e) {
+            throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
+        }
+        load((new ObjectMapper()).writeValueAsString(dataList));
+    }
+
     public void load(String value) throws StreamLoadException {
         LOG.debug("Streamload Request:{} ,Body:{}", loadUrlStr, value);
         LoadResponse loadResponse = loadBatch(value);
