@@ -18,8 +18,6 @@ package org.apache.doris.spark;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
 import org.apache.doris.spark.exception.DorisException;
@@ -38,7 +36,16 @@ import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.StringJoiner;
+import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Calendar;
+
 
 /**
  * DorisStreamLoad
