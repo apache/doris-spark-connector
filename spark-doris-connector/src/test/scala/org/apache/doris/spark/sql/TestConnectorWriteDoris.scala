@@ -17,18 +17,18 @@ class TestConnectorWriteDoris {
   def listDataWriteTest(): Unit = {
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val df = spark.createDataFrame(Seq(
-      ("1", 100,"待付款"),
-      ("2", 200,"待发货"),
-      ("3", 300,"已收货")
-    )).toDF("order_id","order_amount","order_status")
+      ("1", 100, "待付款"),
+      ("2", 200, "待发货"),
+      ("3", 300, "已收货")
+    )).toDF("order_id", "order_amount", "order_status")
     df.write
       .format("doris")
       .option("doris.fenodes", dorisFeNodes)
       .option("doris.table.identifier", dorisTable)
       .option("user", dorisUser)
       .option("password", dorisPwd)
-      .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.batch.size", 2)
+      .option("sink.max-retries", 2)
       .save()
     spark.stop()
   }
@@ -39,7 +39,7 @@ class TestConnectorWriteDoris {
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val df = spark.read
       .option("header", "true") // uses the first line as names of columns
-      .option("inferSchema","true") // infers the input schema automatically from data
+      .option("inferSchema", "true") // infers the input schema automatically from data
       .csv("data.csv")
     df.createTempView("tmp_tb")
     val doris = spark.sql(
@@ -81,8 +81,8 @@ class TestConnectorWriteDoris {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
-      .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.batch.size", 2)
+      .option("sink.max-retries", 2)
       .start().awaitTermination()
   }
 

@@ -85,7 +85,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
                 try {
                   logger.warn("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
                   //If the current BE node fails to execute Stream Load, randomly switch to other BE nodes and try again
-                  dorisStreamLoader.setHostPort(RestService.randomBackendV2(settings,logger))
+                  dorisStreamLoader.setHostPort(RestService.randomBackendV2(settings, logger))
                   Thread.sleep(1000 * i)
                 } catch {
                   case ex: InterruptedException =>
@@ -96,7 +96,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
             }
           }
 
-          if(!arrayNode.isEmpty){
+          if (!arrayNode.isEmpty) {
             logger.warn("Data that failed to load : " + arrayNode.toString)
             throw new IOException(s"Failed to load data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max retry times.")
           }

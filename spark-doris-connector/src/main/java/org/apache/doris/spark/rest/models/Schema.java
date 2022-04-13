@@ -42,9 +42,13 @@ public class Schema {
         this.status = status;
     }
 
-    public String getKeysType() { return keysType; }
+    public String getKeysType() {
+        return keysType;
+    }
 
-    public void setKeysType(String keysType) { this.keysType = keysType; }
+    public void setKeysType(String keysType) {
+        this.keysType = keysType;
+    }
 
     public List<Field> getProperties() {
         return properties;
@@ -95,7 +99,7 @@ public class Schema {
     public String toString() {
         return "Schema{" +
                 "status=" + status +
-                ", keysType='" + keysType  +
+                ", keysType='" + keysType +
                 ", properties=" + properties +
                 '}';
     }

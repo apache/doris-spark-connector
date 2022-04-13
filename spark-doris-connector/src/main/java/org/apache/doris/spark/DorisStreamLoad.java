@@ -159,7 +159,7 @@ public class DorisStreamLoad implements Serializable{
         }
     }
 
-    public String listToString(List<List<Object>> rows){
+    public String listToString(List<List<Object>> rows) {
         StringJoiner lines = new StringJoiner(LINE_DELIMITER);
         for (List<Object> row : rows) {
             StringJoiner line = new StringJoiner(FIELD_DELIMITER);
