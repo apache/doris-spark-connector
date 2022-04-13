@@ -79,6 +79,19 @@ public class DorisStreamLoad implements Serializable{
         this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
     }
 
+    public DorisStreamLoad(SparkSettings settings) throws IOException, DorisException {
+        String hostPort = RestService.randomBackendV2(settings, LOG);
+        this.hostPort = hostPort;
+        String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
+        this.db = dbTable[0];
+        this.tbl = dbTable[1];
+        this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
+        this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
+        this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
+        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
+    }
+
     public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
         String hostPort = RestService.randomBackendV2(settings, LOG);
         this.hostPort = hostPort;
@@ -163,11 +176,6 @@ public class DorisStreamLoad implements Serializable{
     }
 
 
-    public void load(List<List<Object>> rows) throws StreamLoadException {
-        String records = listToString(rows);
-        load(records);
-    }
-
     public void loadV2(List<List<Object>> rows) throws StreamLoadException, JsonProcessingException {
         List<Map<Object,Object>> dataList = new ArrayList<>();
         try {
@@ -175,7 +183,7 @@ public class DorisStreamLoad implements Serializable{
                 Map<Object,Object> dataMap = new HashMap<>();
                 if (dfColumns.length == row.size()) {
                     for (int i = 0; i < dfColumns.length; i++) {
-                        dataMap.put(dfColumns[i], row.get(i) == null ? NULL_VALUE : row.get(i));
+                        dataMap.put(dfColumns[i], row.get(i));
                     }
                 }
                 dataList.add(dataMap);

@@ -10,6 +10,8 @@ class TestConnectorWriteDoris {
   val dorisPwd = ""
   val dorisTable = "test.test_order"
 
+  val kafkaServers = "127.0.0.1:9093"
+  val kafkaTopics = "test_spark"
 
   @Test
   def listDataWriteTest(): Unit = {
@@ -58,5 +60,30 @@ class TestConnectorWriteDoris {
     spark.stop()
   }
 
+  @Test
+  def structuredStreamingWriteTest(): Unit = {
+    val spark = SparkSession.builder()
+      .master("local")
+      .getOrCreate()
+    val df = spark.readStream
+      .option("kafka.bootstrap.servers", kafkaServers)
+      .option("startingOffsets", "latest")
+      .option("subscribe", kafkaTopics)
+      .format("kafka")
+      .option("failOnDataLoss", false)
+      .load()
+
+    df.selectExpr("CAST(value AS STRING)")
+      .writeStream
+      .format("doris")
+      .option("checkpointLocation", "/tmp/test")
+      .option("doris.table.identifier", dorisTable)
+      .option("doris.fenodes", dorisFeNodes)
+      .option("user", dorisUser)
+      .option("password", dorisPwd)
+      .option("sink.batch.size",2)
+      .option("sink.max-retries",2)
+      .start().awaitTermination()
+  }
 
 }

@@ -49,7 +49,7 @@ public class CachedDorisStreamLoadClient {
                         new CacheLoader<SparkSettings, DorisStreamLoad>() {
                             @Override
                             public DorisStreamLoad load(SparkSettings sparkSettings) throws IOException, DorisException {
-                                DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(sparkSettings,null);
+                                DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(sparkSettings);
                                 return dorisStreamLoad;
                             }
                         }

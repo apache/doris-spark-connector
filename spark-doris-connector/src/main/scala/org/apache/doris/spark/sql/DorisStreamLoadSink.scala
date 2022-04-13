@@ -17,6 +17,7 @@
 
 package org.apache.doris.spark.sql
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.spark.sql.execution.QueryExecution
@@ -25,7 +26,6 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.slf4j.{Logger, LoggerFactory}
 import java.io.IOException
 import java.util
-
 import org.apache.doris.spark.rest.RestService
 
 import scala.util.control.Breaks
@@ -49,20 +49,20 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
 
   def write(queryExecution: QueryExecution): Unit = {
     queryExecution.toRdd.foreachPartition(iter => {
-      val rowsBuffer: util.List[util.List[Object]] = new util.ArrayList[util.List[Object]]()
+      val objectMapper = new ObjectMapper()
+      val arrayNode = objectMapper.createArrayNode()
       iter.foreach(row => {
         val line: util.List[Object] = new util.ArrayList[Object](maxRowCount)
         for (i <- 0 until row.numFields) {
           val field = row.copy().getUTF8String(i)
-          line.add(field.asInstanceOf[AnyRef])
+          arrayNode.add(objectMapper.readTree(field.toString))
         }
-        rowsBuffer.add(line)
-        if (rowsBuffer.size > maxRowCount - 1) {
+        if (arrayNode.size > maxRowCount - 1) {
           flush
         }
       })
       // flush buffer
-      if (!rowsBuffer.isEmpty) {
+      if (!arrayNode.isEmpty) {
         flush
       }
 
@@ -76,8 +76,8 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
 
           for (i <- 0 to maxRetryTimes) {
             try {
-              dorisStreamLoader.load(rowsBuffer)
-              rowsBuffer.clear()
+              dorisStreamLoader.load(arrayNode.toString)
+              arrayNode.removeAll()
               loop.break()
             }
             catch {
@@ -89,15 +89,15 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
                   Thread.sleep(1000 * i)
                 } catch {
                   case ex: InterruptedException =>
-                    logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
+                    logger.warn("Data that failed to load : " + arrayNode.toString)
                     Thread.currentThread.interrupt()
                     throw new IOException("unable to flush; interrupted while doing another attempt", e)
                 }
             }
           }
 
-          if(!rowsBuffer.isEmpty){
-            logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
+          if(!arrayNode.isEmpty){
+            logger.warn("Data that failed to load : " + arrayNode.toString)
             throw new IOException(s"Failed to load data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max retry times.")
           }
         }
