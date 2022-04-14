@@ -60,7 +60,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     val sparkSettings = new SparkSettings(sqlContext.sparkContext.getConf)
     sparkSettings.merge(Utils.params(parameters, logger).asJava)
     // init stream loader
-    val dorisStreamLoader = new DorisStreamLoad(sparkSettings)
+    val dorisStreamLoader = new DorisStreamLoad(sparkSettings, data.columns)
 
     val maxRowCount = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
     val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
@@ -93,7 +93,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
           for (i <- 1 to maxRetryTimes) {
             try {
-              dorisStreamLoader.load(rowsBuffer)
+              dorisStreamLoader.loadV2(rowsBuffer)
               rowsBuffer.clear()
               loop.break()
             }
@@ -102,7 +102,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
                 try {
                   logger.warn("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
                   //If the current BE node fails to execute Stream Load, randomly switch to other BE nodes and try again
-                  dorisStreamLoader.setHostPort(RestService.randomBackendV2(sparkSettings,logger))
+                  dorisStreamLoader.setHostPort(RestService.randomBackendV2(sparkSettings, logger))
                   Thread.sleep(1000 * i)
                 } catch {
                   case ex: InterruptedException =>
@@ -113,7 +113,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
             }
           }
 
-          if(!rowsBuffer.isEmpty){
+          if (!rowsBuffer.isEmpty) {
             logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
             throw new IOException(s"Failed to load data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max retry times.")
           }

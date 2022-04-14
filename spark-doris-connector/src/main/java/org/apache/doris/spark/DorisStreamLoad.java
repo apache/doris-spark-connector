@@ -16,6 +16,7 @@
 // under the License.
 package org.apache.doris.spark;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
@@ -35,13 +36,16 @@ import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
-import java.util.Calendar;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Calendar;
+
 
 /**
  * DorisStreamLoad
@@ -63,6 +67,7 @@ public class DorisStreamLoad implements Serializable{
     private String tbl;
     private String authEncoding;
     private String columns;
+    private String[] dfColumns;
 
     public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
         this.hostPort = hostPort;
@@ -85,6 +90,20 @@ public class DorisStreamLoad implements Serializable{
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
         this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
+    }
+
+    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
+        String hostPort = RestService.randomBackendV2(settings, LOG);
+        this.hostPort = hostPort;
+        String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
+        this.db = dbTable[0];
+        this.tbl = dbTable[1];
+        this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
+        this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
+        this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
+        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
+        this.dfColumns = dfColumns;
     }
 
     public String getLoadUrlStr() {
@@ -115,6 +134,8 @@ public class DorisStreamLoad implements Serializable{
         }
         conn.setDoOutput(true);
         conn.setDoInput(true);
+        conn.addRequestProperty("format", "json");
+        conn.addRequestProperty("strip_outer_array", "true");
         return conn;
     }
 
@@ -138,7 +159,7 @@ public class DorisStreamLoad implements Serializable{
         }
     }
 
-    public String listToString(List<List<Object>> rows){
+    public String listToString(List<List<Object>> rows) {
         StringJoiner lines = new StringJoiner(LINE_DELIMITER);
         for (List<Object> row : rows) {
             StringJoiner line = new StringJoiner(FIELD_DELIMITER);
@@ -155,10 +176,24 @@ public class DorisStreamLoad implements Serializable{
     }
 
 
-    public void load(List<List<Object>> rows) throws StreamLoadException {
-        String records = listToString(rows);
-        load(records);
+    public void loadV2(List<List<Object>> rows) throws StreamLoadException, JsonProcessingException {
+        List<Map<Object,Object>> dataList = new ArrayList<>();
+        try {
+            for (List<Object> row : rows) {
+                Map<Object,Object> dataMap = new HashMap<>();
+                if (dfColumns.length == row.size()) {
+                    for (int i = 0; i < dfColumns.length; i++) {
+                        dataMap.put(dfColumns[i], row.get(i));
+                    }
+                }
+                dataList.add(dataMap);
+            }
+        } catch (Exception e) {
+            throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
+        }
+        load((new ObjectMapper()).writeValueAsString(dataList));
     }
+
     public void load(String value) throws StreamLoadException {
         LOG.debug("Streamload Request:{} ,Body:{}", loadUrlStr, value);
         LoadResponse loadResponse = loadBatch(value);
