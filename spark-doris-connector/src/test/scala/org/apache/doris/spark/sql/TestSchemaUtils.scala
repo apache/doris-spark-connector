@@ -90,6 +90,6 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     expected.put(ek1)
     expected.put(ek2)
 
-    Assert.assertEquals(expected, SchemaUtils.convertToSchema(Seq(k1, k2)))
+    Assert.assertEquals(expected, SchemaUtils.convertToSchema("k1,k2", Seq(k1, k2)))
   }
 }
