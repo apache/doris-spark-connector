@@ -24,10 +24,12 @@ import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.{Field, Schema}
 import org.apache.doris.thrift.TScanColumnDesc
-
+import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.spark.sql.types._
 
 import org.slf4j.LoggerFactory
+
+import scala.collection.mutable
 
 private[spark] object SchemaUtils {
   private val logger = LoggerFactory.getLogger(SchemaUtils.getClass.getSimpleName.stripSuffix("$"))
@@ -39,7 +41,7 @@ private[spark] object SchemaUtils {
    */
   def discoverSchema(cfg: Settings): StructType = {
     val schema = discoverSchemaFromFe(cfg)
-    convertToStruct(schema)
+    convertToStruct(cfg.getProperty(DORIS_READ_FIELD), schema)
   }
 
   /**
@@ -56,10 +58,24 @@ private[spark] object SchemaUtils {
    * @param schema inner schema
    * @return Spark Catalyst StructType
    */
-  def convertToStruct(schema: Schema): StructType = {
+  def convertToStruct(dorisReadFields: String, schema: Schema): StructType = {
+    var fieldList = new Array[String](schema.size())
+    val fieldSet = new mutable.HashSet[String]()
     var fields = List[StructField]()
-    schema.getProperties.asScala.foreach(f =>
-      fields :+= DataTypes.createStructField(f.getName, getCatalystType(f.getType, f.getPrecision, f.getScale), true))
+    if (dorisReadFields != null && dorisReadFields.length > 0) {
+      fieldList = dorisReadFields.split(",")
+      for (field <- fieldList) {
+        fieldSet.add(field)
+      }
+      schema.getProperties.asScala.foreach(f =>
+        if (fieldSet.contains(f.getName)) {
+          fields :+= DataTypes.createStructField(f.getName, getCatalystType(f.getType, f.getPrecision, f.getScale), true)
+        })
+    } else {
+      schema.getProperties.asScala.foreach(f =>
+        fields :+= DataTypes.createStructField(f.getName, getCatalystType(f.getType, f.getPrecision, f.getScale), true)
+      )
+    }
     DataTypes.createStructType(fields.asJava)
   }
 
