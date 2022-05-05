@@ -73,6 +73,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <thrift.binary>${env.THRIFT_BIN}</thrift.binary>
         <project.scm.id>github</project.scm.id>
+        <netty.version>4.1.27.Final</netty.version>
+        <fasterxml.jackson.version>2.10.0</fasterxml.jackson.version>
     </properties>
     <profiles>
         <!-- for custom internal repository -->
@@ -132,6 +134,12 @@
         </profile>
     </profiles>
     <dependencies>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>${netty.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.version}</artifactId>
@@ -200,18 +208,17 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.10.0</version>
+            <version>${fasterxml.jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${fasterxml.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.10.0</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>4.1.27.Final</version>
-            <scope>provided</scope>
+            <version>${fasterxml.jackson.version}</version>
         </dependency>
     </dependencies>
     <build>

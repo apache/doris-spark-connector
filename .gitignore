@@ -2,3 +2,4 @@ custom_env.sh
 spark-doris-connector/dependency-reduced-pom.xml
 spark-doris-connector/output/
 spark-doris-connector/target/
+spark-doris-connector/.idea/
