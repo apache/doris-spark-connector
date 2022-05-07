@@ -83,7 +83,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
             catch {
               case e: Exception =>
                 try {
-                  logger.warn("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
+                  logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
                   //If the current BE node fails to execute Stream Load, randomly switch to other BE nodes and try again
                   dorisStreamLoader.setHostPort(RestService.randomBackendV2(settings, logger))
                   Thread.sleep(1000 * i)

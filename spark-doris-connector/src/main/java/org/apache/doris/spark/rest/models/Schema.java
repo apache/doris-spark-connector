@@ -25,7 +25,6 @@ public class Schema {
     private int status = 0;
     private String keysType;
     private List<Field> properties;
-    private String keysType;
 
     public Schema() {
         properties = new ArrayList<>();
@@ -57,14 +56,6 @@ public class Schema {
 
     public void setProperties(List<Field> properties) {
         this.properties = properties;
-    }
-
-    public String getKeysType() {
-        return keysType;
-    }
-
-    public void setKeysType(String keysType) {
-        this.keysType = keysType;
     }
 
     public void put(String name, String type, String comment, int scale, int precision, String aggregation_type) {

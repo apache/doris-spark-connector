@@ -18,8 +18,11 @@
 package org.apache.doris.spark.sql
 
 import org.apache.spark.sql.SparkSession
-import org.junit.Test
+import org.junit.{Ignore, Test}
 
+// This test need real connect info to run.
+// Set the connect info before comment out this @Ignore
+@Ignore
 class TestConnectorWriteDoris {
 
   val dorisFeNodes = "127.0.0.1:8030"
@@ -53,21 +56,23 @@ class TestConnectorWriteDoris {
 
   @Test
   def csvDataWriteTest(): Unit = {
+    val csvFile =
+      Thread.currentThread().getContextClassLoader.getResource("data.csv").toString
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val df = spark.read
       .option("header", "true") // uses the first line as names of columns
       .option("inferSchema", "true") // infers the input schema automatically from data
-      .csv("data.csv")
+      .csv(csvFile)
     df.createTempView("tmp_tb")
     val doris = spark.sql(
-      """
-        |create  TEMPORARY VIEW test_lh
+      s"""
+        |CREATE TEMPORARY VIEW test_lh
         |USING doris
         |OPTIONS(
         | "table.identifier"="test.test_lh",
-        | "fenodes"="127.0.0.1:8030",
-        | "user"="root",
-        | "password"=""
+        | "fenodes"="${dorisFeNodes}",
+        | "user"="${dorisUser}",
+        | "password"="${dorisPwd}"
         |);
         |""".stripMargin)
     spark.sql(

@@ -24,7 +24,7 @@ under the License.
 
 ### Spark Doris Connector
 
-More information about compilation and usage, please visit [Spark Doris Connector](https://doris.apache.org/extending-doris/spark-doris-connector.html)
+More information about compilation and usage, please visit [Spark Doris Connector](https://doris.apache.org/ecosystem/spark-doris-connector.html)
 
 ## License
 
