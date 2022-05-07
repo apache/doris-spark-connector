@@ -39,7 +39,7 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     var fields = List[StructField]()
     fields :+= DataTypes.createStructField("k1", DataTypes.ByteType, true)
     fields :+= DataTypes.createStructField("k5", DataTypes.LongType, true)
-    val expected = DataTypes.createStructType(fields.asJava)
+    val expected = DataTypes.createStructType("k1,k5", fields.asJava)
     Assert.assertEquals(expected, SchemaUtils.convertToStruct(schema))
   }
 
@@ -90,6 +90,6 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     expected.put(ek1)
     expected.put(ek2)
 
-    Assert.assertEquals(expected, SchemaUtils.convertToSchema("k1,k2", Seq(k1, k2)))
+    Assert.assertEquals(expected, SchemaUtils.convertToSchema(Seq(k1, k2)))
   }
 }
