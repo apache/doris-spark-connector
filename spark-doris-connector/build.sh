@@ -39,6 +39,7 @@ usage() {
   e.g.:
     $0 --spark 2.3.4 --scala 2.11
     $0 --spark 3.1.2 --scala 2.12
+    $0 --spark 3.2.0 --scala 2.12 --mvn-args \"-Dnetty.version=4.1.68.Final -Dfasterxml.jackson.version=2.12.3\"
     $0 --tag
   "
   exit 1
