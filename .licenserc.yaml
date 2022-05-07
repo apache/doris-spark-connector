@@ -32,5 +32,6 @@ header:
     - '**/*.patch'
     - '**/*.log'
     - 'custom_env.sh.tpl'
+    - '**/*.csv'
 
   comment: on-failure

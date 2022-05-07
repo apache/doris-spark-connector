@@ -44,13 +44,12 @@ import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.rest.models.Tablet;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import jdk.nashorn.internal.ir.annotations.Ignore;
 
 public class TestRestService {
     private final static Logger logger = LoggerFactory.getLogger(TestRestService.class);

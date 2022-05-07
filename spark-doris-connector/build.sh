@@ -35,9 +35,11 @@ usage() {
   Usage:
     $0 --spark version --scala version # specify spark and scala version
     $0 --tag                           # this is a build from tag
+    $0 --mvn-args -Dxx=yy -Pxx         # specify maven arguments 
   e.g.:
     $0 --spark 2.3.4 --scala 2.11
     $0 --spark 3.1.2 --scala 2.12
+    $0 --spark 3.2.0 --scala 2.12 --mvn-args \"-Dnetty.version=4.1.68.Final -Dfasterxml.jackson.version=2.12.3\"
     $0 --tag
   "
   exit 1
@@ -49,6 +51,7 @@ OPTS=$(getopt \
   -o 'h' \
   -l 'spark:' \
   -l 'scala:' \
+  -l 'mvn-args:' \
   -l 'tag' \
   -- "$@")
 
@@ -68,10 +71,12 @@ fi
 BUILD_FROM_TAG=0
 SPARK_VERSION=0
 SCALA_VERSION=0
+MVN_ARGS=""
 while true; do
     case "$1" in
         --spark) SPARK_VERSION=$2 ; shift 2 ;;
         --scala) SCALA_VERSION=$2 ; shift 2 ;;
+        --mvn-args) MVN_ARGS=$2 ; shift 2 ;;
         --tag) BUILD_FROM_TAG=1 ; shift ;;
         --) shift ;  break ;;
         *) echo "Internal error" ; exit 1 ;;
@@ -91,7 +96,7 @@ if [[ ${BUILD_FROM_TAG} -eq 1 ]]; then
     ${MVN_BIN} clean package
 else
     rm -rf ${ROOT}/output/
-    ${MVN_BIN} clean package -Dspark.version=${SPARK_VERSION} -Dscala.version=${SCALA_VERSION} -Dspark.minor.version=${SPARK_MINOR_VERSION}
+    ${MVN_BIN} clean package -Dspark.version=${SPARK_VERSION} -Dscala.version=${SCALA_VERSION} -Dspark.minor.version=${SPARK_MINOR_VERSION} $MVN_ARGS
 fi
 
 mkdir ${ROOT}/output/
