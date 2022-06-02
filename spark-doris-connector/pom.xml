@@ -65,7 +65,7 @@
         <scala.version>${env.scala.version}</scala.version>
         <spark.version>${env.spark.version}</spark.version>
         <spark.minor.version>${env.spark.minor.version}</spark.minor.version>
-        <libthrift.version>0.14.0</libthrift.version>
+        <libthrift.version>0.13.0</libthrift.version>
         <arrow.version>5.0.0</arrow.version>
         <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
         <maven-javadoc-plugin.version>3.3.0</maven-javadoc-plugin.version>
@@ -74,7 +74,7 @@
         <thrift.binary>${env.THRIFT_BIN}</thrift.binary>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.27.Final</netty.version>
-        <fasterxml.jackson.version>2.12.6.1</fasterxml.jackson.version>
+        <fasterxml.jackson.version>2.10.0</fasterxml.jackson.version>
     </properties>
     <profiles>
         <!-- for custom internal repository -->
@@ -190,7 +190,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>4.11</version>
             <exclusions>
                 <exclusion>
                     <artifactId>hamcrest-core</artifactId>
