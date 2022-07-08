@@ -24,7 +24,7 @@ under the License.
 
 ### Spark Doris Connector
 
-More information about compilation and usage, please visit [Spark Doris Connector](https://doris.apache.org/ecosystem/spark-doris-connector.html)
+More information about compilation and usage, please visit [Spark Doris Connector](https://doris.apache.org/docs/ecosystem/spark-doris-connector.html)
 
 ## License
 
@@ -32,7 +32,7 @@ More information about compilation and usage, please visit [Spark Doris Connecto
 
 ### QuickStart
 
-1. download and compile Spark Doris Connector from  https://github.com/apache/incubator-doris-spark-connector, we suggest compile Spark Doris Connector  by Doris offfcial image。
+1. download and compile Spark Doris Connector from  https://github.com/apache/doris-spark-connector, we suggest compile Spark Doris Connector  by Doris offfcial image。
 
 ```bash
 $ docker pull apache/incubator-doris:build-env-ldb-toolchain-latest
@@ -109,7 +109,7 @@ dorisSparkRDD.collect()
 spark.yarn.jars=hdfs:///spark-jars/doris-spark-connector-3.1.2-2.12-1.0.0.jar
 ```
 
-Link：https://github.com/apache/incubator-doris/discussions/9486
+Link：https://github.com/apache/doris/discussions/9486
 
 9. in pyspark,input this code in pyspark shell command.
 
@@ -126,7 +126,7 @@ dorisSparkDF.show(5)
 
 ## Report issues or submit pull request
 
-If you find any bugs, feel free to file a [GitHub issue](https://github.com/apache/incubator-doris/issues) or fix it by submitting a [pull request](https://github.com/apache/incubator-doris/pulls).
+If you find any bugs, feel free to file a [GitHub issue](https://github.com/apache/doris/issues) or fix it by submitting a [pull request](https://github.com/apache/doris/pulls).
 
 ## Contact Us
 
