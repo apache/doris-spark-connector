@@ -71,4 +71,6 @@ public interface ConfigurationOptions {
 
     String DORIS_SINK_MAX_RETRIES = "doris.sink.max-retries";
     int SINK_MAX_RETRIES_DEFAULT = 1;
+
+    String DORIS_MAX_FILTER_RATIO = "doris.max.filter.ratio";
 }

@@ -68,6 +68,7 @@ public class DorisStreamLoad implements Serializable{
     private String authEncoding;
     private String columns;
     private String[] dfColumns;
+    private String maxFilterRatio;
 
     public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
         this.hostPort = hostPort;
@@ -90,6 +91,9 @@ public class DorisStreamLoad implements Serializable{
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
         this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
+
+        this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
+
     }
 
     public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
@@ -100,10 +104,14 @@ public class DorisStreamLoad implements Serializable{
         this.tbl = dbTable[1];
         this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
+
+
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
         this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
         this.dfColumns = dfColumns;
+
+        this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
     }
 
     public String getLoadUrlStr() {
@@ -132,6 +140,11 @@ public class DorisStreamLoad implements Serializable{
         if (columns != null && !columns.equals("")) {
             conn.addRequestProperty("columns", columns);
         }
+
+        if (maxFilterRatio != null && !maxFilterRatio.equals("")) {
+            conn.addRequestProperty("max_filter_ratio", maxFilterRatio);
+        }
+
         conn.setDoOutput(true);
         conn.setDoInput(true);
         conn.addRequestProperty("format", "json");
