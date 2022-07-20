@@ -111,7 +111,6 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
                   Thread.sleep(1000 * i)
                 } catch {
                   case ex: InterruptedException =>
-                    logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
                     Thread.currentThread.interrupt()
                     throw new IOException("unable to flush; interrupted while doing another attempt", e)
                 }
@@ -119,7 +118,6 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
           }
 
           if (!rowsBuffer.isEmpty) {
-            logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
             throw new IOException(s"Failed to load ${maxRowCount} batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
           }
         }
