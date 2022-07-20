@@ -211,6 +211,7 @@ public class DorisStreamLoad implements Serializable{
         LOG.debug("Streamload Request:{} ,Body:{}", loadUrlStr, value);
         LoadResponse loadResponse = loadBatch(value);
         if(loadResponse.status != 200){
+            LOG.info("Streamload Response HTTP Status Error:{}",loadResponse);
             throw new StreamLoadException("stream load error: " + loadResponse.respContent);
         }else{
             LOG.info("Streamload Response:{}",loadResponse);
@@ -218,6 +219,7 @@ public class DorisStreamLoad implements Serializable{
             try {
                 RespContent respContent = obj.readValue(loadResponse.respContent, RespContent.class);
                 if(!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())){
+                    LOG.info("Streamload Response RES STATUS Error:{}", loadResponse);
                     throw new StreamLoadException("stream load error: " + respContent.getMessage());
                 }
             } catch (IOException e) {
