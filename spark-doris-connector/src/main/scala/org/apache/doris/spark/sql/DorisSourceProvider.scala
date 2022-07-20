@@ -65,6 +65,9 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     val maxRowCount = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
     val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
 
+    logger.info(s"maxRowCount ${maxRowCount}")
+    logger.info(s"maxRetryTimes ${maxRetryTimes}")
+
     data.rdd.foreachPartition(partition => {
       val rowsBuffer: util.List[util.List[Object]] = new util.ArrayList[util.List[Object]](maxRowCount)
       partition.foreach(row => {
@@ -89,6 +92,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
        */
       def flush = {
         val loop = new Breaks
+        var err: Exception = null
         loop.breakable {
 
           for (i <- 1 to maxRetryTimes) {
@@ -103,6 +107,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
                   logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
                   //If the current BE node fails to execute Stream Load, randomly switch to other BE nodes and try again
                   dorisStreamLoader.setHostPort(RestService.randomBackendV2(sparkSettings, logger))
+                  if (err == null) err = e
                   Thread.sleep(1000 * i)
                 } catch {
                   case ex: InterruptedException =>
@@ -115,7 +120,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
           if (!rowsBuffer.isEmpty) {
             logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
-            throw new IOException(s"Failed to load data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max retry times.")
+            throw new IOException(s"Failed to load ${maxRowCount} batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
           }
         }
 
