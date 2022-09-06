@@ -35,6 +35,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
   @volatile private var latestBatchId = -1L
   val maxRowCount: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
   val maxRetryTimes: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
+  val maxPartitions: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_RDD_MAX_PARTITIONS, ConfigurationOptions.SINK_RDD_MAX_PARTITIONS)
   val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
@@ -48,8 +49,15 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
 
   def write(queryExecution: QueryExecution): Unit = {
     val schema = queryExecution.analyzed.output
+    
+    var queryRdd = queryExecution.toRdd
+    // merge small files
+    if (queryRdd.getNumPartitions > maxPartitions) {
+      queryRdd = queryRdd.repartition(maxPartitions)
+    }
+
     // write for each partition
-    queryExecution.toRdd.foreachPartition(iter => {
+    queryRdd.foreachPartition(iter => {
       val objectMapper = new ObjectMapper()
       val rowArray = objectMapper.createArrayNode()
       iter.foreach(row => {
