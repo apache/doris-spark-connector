@@ -73,4 +73,8 @@ public interface ConfigurationOptions {
     int SINK_MAX_RETRIES_DEFAULT = 1;
 
     String DORIS_MAX_FILTER_RATIO = "doris.max.filter.ratio";
+
+    String DORIS_SINK_RDD_MAX_PARTITIONS = "doris.sink.rdd.max-partitions";
+
+    int SINK_RDD_MAX_PARTITIONS = Integer.MAX_VALUE;
 }

@@ -64,11 +64,19 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
     val maxRowCount = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
     val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
+    val maxPartitions = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_RDD_MAX_PARTITIONS, ConfigurationOptions.SINK_RDD_MAX_PARTITIONS)
 
     logger.info(s"maxRowCount ${maxRowCount}")
     logger.info(s"maxRetryTimes ${maxRetryTimes}")
+    logger.info(s"maxPartitions ${maxPartitions}")
 
-    data.rdd.foreachPartition(partition => {
+    var dataRdd = data.rdd
+    // merge small files
+    if (dataRdd.getNumPartitions > maxPartitions) {
+       dataRdd = dataRdd.repartition(maxPartitions)
+    }
+
+    dataRdd.foreachPartition(partition => {
       val rowsBuffer: util.List[util.List[Object]] = new util.ArrayList[util.List[Object]](maxRowCount)
       partition.foreach(row => {
         val line: util.List[Object] = new util.ArrayList[Object]()
