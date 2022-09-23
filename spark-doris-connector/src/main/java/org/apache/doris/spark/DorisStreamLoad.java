@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Calendar;
+import java.util.Properties;
 
 
 /**
@@ -69,6 +70,7 @@ public class DorisStreamLoad implements Serializable{
     private String columns;
     private String[] dfColumns;
     private String maxFilterRatio;
+    private Map<String,String> streamLoadProp;
 
     public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
         this.hostPort = hostPort;
@@ -93,6 +95,9 @@ public class DorisStreamLoad implements Serializable{
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
 
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
+        this.streamLoadProp=getStreamLoadProp(settings);
+
+
 
     }
 
@@ -112,6 +117,7 @@ public class DorisStreamLoad implements Serializable{
         this.dfColumns = dfColumns;
 
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
+        this.streamLoadProp=getStreamLoadProp(settings);
     }
 
     public String getLoadUrlStr() {
@@ -147,6 +153,20 @@ public class DorisStreamLoad implements Serializable{
 
         conn.setDoOutput(true);
         conn.setDoInput(true);
+        if(streamLoadProp != null ){
+            streamLoadProp.forEach((k,v) -> {
+                if(streamLoadProp.containsKey("format")){
+                    return;
+                }
+                if(streamLoadProp.containsKey("strip_outer_array")) {
+                    return;
+                }
+                if(streamLoadProp.containsKey("read_json_by_line")){
+                    return;
+                }
+                conn.addRequestProperty(k, v);
+            });
+        }
         conn.addRequestProperty("format", "json");
         conn.addRequestProperty("strip_outer_array", "true");
         return conn;
@@ -271,5 +291,17 @@ public class DorisStreamLoad implements Serializable{
                 beConn.disconnect();
             }
         }
+    }
+
+    public Map<String,String> getStreamLoadProp(SparkSettings sparkSettings){
+        Map<String,String> streamLoadPropMap = new HashMap<>();
+        Properties properties = sparkSettings.asProperties();
+        for (String key : properties.stringPropertyNames()) {
+            if( key.contains(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX)){
+                String subKey = key.substring(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX.length());
+                streamLoadPropMap.put(subKey,properties.getProperty(key));
+            }
+        }
+        return streamLoadPropMap;
     }
 }

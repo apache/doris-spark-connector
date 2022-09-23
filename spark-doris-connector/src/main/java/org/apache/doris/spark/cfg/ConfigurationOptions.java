@@ -73,4 +73,6 @@ public interface ConfigurationOptions {
     int SINK_MAX_RETRIES_DEFAULT = 1;
 
     String DORIS_MAX_FILTER_RATIO = "doris.max.filter.ratio";
+
+    String STREAM_LOAD_PROP_PREFIX = "doris.sink.properties.";
 }
