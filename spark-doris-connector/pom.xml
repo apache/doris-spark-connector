@@ -74,7 +74,7 @@
         <thrift.binary>${env.THRIFT_BIN}</thrift.binary>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.77.Final</netty.version>
-        <fasterxml.jackson.version>2.13.3</fasterxml.jackson.version>
+        <fasterxml.jackson.version>2.13.4.1</fasterxml.jackson.version>
     </properties>
     <profiles>
         <!-- for custom internal repository -->
