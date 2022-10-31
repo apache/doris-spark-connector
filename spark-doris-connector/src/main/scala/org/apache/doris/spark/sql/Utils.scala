@@ -103,7 +103,13 @@ private[sql] object Utils {
    */
   def params(parameters: Map[String, String], logger: Logger) = {
     // '.' seems to be problematic when specifying the options
-    val dottedParams = parameters.map { case (k, v) => (k.replace('_', '.'), v)}
+    val dottedParams = parameters.map { case (k, v) =>
+      if (k.startsWith("sink.properties.")){
+        (k,v)
+      }else {
+        (k.replace('_', '.'), v)
+      }
+    }
 
     val preferredTableIdentifier = dottedParams.get(ConfigurationOptions.DORIS_TABLE_IDENTIFIER)
       .orElse(dottedParams.get(ConfigurationOptions.TABLE_IDENTIFIER))
