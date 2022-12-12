@@ -47,6 +47,8 @@ import java.util.HashMap;
 import java.util.Calendar;
 import java.util.Properties;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 
 /**
  * DorisStreamLoad
@@ -79,7 +81,7 @@ public class DorisStreamLoad implements Serializable{
         this.user = user;
         this.passwd = passwd;
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(UTF_8));
     }
 
     public DorisStreamLoad(SparkSettings settings) throws IOException, DorisException {
@@ -91,7 +93,7 @@ public class DorisStreamLoad implements Serializable{
         this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(UTF_8));
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
 
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
@@ -112,7 +114,7 @@ public class DorisStreamLoad implements Serializable{
 
 
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(UTF_8));
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
         this.dfColumns = dfColumns;
 
@@ -257,20 +259,21 @@ public class DorisStreamLoad implements Serializable{
 
         HttpURLConnection feConn = null;
         HttpURLConnection beConn = null;
+        BufferedReader br = null;
         int status = -1;
         try {
             // build request and send to new be location
             beConn = getConnection(loadUrlStr, label);
             // send data to be
             BufferedOutputStream bos = new BufferedOutputStream(beConn.getOutputStream());
-            bos.write(value.getBytes("UTF-8"));
+            bos.write(value.getBytes(UTF_8));
             bos.close();
 
             // get respond
             status = beConn.getResponseCode();
             String respMsg = beConn.getResponseMessage();
             InputStream stream = (InputStream) beConn.getContent();
-            BufferedReader br = new BufferedReader(new InputStreamReader(stream));
+            br = new BufferedReader(new InputStreamReader(stream, UTF_8));
             StringBuilder response = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) {
@@ -289,6 +292,13 @@ public class DorisStreamLoad implements Serializable{
             }
             if (beConn != null) {
                 beConn.disconnect();
+            }
+            if( br != null) {
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    LOG.warn("Exception occurred during closing BufferedReader, {}", e.getMessage());
+                }
             }
         }
     }
