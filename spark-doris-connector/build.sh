@@ -95,10 +95,10 @@ done
 
 # extract minor version:
 # eg: 3.1.2 -> 3
-SPARK_MINOR_VERSION=0
+SPARK_MAJOR_VERSION=0
 if [ ${SPARK_VERSION} != 0 ]; then
-    SPARK_MINOR_VERSION=${SPARK_VERSION%.*}
-    echo "SPARK_MINOR_VERSION: ${SPARK_MINOR_VERSION}"
+    SPARK_MAJOR_VERSION=${SPARK_VERSION%.*}
+    echo "SPARK_MAJOR_VERSION: ${SPARK_MAJOR_VERSION}"
 fi
 
 if [[ ${BUILD_FROM_TAG} -eq 1 ]]; then
@@ -106,7 +106,7 @@ if [[ ${BUILD_FROM_TAG} -eq 1 ]]; then
     ${MVN_BIN} clean package
 else
     rm -rf ${ROOT}/output/
-    ${MVN_BIN} clean package -Dspark.version=${SPARK_VERSION} -Dscala.version=${SCALA_VERSION} -Dspark.minor.version=${SPARK_MINOR_VERSION} $MVN_ARGS
+    ${MVN_BIN} clean package -Dspark.version=${SPARK_VERSION} -Dscala.version=${SCALA_VERSION} -Dspark.major.version=${SPARK_MAJOR_VERSION} $MVN_ARGS
 fi
 
 mkdir ${ROOT}/output/
