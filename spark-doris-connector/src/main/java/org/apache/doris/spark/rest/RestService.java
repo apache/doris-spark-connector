@@ -484,22 +484,11 @@ public class RestService implements Serializable {
      */
     @Deprecated
     @VisibleForTesting
-    public static String randomBackend(SparkSettings sparkSettings , Logger logger) throws DorisException, IOException {
-        String feNodes = sparkSettings.getProperty(DORIS_FENODES);
-        String feNode = randomEndpoint(feNodes, logger);
-        String beUrl =   String.format("http://%s" + BACKENDS, feNode);
-        HttpGet httpGet = new HttpGet(beUrl);
-        String response = send(sparkSettings, httpGet, logger);
-        logger.info("Backend Info:{}", response);
-        List<BackendRow> backends = parseBackend(response, logger);
-        logger.trace("Parse beNodes '{}'.", backends);
-        if (backends == null || backends.isEmpty()) {
-            logger.error(ILLEGAL_ARGUMENT_MESSAGE, "beNodes", backends);
-            throw new IllegalArgumentException("beNodes", String.valueOf(backends));
-        }
+    public static String randomBackend(SparkSettings sparkSettings , Logger logger) throws DorisException {
+        List<BackendV2.BackendRowV2> backends = getBackendRows(sparkSettings, logger);
         Collections.shuffle(backends);
-        BackendRow backend = backends.get(0);
-        return backend.getIP() + ":" + backend.getHttpPort();
+        BackendV2.BackendRowV2 backend = backends.get(0);
+        return backend.getIp()+ ":" + backend.getHttpPort();
     }
 
     /**
@@ -540,13 +529,13 @@ public class RestService implements Serializable {
     }
 
     /**
-     * choice a Doris BE node to request.
+     * get Doris BE node list.
      * @param logger slf4j logger
-     * @return the chosen one Doris BE node
+     * @return the Doris BE node list
      * @throws IllegalArgumentException BE nodes is illegal
      */
     @VisibleForTesting
-    public static String randomBackendV2(SparkSettings sparkSettings, Logger logger) throws DorisException {
+    public static List<BackendV2.BackendRowV2> getBackendRows(SparkSettings sparkSettings,  Logger logger) throws DorisException {
         String feNodes = sparkSettings.getProperty(DORIS_FENODES);
         String feNode = randomEndpoint(feNodes, logger);
         String beUrl =   String.format("http://%s" + BACKENDS_V2, feNode);
@@ -559,6 +548,18 @@ public class RestService implements Serializable {
             logger.error(ILLEGAL_ARGUMENT_MESSAGE, "beNodes", backends);
             throw new IllegalArgumentException("beNodes", String.valueOf(backends));
         }
+        return backends;
+    }
+
+    /**
+     * choice a Doris BE node to request.
+     * @param logger slf4j logger
+     * @return the chosen one Doris BE node
+     * @throws IllegalArgumentException BE nodes is illegal
+     */
+    @VisibleForTesting
+    public static String randomBackendV2(SparkSettings sparkSettings, Logger logger) throws DorisException {
+        List<BackendV2.BackendRowV2> backends = getBackendRows(sparkSettings, logger);
         Collections.shuffle(backends);
         BackendV2.BackendRowV2 backend = backends.get(0);
         return backend.getIp() + ":" + backend.getHttpPort();
