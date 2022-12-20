@@ -104,7 +104,7 @@ private[sql] object Utils {
   def params(parameters: Map[String, String], logger: Logger) = {
     // '.' seems to be problematic when specifying the options
     val dottedParams = parameters.map { case (k, v) =>
-      if (k.startsWith("sink.properties.")){
+      if (k.startsWith("sink.properties.") || k.startsWith("doris.sink.properties.")){
         (k,v)
       }else {
         (k.replace('_', '.'), v)
