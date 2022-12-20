@@ -29,6 +29,7 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
+import org.apache.doris.spark.util.ListUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -222,7 +223,11 @@ public class DorisStreamLoad implements Serializable{
         } catch (Exception e) {
             throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
         }
-        load((new ObjectMapper()).writeValueAsString(dataList));
+        // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
+        List<String> serializedList = ListUtils.getSerializedList(dataList);
+        for (String serializedRows : serializedList) {
+            load(serializedRows);
+        }
     }
 
     public void load(String value) throws StreamLoadException {
