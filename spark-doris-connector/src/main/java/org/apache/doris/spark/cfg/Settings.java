@@ -47,7 +47,11 @@ public abstract class Settings {
         return value;
     }
 
-    public int getIntegerProperty(String name, int defaultValue) {
+    public Integer getIntegerProperty(String name) {
+        return getIntegerProperty(name, null);
+    }
+
+    public Integer getIntegerProperty(String name, Integer defaultValue) {
         try {
             if (getProperty(name) != null) {
                  return Integer.parseInt(getProperty(name));
