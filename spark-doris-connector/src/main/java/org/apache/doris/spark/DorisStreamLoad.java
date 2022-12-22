@@ -94,12 +94,7 @@ public class DorisStreamLoad implements Serializable{
         this.streamLoadProp=getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
-                .build(new CacheLoader<String, List<BackendV2.BackendRowV2>>() {
-                    @Override
-                    public List<BackendV2.BackendRowV2> load(String key) throws IOException, DorisException {
-                        return RestService.getBackendRows(settings, LOG);
-                    }
-                });
+                .build(new BackendCacheLoader(settings));
     }
 
     public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
@@ -118,12 +113,7 @@ public class DorisStreamLoad implements Serializable{
         this.streamLoadProp=getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
-                .build(new CacheLoader<String, List<BackendV2.BackendRowV2>>() {
-                    @Override
-                    public List<BackendV2.BackendRowV2> load(String key) throws IOException, DorisException {
-                        return RestService.getBackendRows(settings, LOG);
-                    }
-                });
+                .build(new BackendCacheLoader(settings));
     }
 
     public String getLoadUrlStr() {
@@ -323,4 +313,23 @@ public class DorisStreamLoad implements Serializable{
             throw new RuntimeException("get backends info fail",e);
         }
     }
+
+    /**
+     * serializable be cache loader
+     */
+    private static class BackendCacheLoader extends CacheLoader<String, List<BackendV2.BackendRowV2>> implements Serializable {
+
+        private final SparkSettings settings;
+
+        public BackendCacheLoader(SparkSettings settings) {
+            this.settings = settings;
+        }
+
+        @Override
+        public List<BackendV2.BackendRowV2> load(String key) throws Exception {
+            return RestService.getBackendRows(settings, LOG);
+        }
+
+    }
+
 }
