@@ -26,10 +26,10 @@ import org.junit.Test
 // Set the connect info before comment out this @Ignore
 @Ignore
 class TestSparkConnector {
-  val dorisFeNodes = "your_fe_host:8030"
+  val dorisFeNodes = "172.21.16.12:8134"
   val dorisUser = "root"
   val dorisPwd = ""
-  val dorisTable = "test.test_tbl"
+  val dorisTable = "test.test_tb"
 
   val kafkaServers = ""
   val kafkaTopics = ""
@@ -58,7 +58,7 @@ class TestSparkConnector {
       ("zhangsan", "m"),
       ("lisi", "f"),
       ("wangwu", "m")
-    ))
+    )).toDF("name","gender")
     df.write
       .format("doris")
       .option("doris.fenodes", dorisFeNodes)
@@ -66,9 +66,9 @@ class TestSparkConnector {
       .option("user", dorisUser)
       .option("password", dorisPwd)
       //specify your field
-      .option("doris.write.field", "name,gender")
+      .option("doris.write.fields", "name,gender")
       .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.max-retries",1)
       .save()
     session.stop()
   }
