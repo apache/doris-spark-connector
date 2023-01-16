@@ -239,6 +239,9 @@ public class RowBatch {
                         }
                         break;
                     case "DECIMALV2":
+                    case "DECIMAL32":
+                    case "DECIMAL64":
+                    case "DECIMAL128I":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.DECIMAL),
                                 typeMismatchMessage(currentType, mt));
                         DecimalVector decimalVector = (DecimalVector) curFieldVector;
@@ -252,7 +255,9 @@ public class RowBatch {
                         }
                         break;
                     case "DATE":
+                    case "DATEV2":
                     case "DATETIME":
+                    case "DATETIMEV2":
                     case "LARGEINT":
                     case "CHAR":
                     case "VARCHAR":

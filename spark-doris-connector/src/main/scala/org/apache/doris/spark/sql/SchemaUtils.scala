@@ -97,13 +97,18 @@ private[spark] object SchemaUtils {
       case "FLOAT"           => DataTypes.FloatType
       case "DOUBLE"          => DataTypes.DoubleType
       case "DATE"            => DataTypes.StringType
+      case "DATEV2"          => DataTypes.StringType
       case "DATETIME"        => DataTypes.StringType
+      case "DATETIMEV2"      => DataTypes.StringType
       case "BINARY"          => DataTypes.BinaryType
       case "DECIMAL"         => DecimalType(precision, scale)
       case "CHAR"            => DataTypes.StringType
       case "LARGEINT"        => DataTypes.StringType
       case "VARCHAR"         => DataTypes.StringType
       case "DECIMALV2"       => DecimalType(precision, scale)
+      case "DECIMAL32"       => DecimalType(precision, scale)
+      case "DECIMAL64"       => DecimalType(precision, scale)
+      case "DECIMAL128I"     => DecimalType(precision, scale)
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
       case "HLL"             =>
@@ -120,7 +125,15 @@ private[spark] object SchemaUtils {
    */
   def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc]): Schema = {
     val schema = new Schema(tscanColumnDescs.length)
-    tscanColumnDescs.foreach(desc => schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, "")))
+    logger.info(s"column size: ${tscanColumnDescs.length}")
+    tscanColumnDescs.foreach(desc => {
+      if (desc == null) {
+        logger.info("desc is null")
+      }
+      logger.info(s"descName: ${desc.getName}")
+      logger.info(s"descTypeName: ${desc.getType.name}")
+      schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, ""))
+    })
     schema
   }
 }
