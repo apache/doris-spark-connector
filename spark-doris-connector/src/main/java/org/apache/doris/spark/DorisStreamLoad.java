@@ -51,9 +51,9 @@ import java.util.concurrent.TimeUnit;
  * DorisStreamLoad
  **/
 public class DorisStreamLoad implements Serializable{
-    public static final String FIELD_DELIMITER = "\t";
-    public static final String LINE_DELIMITER = "\n";
-    public static final String NULL_VALUE = "\\N";
+    private String FIELD_DELIMITER;
+    private String LINE_DELIMITER;
+    private String NULL_VALUE = "\\N";
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
 
@@ -71,6 +71,7 @@ public class DorisStreamLoad implements Serializable{
     private Map<String,String> streamLoadProp;
     private static final long cacheExpireTimeout = 4 * 60;
     private LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
+    private String fileType;
 
     public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
         this.db = db;
@@ -114,6 +115,11 @@ public class DorisStreamLoad implements Serializable{
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
+        fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
+        if (fileType.equals("csv")){
+            FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
+            LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
+        }
     }
 
     public String getLoadUrlStr() {
@@ -156,8 +162,10 @@ public class DorisStreamLoad implements Serializable{
                 conn.addRequestProperty(k, v);
             });
         }
-        conn.addRequestProperty("format", "json");
-        conn.addRequestProperty("strip_outer_array", "true");
+        if (fileType.equals("json")){
+            conn.addRequestProperty("format", "json");
+            conn.addRequestProperty("strip_outer_array", "true");
+        }
         return conn;
     }
 
@@ -199,24 +207,30 @@ public class DorisStreamLoad implements Serializable{
 
 
     public void loadV2(List<List<Object>> rows) throws StreamLoadException, JsonProcessingException {
-        List<Map<Object,Object>> dataList = new ArrayList<>();
-        try {
-            for (List<Object> row : rows) {
-                Map<Object,Object> dataMap = new HashMap<>();
-                if (dfColumns.length == row.size()) {
-                    for (int i = 0; i < dfColumns.length; i++) {
-                        dataMap.put(dfColumns[i], row.get(i));
+        if (fileType.equals("csv")) {
+            load(listToString(rows));
+        } else if(fileType.equals("json")) {
+            List<Map<Object, Object>> dataList = new ArrayList<>();
+            try {
+                for (List<Object> row : rows) {
+                    Map<Object, Object> dataMap = new HashMap<>();
+                    if (dfColumns.length == row.size()) {
+                        for (int i = 0; i < dfColumns.length; i++) {
+                            dataMap.put(dfColumns[i], row.get(i));
+                        }
                     }
+                    dataList.add(dataMap);
                 }
-                dataList.add(dataMap);
+            } catch (Exception e) {
+                throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
             }
-        } catch (Exception e) {
-            throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
-        }
-        // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
-        List<String> serializedList = ListUtils.getSerializedList(dataList);
-        for (String serializedRows : serializedList) {
-            load(serializedRows);
+            // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
+            List<String> serializedList = ListUtils.getSerializedList(dataList);
+            for (String serializedRows : serializedList) {
+                load(serializedRows);
+            }
+        } else {
+            throw new StreamLoadException("Not supoort the file format in stream load.");
         }
     }
 
