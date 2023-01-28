@@ -35,7 +35,7 @@ More information about compilation and usage, please visit [Spark Doris Connecto
 1. download and compile Spark Doris Connector from  https://github.com/apache/doris-spark-connector, we suggest compile Spark Doris Connector  by Doris offfcial image。
 
 ```bash
-$ docker pull apache/incubator-doris:build-env-ldb-toolchain-latest
+$ docker pull apache/doris:build-env-ldb-toolchain-latest
 ```
 
 2. the result of compile jar is like：spark-doris-connector-3.1_2.12-1.0.0-SNAPSHOT.jar
