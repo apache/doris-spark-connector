@@ -58,7 +58,7 @@ class TestSparkConnector {
       ("zhangsan", "m"),
       ("lisi", "f"),
       ("wangwu", "m")
-    ))
+    )).toDF("name","gender")
     df.write
       .format("doris")
       .option("doris.fenodes", dorisFeNodes)
@@ -66,7 +66,7 @@ class TestSparkConnector {
       .option("user", dorisUser)
       .option("password", dorisPwd)
       //specify your field
-      .option("doris.write.field", "name,gender")
+      .option("doris.write.fields", "name,gender")
       .option("sink.batch.size",2)
       .option("sink.max-retries",2)
       .save()

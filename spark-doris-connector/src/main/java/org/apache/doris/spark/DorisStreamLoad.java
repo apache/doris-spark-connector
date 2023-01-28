@@ -68,7 +68,7 @@ public class DorisStreamLoad implements Serializable{
     private String columns;
     private String[] dfColumns;
     private String maxFilterRatio;
-    private Map<String,String> streamLoadProp;
+    private Map<String, String> streamLoadProp;
     private static final long cacheExpireTimeout = 4 * 60;
     private LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private String fileType;
@@ -92,7 +92,7 @@ public class DorisStreamLoad implements Serializable{
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
 
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
-        this.streamLoadProp=getStreamLoadProp(settings);
+        this.streamLoadProp = getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
@@ -111,7 +111,7 @@ public class DorisStreamLoad implements Serializable{
         this.dfColumns = dfColumns;
 
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
-        this.streamLoadProp=getStreamLoadProp(settings);
+        this.streamLoadProp = getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
@@ -148,15 +148,15 @@ public class DorisStreamLoad implements Serializable{
 
         conn.setDoOutput(true);
         conn.setDoInput(true);
-        if(streamLoadProp != null ){
-            streamLoadProp.forEach((k,v) -> {
-                if(streamLoadProp.containsKey("format")){
+        if (streamLoadProp != null) {
+            streamLoadProp.forEach((k, v) -> {
+                if (streamLoadProp.containsKey("format")) {
                     return;
                 }
-                if(streamLoadProp.containsKey("strip_outer_array")) {
+                if (streamLoadProp.containsKey("strip_outer_array")) {
                     return;
                 }
-                if(streamLoadProp.containsKey("read_json_by_line")){
+                if (streamLoadProp.containsKey("read_json_by_line")) {
                     return;
                 }
                 conn.addRequestProperty(k, v);
@@ -179,6 +179,7 @@ public class DorisStreamLoad implements Serializable{
             this.respMsg = respMsg;
             this.respContent = respContent;
         }
+
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
@@ -236,18 +237,18 @@ public class DorisStreamLoad implements Serializable{
 
     public void load(String value) throws StreamLoadException {
         LoadResponse loadResponse = loadBatch(value);
-        if(loadResponse.status != 200){
-            LOG.info("Streamload Response HTTP Status Error:{}",loadResponse);
+        if (loadResponse.status != 200) {
+            LOG.info("Streamload Response HTTP Status Error:{}", loadResponse);
             throw new StreamLoadException("stream load error: " + loadResponse.respContent);
-        }else{
-            LOG.info("Streamload Response:{}",loadResponse);
+        } else {
             ObjectMapper obj = new ObjectMapper();
             try {
                 RespContent respContent = obj.readValue(loadResponse.respContent, RespContent.class);
-                if(!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())){
-                    LOG.info("Streamload Response RES STATUS Error:{}", loadResponse);
-                    throw new StreamLoadException("stream load error: " + respContent.getMessage());
+                if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
+                    LOG.error("Streamload Response RES STATUS Error:{}", loadResponse);
+                    throw new StreamLoadException("stream load error: " + loadResponse);
                 }
+                LOG.info("Streamload Response:{}", loadResponse);
             } catch (IOException e) {
                 throw new StreamLoadException(e);
             }
@@ -291,7 +292,7 @@ public class DorisStreamLoad implements Serializable{
 
         } catch (Exception e) {
             e.printStackTrace();
-            String err = "http request exception,load url : "+loadUrlStr+",failed to execute spark streamload with label: " + label;
+            String err = "http request exception,load url : " + loadUrlStr + ",failed to execute spark streamload with label: " + label;
             LOG.warn(err, e);
             return new LoadResponse(status, e.getMessage(), err);
         } finally {
@@ -304,13 +305,13 @@ public class DorisStreamLoad implements Serializable{
         }
     }
 
-    public Map<String,String> getStreamLoadProp(SparkSettings sparkSettings){
-        Map<String,String> streamLoadPropMap = new HashMap<>();
+    public Map<String, String> getStreamLoadProp(SparkSettings sparkSettings) {
+        Map<String, String> streamLoadPropMap = new HashMap<>();
         Properties properties = sparkSettings.asProperties();
         for (String key : properties.stringPropertyNames()) {
-            if( key.contains(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX)){
+            if (key.contains(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX)) {
                 String subKey = key.substring(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX.length());
-                streamLoadPropMap.put(subKey,properties.getProperty(key));
+                streamLoadPropMap.put(subKey, properties.getProperty(key));
             }
         }
         return streamLoadPropMap;
@@ -324,7 +325,7 @@ public class DorisStreamLoad implements Serializable{
             BackendV2.BackendRowV2 backend = backends.get(0);
             return backend.getIp() + ":" + backend.getHttpPort();
         } catch (ExecutionException e) {
-            throw new RuntimeException("get backends info fail",e);
+            throw new RuntimeException("get backends info fail", e);
         }
     }
 
