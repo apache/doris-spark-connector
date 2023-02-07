@@ -65,9 +65,11 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
     val sinkTaskPartitionSize = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
     val sinkTaskUseRepartition = sparkSettings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION, ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
+    val batchInterVarMs = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAR_MS, ConfigurationOptions.DORIS_SINK_BATCH_INTERVAR_MS_DEFAULT)
 
     logger.info(s"maxRowCount ${maxRowCount}")
     logger.info(s"maxRetryTimes ${maxRetryTimes}")
+    logger.info(s"batchInterVarMs ${batchInterVarMs}")
 
     var resultRdd = data.rdd
     if (Objects.nonNull(sinkTaskPartitionSize)) {
@@ -83,7 +85,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
-        if (rowsBuffer.size > maxRowCount) {
+        if (rowsBuffer.size > maxRowCount - 1) {
           flush
         }
       })
@@ -105,6 +107,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
             try {
               dorisStreamLoader.loadV2(rowsBuffer)
               rowsBuffer.clear()
+              Thread.sleep(batchInterVarMs.longValue())
               loop.break()
             }
             catch {
