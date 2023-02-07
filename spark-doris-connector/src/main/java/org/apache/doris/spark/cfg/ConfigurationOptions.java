@@ -88,6 +88,6 @@ public interface ConfigurationOptions {
 
     String DORIS_SINK_BATCH_INTERVAR_MS = "doris.sink.batch.intervar.ms";
 
-    int DORIS_SINK_BATCH_INTERVAR_MS_DEFAULT = 5 * 1000;
+    int DORIS_SINK_BATCH_INTERVAR_MS_DEFAULT = 50;
 
 }
