@@ -85,4 +85,9 @@ public interface ConfigurationOptions {
     String DORIS_SINK_TASK_USE_REPARTITION = "doris.sink.task.use.repartition";
 
     boolean DORIS_SINK_TASK_USE_REPARTITION_DEFAULT = false;
+
+    String DORIS_SINK_BATCH_INTERVAL_MS = "doris.sink.batch.interval.ms";
+
+    int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
+
 }
