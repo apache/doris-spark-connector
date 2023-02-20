@@ -105,6 +105,7 @@ private[spark] object SchemaUtils {
       case "CHAR"            => DataTypes.StringType
       case "LARGEINT"        => DataTypes.StringType
       case "VARCHAR"         => DataTypes.StringType
+      case "JSONB"           => DataTypes.StringType
       case "DECIMALV2"       => DecimalType(precision, scale)
       case "DECIMAL32"       => DecimalType(precision, scale)
       case "DECIMAL64"       => DecimalType(precision, scale)
