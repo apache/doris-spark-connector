@@ -29,9 +29,8 @@ import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 import org.slf4j.{Logger, LoggerFactory}
 import java.io.IOException
 import java.util
-
 import org.apache.doris.spark.rest.RestService
-
+import java.util.Objects
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 import scala.util.control.Breaks
 
@@ -64,8 +63,20 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
     val maxRowCount = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
     val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
+    val sinkTaskPartitionSize = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
+    val sinkTaskUseRepartition = sparkSettings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION, ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
+    val batchInterValMs = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS, ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
 
-    data.rdd.foreachPartition(partition => {
+    logger.info(s"maxRowCount ${maxRowCount}")
+    logger.info(s"maxRetryTimes ${maxRetryTimes}")
+    logger.info(s"batchInterVarMs ${batchInterValMs}")
+
+    var resultRdd = data.rdd
+    if (Objects.nonNull(sinkTaskPartitionSize)) {
+      resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
+    }
+
+    resultRdd.foreachPartition(partition => {
       val rowsBuffer: util.List[util.List[Object]] = new util.ArrayList[util.List[Object]](maxRowCount)
       partition.foreach(row => {
         val line: util.List[Object] = new util.ArrayList[Object]()
@@ -74,7 +85,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
-        if (rowsBuffer.size > maxRowCount) {
+        if (rowsBuffer.size > maxRowCount - 1 ) {
           flush
         }
       })
@@ -89,24 +100,24 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
        */
       def flush = {
         val loop = new Breaks
+        var err: Exception = null
         loop.breakable {
 
           for (i <- 1 to maxRetryTimes) {
             try {
               dorisStreamLoader.loadV2(rowsBuffer)
               rowsBuffer.clear()
+              Thread.sleep(batchInterValMs.longValue())
               loop.break()
             }
             catch {
               case e: Exception =>
                 try {
                   logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
-                  //If the current BE node fails to execute Stream Load, randomly switch to other BE nodes and try again
-                  dorisStreamLoader.setHostPort(RestService.randomBackendV2(sparkSettings, logger))
+                  if (err == null) err = e
                   Thread.sleep(1000 * i)
                 } catch {
                   case ex: InterruptedException =>
-                    logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
                     Thread.currentThread.interrupt()
                     throw new IOException("unable to flush; interrupted while doing another attempt", e)
                 }
@@ -114,8 +125,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
           }
 
           if (!rowsBuffer.isEmpty) {
-            logger.warn("Data that failed to load : " + dorisStreamLoader.listToString(rowsBuffer))
-            throw new IOException(s"Failed to load data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max retry times.")
+            throw new IOException(s"Failed to load ${maxRowCount} batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
           }
         }
 

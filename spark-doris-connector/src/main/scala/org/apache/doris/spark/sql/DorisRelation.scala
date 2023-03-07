@@ -81,7 +81,8 @@ private[sql] class DorisRelation(
     }
 
     if (filters != null && filters.length > 0) {
-      paramWithScan += (ConfigurationOptions.DORIS_FILTER_QUERY -> filterWhereClause)
+      val dorisFilterQuery = cfg.getProperty(ConfigurationOptions.DORIS_FILTER_QUERY, "1=1")
+      paramWithScan += (ConfigurationOptions.DORIS_FILTER_QUERY -> (dorisFilterQuery + " and " + filterWhereClause))
     }
 
     new ScalaDorisRowRDD(sqlContext.sparkContext, paramWithScan.toMap, lazySchema)
