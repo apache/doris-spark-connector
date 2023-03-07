@@ -25,10 +25,35 @@
 
 set -eo pipefail
 
-ROOT=$(dirname "$0")
-ROOT=$(cd "$ROOT"; pwd)
+# OS specific support.  $var _must_ be set to either true or false.
+cygwin=false
+os400=false
+# shellcheck disable=SC2006
+case "`uname`" in
+CYGWIN*) cygwin=true;;
+OS400*) os400=true;;
+esac
 
-export DORIS_HOME=${ROOT}/../
+# resolve links - $0 may be a softlink
+PRG="$0"
+
+while [[ -h "$PRG" ]]; do
+  # shellcheck disable=SC2006
+  ls=`ls -ld "$PRG"`
+  # shellcheck disable=SC2006
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    # shellcheck disable=SC2006
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+
+# Get standard environment variables
+# shellcheck disable=SC2006
+ROOT=`dirname "$PRG"`
+export DORIS_HOME=$(cd "$ROOT/../" &>/dev/null && pwd)
 
 usage() {
   echo "
@@ -50,8 +75,8 @@ usage() {
 getopt -T > /dev/null && echo "
   The GNU version of getopt command is required.
   On Mac OS, you can use Homebrew to install gnu-getopt: 
-    1. brew install gnu-getopt                  # install gnu-getopt
-    2. GETOPT_PATH=\`brew --prefix gnu-getopt\`   # get the gnu-getopt execute path
+    1. brew install gnu-getopt                        # install gnu-getopt
+    2. GETOPT_PATH=\`brew --prefix gnu-getopt\`         # get the gnu-getopt execute path
     3. export PATH=\"\${GETOPT_PATH}/bin:\$PATH\"         # set gnu-getopt as default getopt
 " && exit 1
 
@@ -102,18 +127,23 @@ if [ ${SPARK_VERSION} != 0 ]; then
 fi
 
 if [[ ${BUILD_FROM_TAG} -eq 1 ]]; then
-    rm -rf ${ROOT}/output/
     ${MVN_BIN} clean package
 else
-    rm -rf ${ROOT}/output/
-    ${MVN_BIN} clean package -Dspark.version=${SPARK_VERSION} -Dscala.version=${SCALA_VERSION} -Dspark.minor.version=${SPARK_MINOR_VERSION} $MVN_ARGS
+    ${MVN_BIN} clean package \
+    -Dspark.version=${SPARK_VERSION} \
+    -Dscala.version=${SCALA_VERSION} \
+    -Dspark.minor.version=${SPARK_MINOR_VERSION} $MVN_ARGS
 fi
 
-mkdir ${ROOT}/output/
-cp ${ROOT}/target/spark-doris-*.jar ${ROOT}/output/
+DIST_DIR=${DORIS_HOME}/dist
+[ ! -d $DIST_DIR ] && mkdir $DIST_DIR
+dist_jar=$(ls ${ROOT}/target | grep "spark-doris-" | grep -v "sources.jar" | grep -v "original-")
+rm -rf ${DIST_DIR}/${dist_jar}
+cp ${ROOT}/target/${dist_jar} $DIST_DIR
 
-echo "*****************************************"
+echo "*****************************************************************"
 echo "Successfully build Spark-Doris-Connector"
-echo "*****************************************"
+echo "dist: $DIST_DIR/$dist_jar "
+echo "*****************************************************************"
 
 exit 0

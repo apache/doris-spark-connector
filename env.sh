@@ -41,51 +41,63 @@ thrift_help() {
     echo "For example: "
     echo "    THRIFT_BIN=/path/to/thrift/bin/thrift"
     echo ""
-    echo "You can install thrift@v0.13 by yourself, or if you have compiled the Doris core source file,"
+    echo "You can install thrift@v0.13.0 by yourself, or if you have compiled the Doris core source file,"
     echo "there is thrift in 'thirdparty/installed/bin/'"
 }
 
 # check thrift
-if [ -z "$THRIFT_BIN" ]; then
-    thrift_help
-    exit 1
+[ -z "$THRIFT_BIN" ] && export THRIFT_BIN=$(which thrift)
+THRIFT_VER=$($THRIFT_BIN --version | awk '{print $3}' 2>/dev/null )
+if [ $? -eq 1 ]; then
+   thrift_help
+   exit 1
 fi
 
-if ! ${THRIFT_BIN} --version; then
-    thrift_help
+if [ x"${THRIFT_VER}" != x"0.13.0" ]; then
+    echo "oh, thrift version must be v0.13.0, please reinstall thrift@v0.13.0"
     exit 1
 fi
 
 # check java home
-if [ -z "$JAVA_HOME" ]; then
-    export JAVACMD=$(which java)
-    JAVAP=$(which javap)
-else
-    export JAVA="${JAVA_HOME}/bin/java"
-    JAVAP="${JAVA_HOME}/bin/javap"
-fi
-
-if [ ! -x "$JAVA" ]; then
-    echo "The JAVA_HOME environment variable is not defined correctly"
-    echo "This environment variable is needed to run this program"
-    echo "NB: JAVA_HOME should point to a JDK not a JRE"
+# Make sure prerequisite environment variables are set
+if [ -z "$JAVA_HOME" ] && [ -z "$JRE_HOME" ]; then
+  if $darwin; then
+    # Bugzilla 54390
+    if [ -x '/usr/libexec/java_home' ] ; then
+      export JAVA_HOME=$(/usr/libexec/java_home)
+    # Bugzilla 37284 (reviewed).
+    elif [ -d "/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home" ]; then
+      export JAVA_HOME="/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home"
+    fi
+  else
+    JAVA_PATH=$(which java 2>/dev/null)
+    if [ "x$JAVA_PATH" != "x" ]; then
+      JAVA_PATH=$(dirname "$JAVA_PATH" 2>/dev/null)
+      JRE_HOME=$(dirname "$JAVA_PATH" 2>/dev/null)
+    fi
+    if [ "x$JRE_HOME" = "x" ]; then
+      # XXX: Should we try other locations?
+      if [ -x /usr/bin/java ]; then
+        JRE_HOME=/usr
+      fi
+    fi
+  fi
+  if [ -z "$JAVA_HOME" ] && [ -z "$JRE_HOME" ]; then
+    echo "Neither the JAVA_HOME nor the JRE_HOME environment variable is defined"
+    echo "At least one of these environment variable is needed to run this program"
     exit 1
+  fi
 fi
 
-JAVA_VER=$(${JAVAP} -verbose java.lang.String | grep "major version" | cut -d " " -f5)
+# Set standard commands for invoking javap, if not already set.
+[ -z "$_RUNJAVAP" ] && _RUNJAVAP="$JAVA_HOME"/bin/javap
+
+JAVA_VER=$(${_RUNJAVAP} -verbose java.lang.String | grep "major version" | cut -d " " -f5)
 if [[ $JAVA_VER -lt 52 ]]; then
     echo "Error: require JAVA with JDK version at least 1.8"
     exit 1
 fi
 
 # check maven
-if [ -z "$MVN_BIN" ]; then
-    export MVN_BIN=$(which mvn)
-fi
-if ! ${MVN_BIN} --version; then
-    echo "Error: mvn is not found"
-    echo "You can rename 'custom_env.sh.tpl' to 'custom_env.sh' and set MVN_BIN to the mvn binary"
-    echo "For example:"
-    echo "    export MVN_BIN=/path/to/maven/bin/mvn"
-    exit 1
-fi
+[ -z "$MVN_BIN" ] && export MVN_BIN=$(which mvn)
+${MVN_BIN} &>/dev/null && export MVN_BIN=${DORIS_HOME}/mvnw
