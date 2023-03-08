@@ -129,14 +129,15 @@ else
     ${MVN_BIN} clean package \
     -Dspark.version=${SPARK_VERSION} \
     -Dscala.version=${SCALA_VERSION} \
+    -Dthrift.binary=${THRIFT_BIN} \
     -Dspark.minor.version=${SPARK_MINOR_VERSION} $MVN_ARGS
 fi
 
 DIST_DIR=${DORIS_HOME}/dist
-[ ! -d $DIST_DIR ] && mkdir $DIST_DIR
-dist_jar=$(ls ${ROOT}/target | grep "spark-doris-" | grep -v "sources.jar" | grep -v "original-")
-rm -rf ${DIST_DIR}/${dist_jar}
-cp ${ROOT}/target/${dist_jar} $DIST_DIR
+[ ! -d "$DIST_DIR" ] && mkdir "$DIST_DIR"
+dist_jar=$(ls "${ROOT}"/target | grep "spark-doris-" | grep -v "sources.jar" | grep -v "original-")
+rm -rf "${DIST_DIR}"/"${dist_jar}"
+cp "${ROOT}"/target/"${dist_jar}" "$DIST_DIR"
 
 echo "*****************************************************************"
 echo "Successfully build Spark-Doris-Connector"

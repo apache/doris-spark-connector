@@ -62,16 +62,15 @@
         </mailingList>
     </mailingLists>
     <properties>
-        <scala.version>${env.scala.version}</scala.version>
-        <spark.version>${env.spark.version}</spark.version>
-        <spark.minor.version>${env.spark.minor.version}</spark.minor.version>
+        <spark.version>3.1.2</spark.version>
+        <spark.minor.version>3.1</spark.minor.version>
+        <scala.version>2.12</scala.version>
         <libthrift.version>0.13.0</libthrift.version>
         <arrow.version>5.0.0</arrow.version>
         <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
         <maven-javadoc-plugin.version>3.3.0</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.2.1</maven-source-plugin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <thrift.binary>${env.THRIFT_BIN}</thrift.binary>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.77.Final</netty.version>
         <fasterxml.jackson.version>2.13.3</fasterxml.jackson.version>
@@ -97,24 +96,6 @@
                     <url>${env.CUSTOM_MAVEN_REPO}</url>
                 </pluginRepository>
             </pluginRepositories>
-        </profile>
-        <profile>
-            <id>spark.version</id>
-            <properties>
-                <env.spark.version>3.1.2</env.spark.version>
-            </properties>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-        </profile>
-        <profile>
-            <id>scala.version</id>
-            <properties>
-                <env.scala.version>2.12</env.scala.version>
-            </properties>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
         </profile>
         <!-- for general repository -->
         <profile>
