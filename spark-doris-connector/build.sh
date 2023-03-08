@@ -194,7 +194,7 @@ ${MVN_BIN} clean package \
   -Dspark.version=${SPARK_VERSION} \
   -Dscala.version=${SCALA_VERSION} \
   -Dthrift.binary=${THRIFT_BIN} \
-  -Dspark.minor.version=${SPARK_MINOR_VERSION} $@
+  -Dspark.minor.version=${SPARK_MINOR_VERSION} "$@"
 
 DIST_DIR=${DORIS_HOME}/dist
 [ ! -d "$DIST_DIR" ] && mkdir "$DIST_DIR"
