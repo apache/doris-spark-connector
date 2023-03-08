@@ -36,23 +36,21 @@ if [[ -f ${DORIS_HOME}/custom_env.sh ]]; then
     . ${DORIS_HOME}/custom_env.sh
 fi
 
-thrift_help() {
+thrift_failed() {
     echo "You can rename 'custom_env.sh.tpl' to 'custom_env.sh' and set THRIFT_BIN to the thrift binary"
     echo "For example: "
     echo "    THRIFT_BIN=/path/to/thrift/bin/thrift"
     echo ""
     echo "You can install thrift@v0.13.0 by yourself, or if you have compiled the Doris core source file,"
     echo "there is thrift in 'thirdparty/installed/bin/'"
+    exit 1
 }
 
 # check thrift
 [ -z "$THRIFT_BIN" ] && export THRIFT_BIN=$(which thrift)
-THRIFT_VER=$($THRIFT_BIN --version | awk '{print $3}' 2>/dev/null )
-if [ $? -eq 1 ]; then
-   thrift_help
-   exit 1
-fi
-
+$THRIFT_BIN >/dev/null 2>&1
+[ $? -eq 127 ] && thrift_failed
+THRIFT_VER=$($THRIFT_BIN --version| awk '{print $3}')
 if [ x"${THRIFT_VER}" != x"0.13.0" ]; then
     echo "oh, thrift version must be v0.13.0, please reinstall thrift@v0.13.0"
     exit 1

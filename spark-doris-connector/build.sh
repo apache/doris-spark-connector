@@ -22,9 +22,6 @@
 #    sh build.sh
 #
 ##############################################################
-
-set -eo pipefail
-
 # OS specific support.  $var _must_ be set to either true or false.
 cygwin=false
 os400=false
@@ -123,7 +120,7 @@ done
 SPARK_MINOR_VERSION=0
 if [ ${SPARK_VERSION} != 0 ]; then
     SPARK_MINOR_VERSION=${SPARK_VERSION%.*}
-    echo "SPARK_MINOR_VERSION: ${SPARK_MINOR_VERSION}"
+    echo "spark minor version: ${SPARK_MINOR_VERSION}"
 fi
 
 if [[ ${BUILD_FROM_TAG} -eq 1 ]]; then
