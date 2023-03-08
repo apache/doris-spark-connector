@@ -190,14 +190,14 @@ echo_g " scala version: ${SCALA_VERSION}"
 echo_g " spark version: ${SPARK_VERSION}, minor version: ${SPARK_MINOR_VERSION}"
 echo_g " build starting..."
 
+${MVN_BIN} clean package \
+  -Dspark.version=${SPARK_VERSION} \
+  -Dscala.version=${SCALA_VERSION} \
+  -Dthrift.binary=${THRIFT_BIN} \
+  -Dspark.minor.version=${SPARK_MINOR_VERSION} "$@"
+
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then
-  ${MVN_BIN} clean package \
-    -Dspark.version=${SPARK_VERSION} \
-    -Dscala.version=${SCALA_VERSION} \
-    -Dthrift.binary=${THRIFT_BIN} \
-    -Dspark.minor.version=${SPARK_MINOR_VERSION} "$@"
-
   DIST_DIR=${DORIS_HOME}/dist
   [ ! -d "$DIST_DIR" ] && mkdir "$DIST_DIR"
   dist_jar=$(ls "${ROOT}"/target | grep "spark-doris-" | grep -v "sources.jar" | grep -v "original-")
