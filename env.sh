@@ -48,9 +48,9 @@ thrift_failed() {
 
 # check thrift
 [ -z "$THRIFT_BIN" ] && export THRIFT_BIN=$(which thrift)
-$THRIFT_BIN >/dev/null 2>&1
+$THRIFT_BIN --version >/dev/null 2>&1
 [ $? -eq 127 ] && thrift_failed
-THRIFT_VER=$($THRIFT_BIN --version| awk '{print $3}')
+THRIFT_VER=$($THRIFT_BIN --version | awk '{print $3}')
 if [ x"${THRIFT_VER}" != x"0.13.0" ]; then
     echo "oh, thrift version must be v0.13.0, please reinstall thrift@v0.13.0"
     exit 1
@@ -98,4 +98,5 @@ fi
 
 # check maven
 [ -z "$MVN_BIN" ] && export MVN_BIN=$(which mvn)
-${MVN_BIN} &>/dev/null && export MVN_BIN=${DORIS_HOME}/mvnw
+${MVN_BIN} --version >/dev/null 2>&1
+[ $? -ne 0 ] && export MVN_BIN=${DORIS_HOME}/mvnw

@@ -111,7 +111,7 @@ done
 
 # Get standard environment variables
 # shellcheck disable=SC2006
-ROOT=`dirname "$PRG"`
+ROOT=$(cd "$(dirname "$PRG")" &>/dev/null && pwd)
 export DORIS_HOME=$(cd "$ROOT/../" &>/dev/null && pwd)
 
 . "${DORIS_HOME}"/env.sh
