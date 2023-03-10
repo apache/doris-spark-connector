@@ -96,6 +96,11 @@ public class DorisStreamLoad implements Serializable{
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
+        fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
+        if (fileType.equals("csv")){
+            FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
+            LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
+        }
     }
 
     public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
@@ -116,7 +121,7 @@ public class DorisStreamLoad implements Serializable{
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
         fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
-        if (fileType.equals("csv")){
+        if ("csv".equals(fileType)){
             FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
             LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
         }
@@ -150,20 +155,13 @@ public class DorisStreamLoad implements Serializable{
         conn.setDoInput(true);
         if (streamLoadProp != null) {
             streamLoadProp.forEach((k, v) -> {
-                if (streamLoadProp.containsKey("format")) {
-                    return;
-                }
-                if (streamLoadProp.containsKey("strip_outer_array")) {
-                    return;
-                }
-                if (streamLoadProp.containsKey("read_json_by_line")) {
+                if ("read_json_by_line".equals(k)) {
                     return;
                 }
                 conn.addRequestProperty(k, v);
             });
         }
-        if (fileType.equals("json")){
-            conn.addRequestProperty("format", "json");
+        if (fileType.equals("json")) {
             conn.addRequestProperty("strip_outer_array", "true");
         }
         return conn;
@@ -182,11 +180,9 @@ public class DorisStreamLoad implements Serializable{
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append("status: ").append(status);
-            sb.append(", resp msg: ").append(respMsg);
-            sb.append(", resp content: ").append(respContent);
-            return sb.toString();
+            return "status: " + status +
+                    ", resp msg: " + respMsg +
+                    ", resp content: " + respContent;
         }
     }
 

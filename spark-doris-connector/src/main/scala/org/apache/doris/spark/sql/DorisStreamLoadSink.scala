@@ -17,15 +17,15 @@
 
 package org.apache.doris.spark.sql
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.{CachedDorisStreamLoadClient, DorisStreamLoad}
-import org.apache.spark.sql.execution.QueryExecution
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.streaming.Sink
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import org.slf4j.{Logger, LoggerFactory}
+
 import java.io.IOException
-import org.apache.doris.spark.rest.RestService
+import java.util
 import java.util.Objects
 import scala.util.control.Breaks
 
@@ -45,39 +45,32 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
     if (batchId <= latestBatchId) {
       logger.info(s"Skipping already committed batch $batchId")
     } else {
-      write(data.queryExecution)
+      write(data.rdd)
       latestBatchId = batchId
     }
   }
 
-  def write(queryExecution: QueryExecution): Unit = {
-    val schema = queryExecution.analyzed.output
-    var resultRdd = queryExecution.toRdd
+  def write(rdd: RDD[Row]): Unit = {
+    var resultRdd = rdd
     if (Objects.nonNull(sinkTaskPartitionSize)) {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
     // write for each partition
-    resultRdd.foreachPartition(iter => {
-      val objectMapper = new ObjectMapper()
-      val rowArray = objectMapper.createArrayNode()
-      iter.foreach(row => {
-        val rowNode = objectMapper.createObjectNode()
-        for (i <- 0 until row.numFields) {
-          val colName = schema(i).name
-          val value = row.copy().getUTF8String(i)
-          if (value == null) {
-            rowNode.putNull(colName)
-          } else {
-            rowNode.put(colName, value.toString)
-          }
+    resultRdd.foreachPartition(partition => {
+      val rowsBuffer: util.List[util.List[Object]] = new util.ArrayList[util.List[Object]](maxRowCount)
+      partition.foreach(row => {
+        val line: util.List[Object] = new util.ArrayList[Object]()
+        for (i <- 0 until row.size) {
+          val field = row.get(i)
+          line.add(field.asInstanceOf[AnyRef])
         }
-        rowArray.add(rowNode)
-        if (rowArray.size > maxRowCount - 1) {
+        rowsBuffer.add(line)
+        if (rowsBuffer.size > maxRowCount - 1) {
           flush
         }
       })
       // flush buffer
-      if (!rowArray.isEmpty) {
+      if (!rowsBuffer.isEmpty) {
         flush
       }
 
@@ -85,14 +78,15 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
        * flush data to Doris and do retry when flush error
        *
        */
-      def flush = {
+      def flush(): Unit = {
         val loop = new Breaks
+        var err: Exception = null
         loop.breakable {
 
-          for (i <- 0 to maxRetryTimes) {
+          for (i <- 1 to maxRetryTimes) {
             try {
-              dorisStreamLoader.load(rowArray.toString)
-              rowArray.removeAll()
+              dorisStreamLoader.loadV2(rowsBuffer)
+              rowsBuffer.clear()
               Thread.sleep(batchInterValMs.longValue())
               loop.break()
             }
@@ -100,21 +94,21 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
               case e: Exception =>
                 try {
                   logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
+                  if (err == null) err = e
                   Thread.sleep(1000 * i)
                 } catch {
                   case ex: InterruptedException =>
-                    logger.warn("Data that failed to load : " + rowArray.toString)
                     Thread.currentThread.interrupt()
-                    throw new IOException("unable to flush; interrupted while doing another attempt", e)
+                    throw new IOException("unable to flush; interrupted while doing another attempt", ex)
                 }
             }
           }
 
-          if (!rowArray.isEmpty) {
-            logger.warn("Data that failed to load : " + rowArray.toString)
-            throw new IOException(s"Failed to load data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max retry times.")
+          if (!rowsBuffer.isEmpty) {
+            throw new IOException(s"Failed to load ${maxRowCount} batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
           }
         }
+
       }
     })
   }
