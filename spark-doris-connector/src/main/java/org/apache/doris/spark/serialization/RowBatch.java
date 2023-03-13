@@ -38,6 +38,7 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
 import org.apache.doris.spark.exception.DorisException;
@@ -87,7 +88,7 @@ public class RowBatch {
         this.arrowStreamReader = new ArrowStreamReader(
                 new ByteArrayInputStream(nextResult.getRows()),
                 rootAllocator
-                );
+        );
         try {
             VectorSchemaRoot root = arrowStreamReader.getVectorSchemaRoot();
             while (arrowStreamReader.loadNextBatch()) {
@@ -272,6 +273,19 @@ public class RowBatch {
                                 continue;
                             }
                             String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
+                            addValueToRow(rowIndex, value);
+                        }
+                        break;
+                    case "ARRAY":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.LIST),
+                                typeMismatchMessage(currentType, mt));
+                        ListVector listVector = (ListVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (listVector.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                continue;
+                            }
+                            String value = listVector.getObject(rowIndex).toString();
                             addValueToRow(rowIndex, value);
                         }
                         break;
