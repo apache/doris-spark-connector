@@ -109,7 +109,7 @@ private[spark] object SchemaUtils {
       case "DECIMAL128I"     => DecimalType(precision, scale)
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
-      case "ARRAY"           => DataTypes.createArrayType(DataTypes.StringType, true)
+      case "ARRAY"           => DataTypes.StringType
       case "HLL"             =>
         throw new DorisException("Unsupported type " + dorisType)
       case _                 =>
