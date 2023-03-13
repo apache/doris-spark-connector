@@ -43,14 +43,21 @@ jobs:
         wget http://archive.ubuntu.com/ubuntu/pool/universe/t/thrift/thrift-compiler_0.13.0-2build2_amd64.deb
         sudo dpkg -i thrift-compiler_0.13.0-2build2_amd64.deb
         thrift --version
-        touch custom_env.sh
-        echo 'export THRIFT_BIN=/usr/bin/thrift' >> custom_env.sh
 
     - name: Build spark connector v2
       run: |
-        cd spark-doris-connector/ && /bin/bash build.sh --spark 2.3.4 --scala 2.11
+        cd spark-doris-connector && mvn clean package \
+          -Dspark.version=2.3.4 \
+          -Dscala.version=2.11 \
+          -Dthrift.binary=/usr/bin/thrift \
+          -Dspark.minor.version=2.3
 
     - name: Build spark connector v3
       run: |
-        cd spark-doris-connector/ && /bin/bash build.sh --spark 3.1.2 --scala 2.12
+        cd spark-doris-connector && mvn clean package \
+          -Dspark.version=3.1.2 \
+          -Dscala.version=2.12 \
+          -Dthrift.binary=/usr/bin/thrift \
+          -Dspark.minor.version=3.1
+          
 
