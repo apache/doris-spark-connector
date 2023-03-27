@@ -50,7 +50,7 @@ jobs:
           -Dspark.version=2.3.4 \
           -Dscala.version=2.11 \
           -Dthrift.binary=/usr/bin/thrift \
-          -Dspark.minor.version=2.3
+          -Dspark.major.version=2.3
 
     - name: Build spark connector v3
       run: |
@@ -58,6 +58,6 @@ jobs:
           -Dspark.version=3.1.2 \
           -Dscala.version=2.12 \
           -Dthrift.binary=/usr/bin/thrift \
-          -Dspark.minor.version=3.1
+          -Dspark.major.version=3.1
           
 
