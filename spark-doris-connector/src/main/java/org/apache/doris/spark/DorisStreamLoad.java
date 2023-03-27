@@ -216,7 +216,7 @@ public class DorisStreamLoad implements Serializable {
                 load(serializedRows);
             }
         } else {
-            throw new StreamLoadException(String.format("Not supported file format in stream load: %s.", fileType));
+            throw new StreamLoadException(String.format("Unsupported file format in stream load: %s.", fileType));
         }
     }
 
