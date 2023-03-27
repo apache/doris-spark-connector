@@ -275,7 +275,7 @@ public class DorisStreamLoad implements Serializable {
             String respMsg = beConn.getResponseMessage();
             String response;
             try (InputStream beConnInputStream = beConn.getInputStream()) {
-                response = String.join("", IOUtils.readLines(IOUtils.toBufferedReader(new InputStreamReader(beConnInputStream))));
+                response = String.join("", IOUtils.readLines(new InputStreamReader(beConnInputStream)));
             }
             return new LoadResponse(status, respMsg, response);
 
