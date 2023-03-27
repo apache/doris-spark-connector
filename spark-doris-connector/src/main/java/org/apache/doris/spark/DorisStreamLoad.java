@@ -34,10 +34,7 @@ import org.apache.doris.spark.util.ListUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Serializable;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -268,7 +265,9 @@ public class DorisStreamLoad implements Serializable {
             // build request and send to new be location
             beConn = getConnection(loadUrlStr, label);
             // send data to be
-            IOUtils.write(value, IOUtils.buffer(beConn.getOutputStream()), StandardCharsets.UTF_8);
+            try (OutputStream beConnOutputStream = new BufferedOutputStream(beConn.getOutputStream())) {
+                IOUtils.write(value, beConnOutputStream, StandardCharsets.UTF_8);
+            }
 
             // get respond
             status = beConn.getResponseCode();
