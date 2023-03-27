@@ -274,7 +274,7 @@ public class DorisStreamLoad implements Serializable {
             String respMsg = beConn.getResponseMessage();
             String response;
             try (InputStream beConnInputStream = beConn.getInputStream()) {
-                response = String.join("", IOUtils.readLines(new InputStreamReader(beConnInputStream)));
+                response = IOUtils.toString(beConnInputStream, StandardCharsets.UTF_8);
             }
             return new LoadResponse(status, respMsg, response);
 
