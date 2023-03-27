@@ -61,7 +61,7 @@ public class DorisStreamLoad implements Serializable {
     private String loadUrlStr;
     private String db;
     private String tbl;
-    private String authEncoding;
+    private String authEncoded;
     private String columns;
     private String[] dfColumns;
     private String maxFilterRatio;
@@ -76,7 +76,7 @@ public class DorisStreamLoad implements Serializable {
         this.user = user;
         this.passwd = passwd;
         this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.authEncoded = getAuthEncoded(user, passwd);
     }
 
     public DorisStreamLoad(SparkSettings settings) throws IOException, DorisException {
@@ -85,7 +85,7 @@ public class DorisStreamLoad implements Serializable {
         this.tbl = dbTable[1];
         this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.authEncoded = getAuthEncoded(user, passwd);
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
 
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
@@ -108,7 +108,7 @@ public class DorisStreamLoad implements Serializable {
         this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
 
 
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.authEncoded = getAuthEncoded(user, passwd);
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
         this.dfColumns = dfColumns;
 
@@ -136,7 +136,7 @@ public class DorisStreamLoad implements Serializable {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setInstanceFollowRedirects(false);
         conn.setRequestMethod("PUT");
-        conn.setRequestProperty("Authorization", "Basic " + authEncoding);
+        conn.setRequestProperty("Authorization", "Basic " + authEncoded);
         conn.addRequestProperty("Expect", "100-continue");
         conn.addRequestProperty("Content-Type", "text/plain; charset=UTF-8");
         conn.addRequestProperty("label", label);
@@ -305,6 +305,11 @@ public class DorisStreamLoad implements Serializable {
         } catch (ExecutionException e) {
             throw new RuntimeException("get backends info fail", e);
         }
+    }
+
+    private static String getAuthEncoded(String user, String passwd) {
+        String raw = String.format("%s:%s", user, passwd);
+        return Base64.getEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
