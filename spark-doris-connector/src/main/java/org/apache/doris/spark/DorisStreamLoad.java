@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
@@ -33,8 +34,6 @@ import org.apache.doris.spark.util.ListUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -50,7 +49,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * DorisStreamLoad
  **/
-public class DorisStreamLoad implements Serializable{
+public class DorisStreamLoad implements Serializable {
     private String FIELD_DELIMITER;
     private String LINE_DELIMITER;
     private String NULL_VALUE = "\\N";
@@ -121,7 +120,7 @@ public class DorisStreamLoad implements Serializable{
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
         fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
-        if ("csv".equals(fileType)){
+        if ("csv".equals(fileType)) {
             FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
             LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
         }
@@ -263,28 +262,22 @@ public class DorisStreamLoad implements Serializable{
         //only to record the BE node in case of an exception
         this.loadUrlStr = loadUrlStr;
 
-        HttpURLConnection feConn = null;
         HttpURLConnection beConn = null;
         int status = -1;
         try {
             // build request and send to new be location
             beConn = getConnection(loadUrlStr, label);
             // send data to be
-            BufferedOutputStream bos = new BufferedOutputStream(beConn.getOutputStream());
-            bos.write(value.getBytes("UTF-8"));
-            bos.close();
+            IOUtils.write(value, IOUtils.buffer(beConn.getOutputStream()), StandardCharsets.UTF_8);
 
             // get respond
             status = beConn.getResponseCode();
             String respMsg = beConn.getResponseMessage();
-            InputStream stream = (InputStream) beConn.getContent();
-            BufferedReader br = new BufferedReader(new InputStreamReader(stream));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                response.append(line);
+            String response;
+            try (InputStream beConnInputStream = beConn.getInputStream()) {
+                response = String.join("", IOUtils.readLines(IOUtils.toBufferedReader(new InputStreamReader(beConnInputStream))));
             }
-            return new LoadResponse(status, respMsg, response.toString());
+            return new LoadResponse(status, respMsg, response);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -292,9 +285,6 @@ public class DorisStreamLoad implements Serializable{
             LOG.warn(err, e);
             return new LoadResponse(status, e.getMessage(), err);
         } finally {
-            if (feConn != null) {
-                feConn.disconnect();
-            }
             if (beConn != null) {
                 beConn.disconnect();
             }
