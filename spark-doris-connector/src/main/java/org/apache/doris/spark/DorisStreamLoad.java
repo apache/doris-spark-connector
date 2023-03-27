@@ -41,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 /**
@@ -183,19 +184,11 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public String listToString(List<List<Object>> rows) {
-        StringJoiner lines = new StringJoiner(LINE_DELIMITER);
-        for (List<Object> row : rows) {
-            StringJoiner line = new StringJoiner(FIELD_DELIMITER);
-            for (Object field : row) {
-                if (field == null) {
-                    line.add(NULL_VALUE);
-                } else {
-                    line.add(field.toString());
-                }
-            }
-            lines.add(line.toString());
-        }
-        return lines.toString();
+        return rows.stream().map(row ->
+                row.stream().map(field ->
+                        (field == null) ? NULL_VALUE : field.toString()
+                ).collect(Collectors.joining(FIELD_DELIMITER))
+        ).collect(Collectors.joining(LINE_DELIMITER));
     }
 
 
