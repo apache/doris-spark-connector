@@ -181,20 +181,20 @@ elif [ ${SparkVer} -eq 4 ]; then
     SPARK_VERSION=$ver
 fi
 
-# extract minor version:
-# eg: 3.1.2 -> 3
-SPARK_MINOR_VERSION=0
-[ ${SPARK_VERSION} != 0 ] && SPARK_MINOR_VERSION=${SPARK_VERSION%.*}
+# extract major version:
+# eg: 3.1.2 -> 3.1
+SPARK_MAJOR_VERSION=0
+[ ${SPARK_VERSION} != 0 ] && SPARK_MAJOR_VERSION=${SPARK_VERSION%.*}
 
 echo_g " scala version: ${SCALA_VERSION}"
-echo_g " spark version: ${SPARK_VERSION}, minor version: ${SPARK_MINOR_VERSION}"
+echo_g " spark version: ${SPARK_VERSION}, major version: ${SPARK_MAJOR_VERSION}"
 echo_g " build starting..."
 
 ${MVN_BIN} clean package \
   -Dspark.version=${SPARK_VERSION} \
   -Dscala.version=${SCALA_VERSION} \
   -Dthrift.binary=${THRIFT_BIN} \
-  -Dspark.minor.version=${SPARK_MINOR_VERSION} "$@"
+  -Dspark.major.version=${SPARK_MAJOR_VERSION} "$@"
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then
