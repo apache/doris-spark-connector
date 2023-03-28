@@ -34,6 +34,7 @@ import org.apache.doris.spark.util.ListUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.BufferedHttpEntity;
 import org.apache.http.entity.StringEntity;
@@ -225,7 +226,7 @@ public class DorisStreamLoad implements Serializable {
 
     public void load(String value) throws StreamLoadException {
         LoadResponse loadResponse = loadBatch(value);
-        if (loadResponse.status != 200) {
+        if (loadResponse.status != HttpStatus.SC_OK) {
             LOG.info("Streamload Response HTTP Status Error:{}", loadResponse);
             throw new StreamLoadException("stream load error: " + loadResponse.respContent);
         } else {
