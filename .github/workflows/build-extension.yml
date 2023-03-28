@@ -21,6 +21,9 @@ on:
   pull_request:
   push:
 
+env:
+  MVN_OPT: --no-transfer-progress
+
 jobs:
   build-extension:
     name: "Build Extensions"
@@ -46,7 +49,7 @@ jobs:
 
     - name: Build spark connector v2
       run: |
-        cd spark-doris-connector && mvn clean package \
+        cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=2.3.4 \
           -Dscala.version=2.11 \
           -Dthrift.binary=/usr/bin/thrift \
@@ -54,7 +57,7 @@ jobs:
 
     - name: Build spark connector v3
       run: |
-        cd spark-doris-connector && mvn clean package \
+        cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=3.1.2 \
           -Dscala.version=2.12 \
           -Dthrift.binary=/usr/bin/thrift \
