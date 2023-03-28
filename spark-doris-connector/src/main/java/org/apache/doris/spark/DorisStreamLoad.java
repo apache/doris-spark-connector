@@ -263,13 +263,8 @@ public class DorisStreamLoad implements Serializable {
             HttpResponse httpResponse = httpClient.execute(httpPut);
             responseHttpStatus = httpResponse.getStatusLine().getStatusCode();
             String respMsg = httpResponse.getStatusLine().getReasonPhrase();
-            HttpEntity httpEntity = httpResponse.getEntity();
-            if (httpEntity != null) {
-                String response = EntityUtils.toString(new BufferedHttpEntity(httpEntity), StandardCharsets.UTF_8);
-                return new LoadResponse(responseHttpStatus, respMsg, response);
-            } else {
-                return new LoadResponse(responseHttpStatus, "", "");
-            }
+            String response = EntityUtils.toString(new BufferedHttpEntity(httpResponse.getEntity()), StandardCharsets.UTF_8);
+            return new LoadResponse(responseHttpStatus, respMsg, response);
         } catch (IOException e) {
             e.printStackTrace();
             String err = "http request exception,load url : " + loadUrlStr + ",failed to execute spark streamload with label: " + label;
