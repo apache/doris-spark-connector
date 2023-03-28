@@ -64,20 +64,20 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
     }).foreachPartition(partition => {
       partition
         .grouped(batchSize)
-        .foreach(batch => flush(batch.toList.asJava))
+        .foreach(batch => flush(batch))
     })
 
     /**
      * flush data to Doris and do retry when flush error
      *
      */
-    def flush(batch: util.List[util.List[Object]]): Unit = {
+    def flush(batch: Iterable[util.List[Object]]): Unit = {
       val loop = new Breaks
       var err: Exception = null
       loop.breakable {
         (1 to maxRetryTimes).foreach { i =>
           try {
-            dorisStreamLoader.loadV2(batch)
+            dorisStreamLoader.loadV2(batch.toList.asJava)
             Thread.sleep(batchInterValMs.longValue())
             loop.break()
           } catch {
