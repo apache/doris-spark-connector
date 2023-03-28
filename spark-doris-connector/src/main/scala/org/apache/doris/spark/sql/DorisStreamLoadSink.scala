@@ -58,12 +58,13 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
     // write for each partition
-    resultRdd.foreachPartition(partition =>
+    resultRdd.map(row => {
+      (0 to row.size).map(i => row.get(i).asInstanceOf[AnyRef]).toList.asJava
+    }).foreachPartition(partition => {
       partition
-        .map(row => (0 to row.size).map(i => row.get(i).asInstanceOf[AnyRef]).toList.asJava)
         .grouped(batchSize)
         .foreach(batch => flush(batch.toList.asJava))
-    )
+    })
 
     /**
      * flush data to Doris and do retry when flush error
