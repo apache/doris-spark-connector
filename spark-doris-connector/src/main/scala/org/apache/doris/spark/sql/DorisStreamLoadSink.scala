@@ -58,7 +58,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
     resultRdd
-      .map(_.toSeq.map(a => a.asInstanceOf[AnyRef]).toList.asJava)
+      .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
       .foreachPartition(partition => {
         partition
           .grouped(batchSize)
