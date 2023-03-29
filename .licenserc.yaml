@@ -33,5 +33,6 @@ header:
     - '**/*.log'
     - 'custom_env.sh.tpl'
     - '**/*.csv'
+    - '.scalafmt.conf'
 
   comment: on-failure
