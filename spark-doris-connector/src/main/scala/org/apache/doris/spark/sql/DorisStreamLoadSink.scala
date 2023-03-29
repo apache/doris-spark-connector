@@ -18,7 +18,6 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.sql.DorisWriterOptionKeys.maxRowCount
 import org.apache.doris.spark.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.streaming.Sink
@@ -90,7 +89,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
                   throw new IOException("unable to flush; interrupted while doing another attempt", ex)
               }
           }
-          throw new IOException(s"Failed to load $maxRowCount batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
+          throw new IOException(s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
         }
       }
     }
