@@ -20,11 +20,11 @@ package org.apache.doris.spark.rdd
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_VALUE_READER_CLASS
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.rest.PartitionDefinition
-import org.apache.spark.util.TaskCompletionListener
 import org.apache.spark.{TaskContext, TaskKilledException}
+import org.apache.spark.util.TaskCompletionListener
 import org.slf4j.{Logger, LoggerFactory}
 
-private[spark] abstract class AbstractDorisRDDIterator[T](
+abstract private[spark] class AbstractDorisRDDIterator[T](
     context: TaskContext,
     partition: PartitionDefinition) extends Iterator[T] {
 
@@ -39,7 +39,9 @@ private[spark] abstract class AbstractDorisRDDIterator[T](
     initReader(settings)
     val valueReaderName = settings.getProperty(DORIS_VALUE_READER_CLASS)
     logger.debug(s"Use value reader '$valueReaderName'.")
-    val cons = Class.forName(valueReaderName).getDeclaredConstructor(classOf[PartitionDefinition], classOf[Settings])
+    val cons = Class.forName(valueReaderName).getDeclaredConstructor(
+      classOf[PartitionDefinition],
+      classOf[Settings])
     cons.newInstance(partition, settings).asInstanceOf[ScalaValueReader]
   }
 

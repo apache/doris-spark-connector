@@ -18,12 +18,13 @@
 package org.apache.doris.spark.sql
 
 import scala.collection.JavaConversions._
+
+import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.{Field, Schema}
 import org.apache.doris.thrift.TScanColumnDesc
-import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
 
@@ -69,9 +70,7 @@ private[spark] object SchemaUtils {
         DataTypes.createStructField(
           f.getName,
           getCatalystType(f.getType, f.getPrecision, f.getScale),
-          true
-        )
-      )
+          true))
     DataTypes.createStructType(fields)
   }
 
@@ -85,34 +84,34 @@ private[spark] object SchemaUtils {
    */
   def getCatalystType(dorisType: String, precision: Int, scale: Int): DataType = {
     dorisType match {
-      case "NULL_TYPE"       => DataTypes.NullType
-      case "BOOLEAN"         => DataTypes.BooleanType
-      case "TINYINT"         => DataTypes.ByteType
-      case "SMALLINT"        => DataTypes.ShortType
-      case "INT"             => DataTypes.IntegerType
-      case "BIGINT"          => DataTypes.LongType
-      case "FLOAT"           => DataTypes.FloatType
-      case "DOUBLE"          => DataTypes.DoubleType
-      case "DATE"            => DataTypes.StringType
-      case "DATEV2"          => DataTypes.StringType
-      case "DATETIME"        => DataTypes.StringType
-      case "DATETIMEV2"      => DataTypes.StringType
-      case "BINARY"          => DataTypes.BinaryType
-      case "DECIMAL"         => DecimalType(precision, scale)
-      case "CHAR"            => DataTypes.StringType
-      case "LARGEINT"        => DataTypes.StringType
-      case "VARCHAR"         => DataTypes.StringType
-      case "JSONB"           => DataTypes.StringType
-      case "DECIMALV2"       => DecimalType(precision, scale)
-      case "DECIMAL32"       => DecimalType(precision, scale)
-      case "DECIMAL64"       => DecimalType(precision, scale)
-      case "DECIMAL128I"     => DecimalType(precision, scale)
-      case "TIME"            => DataTypes.DoubleType
-      case "STRING"          => DataTypes.StringType
-      case "ARRAY"           => DataTypes.StringType
-      case "HLL"             =>
+      case "NULL_TYPE" => DataTypes.NullType
+      case "BOOLEAN" => DataTypes.BooleanType
+      case "TINYINT" => DataTypes.ByteType
+      case "SMALLINT" => DataTypes.ShortType
+      case "INT" => DataTypes.IntegerType
+      case "BIGINT" => DataTypes.LongType
+      case "FLOAT" => DataTypes.FloatType
+      case "DOUBLE" => DataTypes.DoubleType
+      case "DATE" => DataTypes.StringType
+      case "DATEV2" => DataTypes.StringType
+      case "DATETIME" => DataTypes.StringType
+      case "DATETIMEV2" => DataTypes.StringType
+      case "BINARY" => DataTypes.BinaryType
+      case "DECIMAL" => DecimalType(precision, scale)
+      case "CHAR" => DataTypes.StringType
+      case "LARGEINT" => DataTypes.StringType
+      case "VARCHAR" => DataTypes.StringType
+      case "JSONB" => DataTypes.StringType
+      case "DECIMALV2" => DecimalType(precision, scale)
+      case "DECIMAL32" => DecimalType(precision, scale)
+      case "DECIMAL64" => DecimalType(precision, scale)
+      case "DECIMAL128I" => DecimalType(precision, scale)
+      case "TIME" => DataTypes.DoubleType
+      case "STRING" => DataTypes.StringType
+      case "ARRAY" => DataTypes.StringType
+      case "HLL" =>
         throw new DorisException("Unsupported type " + dorisType)
-      case _                 =>
+      case _ =>
         throw new DorisException("Unrecognized Doris type " + dorisType)
     }
   }
@@ -125,7 +124,8 @@ private[spark] object SchemaUtils {
    */
   def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc]): Schema = {
     val schema = new Schema(tscanColumnDescs.length)
-    tscanColumnDescs.foreach(desc => schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, "")))
+    tscanColumnDescs.foreach(desc =>
+      schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, "")))
     schema
   }
 }

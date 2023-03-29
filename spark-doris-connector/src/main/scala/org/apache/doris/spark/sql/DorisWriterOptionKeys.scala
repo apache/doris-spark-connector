@@ -17,12 +17,12 @@
 package org.apache.doris.spark.sql
 
 object DorisWriterOptionKeys {
-  val feHostPort="feHostPort"
-  val dbName="dbName"
-  val tbName="tbName"
-  val user="user"
-  val password="password"
-  val maxRowCount="maxRowCount"
-  val maxRetryTimes="maxRetryTimes"
+  val feHostPort = "feHostPort"
+  val dbName = "dbName"
+  val tbName = "tbName"
+  val user = "user"
+  val password = "password"
+  val maxRowCount = "maxRowCount"
+  val maxRetryTimes = "maxRetryTimes"
 
 }

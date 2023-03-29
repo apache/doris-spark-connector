@@ -17,40 +17,39 @@
 
 package org.apache.doris.spark.cfg;
 
-import java.util.Properties;
-
 import com.google.common.base.Preconditions;
+import java.util.Properties;
 
 public class PropertiesSettings extends Settings {
 
-    protected final Properties props;
+  protected final Properties props;
 
-    public PropertiesSettings() {
-        this(new Properties());
-    }
+  public PropertiesSettings() {
+    this(new Properties());
+  }
 
-    public PropertiesSettings(Properties props) {
-        Preconditions.checkArgument(props != null, "non-null props configuration expected.");
-        this.props = props;
-    }
+  public PropertiesSettings(Properties props) {
+    Preconditions.checkArgument(props != null, "non-null props configuration expected.");
+    this.props = props;
+  }
 
-    @Override
-    public String getProperty(String name) {
-        return props.getProperty(name);
-    }
+  @Override
+  public String getProperty(String name) {
+    return props.getProperty(name);
+  }
 
-    @Override
-    public void setProperty(String name, String value) {
-        props.setProperty(name, value);
-    }
+  @Override
+  public void setProperty(String name, String value) {
+    props.setProperty(name, value);
+  }
 
-    @Override
-    public Settings copy() {
-        return new PropertiesSettings((Properties) props.clone());
-    }
+  @Override
+  public Settings copy() {
+    return new PropertiesSettings((Properties) props.clone());
+  }
 
-    @Override
-    public Properties asProperties() {
-        return props;
-    }
+  @Override
+  public Properties asProperties() {
+    return props;
+  }
 }

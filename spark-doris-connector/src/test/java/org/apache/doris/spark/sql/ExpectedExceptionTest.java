@@ -21,6 +21,5 @@ import org.junit.Rule;
 import org.junit.rules.ExpectedException;
 
 public class ExpectedExceptionTest {
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
+  @Rule public ExpectedException thrown = ExpectedException.none();
 }

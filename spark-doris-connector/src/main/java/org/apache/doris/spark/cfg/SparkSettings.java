@@ -17,61 +17,58 @@
 
 package org.apache.doris.spark.cfg;
 
-import java.util.Properties;
-
-import org.apache.spark.SparkConf;
-
 import com.google.common.base.Preconditions;
-
+import java.util.Properties;
+import org.apache.spark.SparkConf;
 import scala.Option;
 import scala.Serializable;
 import scala.Tuple2;
 
 public class SparkSettings extends Settings implements Serializable {
 
-    private final SparkConf cfg;
+  private final SparkConf cfg;
 
-    public SparkSettings(SparkConf cfg) {
-        Preconditions.checkArgument(cfg != null, "non-null spark configuration expected.");
-        this.cfg = cfg;
+  public SparkSettings(SparkConf cfg) {
+    Preconditions.checkArgument(cfg != null, "non-null spark configuration expected.");
+    this.cfg = cfg;
+  }
+
+  public SparkSettings copy() {
+    return new SparkSettings(cfg.clone());
+  }
+
+  public String getProperty(String name) {
+    Option<String> op = cfg.getOption(name);
+    if (!op.isDefined()) {
+      op = cfg.getOption("spark." + name);
     }
+    return (op.isDefined() ? op.get() : null);
+  }
 
-    public SparkSettings copy() {
-        return new SparkSettings(cfg.clone());
-    }
+  public void setProperty(String name, String value) {
+    cfg.set(name, value);
+  }
 
-    public String getProperty(String name) {
-        Option<String> op = cfg.getOption(name);
-        if (!op.isDefined()) {
-            op = cfg.getOption("spark." + name);
+  public Properties asProperties() {
+    Properties props = new Properties();
+
+    if (cfg != null) {
+      String sparkPrefix = "spark.";
+      for (Tuple2<String, String> tuple : cfg.getAll()) {
+        // spark. are special so save them without the prefix as well
+        // since its unlikely the other implementations will be aware of this convention
+        String key = tuple._1;
+        props.setProperty(key, tuple._2);
+        if (key.startsWith(sparkPrefix)) {
+          String simpleKey = key.substring(sparkPrefix.length());
+          // double check to not override a property defined directly in the config
+          if (!props.containsKey(simpleKey)) {
+            props.setProperty(simpleKey, tuple._2);
+          }
         }
-        return (op.isDefined() ? op.get() : null);
+      }
     }
 
-    public void setProperty(String name, String value) {
-        cfg.set(name, value);
-    }
-
-    public Properties asProperties() {
-        Properties props = new Properties();
-
-        if (cfg != null) {
-            String sparkPrefix = "spark.";
-            for (Tuple2<String, String> tuple : cfg.getAll()) {
-                // spark. are special so save them without the prefix as well
-                // since its unlikely the other implementations will be aware of this convention
-                String key = tuple._1;
-                props.setProperty(key, tuple._2);
-                if (key.startsWith(sparkPrefix)) {
-                    String simpleKey = key.substring(sparkPrefix.length());
-                    // double check to not override a property defined directly in the config
-                    if (!props.containsKey(simpleKey)) {
-                        props.setProperty(simpleKey, tuple._2);
-                    }
-                }
-            }
-        }
-
-        return props;
-    }
+    return props;
+  }
 }

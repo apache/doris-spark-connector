@@ -49,20 +49,38 @@ class TestUtils extends ExpectedExceptionTest {
     val validOrFilter = Or(equalFilter, greaterThanFilter)
     val invalidOrFilter = Or(equalFilter, notSupportFilter)
 
-    Assert.assertEquals("`left` = 5", Utils.compileFilter(equalFilter, dialect, inValueLengthLimit).get)
-    Assert.assertEquals("`left` > 5", Utils.compileFilter(greaterThanFilter, dialect, inValueLengthLimit).get)
-    Assert.assertEquals("`left` >= 5", Utils.compileFilter(greaterThanOrEqualFilter, dialect, inValueLengthLimit).get)
-    Assert.assertEquals("`left` < 5", Utils.compileFilter(lessThanFilter, dialect, inValueLengthLimit).get)
-    Assert.assertEquals("`left` <= 5", Utils.compileFilter(lessThanOrEqualFilter, dialect, inValueLengthLimit).get)
-    Assert.assertEquals("`left` in (1, 2, 3, 4)", Utils.compileFilter(validInFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "`left` = 5",
+      Utils.compileFilter(equalFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "`left` > 5",
+      Utils.compileFilter(greaterThanFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "`left` >= 5",
+      Utils.compileFilter(greaterThanOrEqualFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "`left` < 5",
+      Utils.compileFilter(lessThanFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "`left` <= 5",
+      Utils.compileFilter(lessThanOrEqualFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "`left` in (1, 2, 3, 4)",
+      Utils.compileFilter(validInFilter, dialect, inValueLengthLimit).get)
     Assert.assertTrue(Utils.compileFilter(emptyInFilter, dialect, inValueLengthLimit).isEmpty)
     Assert.assertTrue(Utils.compileFilter(invalidInFilter, dialect, inValueLengthLimit).isEmpty)
-    Assert.assertEquals("`left` is null", Utils.compileFilter(isNullFilter, dialect, inValueLengthLimit).get)
-    Assert.assertEquals("`left` is not null", Utils.compileFilter(isNotNullFilter, dialect, inValueLengthLimit).get)
-    Assert.assertEquals("(`left` = 5) and (`left` > 5)",
+    Assert.assertEquals(
+      "`left` is null",
+      Utils.compileFilter(isNullFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "`left` is not null",
+      Utils.compileFilter(isNotNullFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals(
+      "(`left` = 5) and (`left` > 5)",
       Utils.compileFilter(validAndFilter, dialect, inValueLengthLimit).get)
     Assert.assertTrue(Utils.compileFilter(invalidAndFilter, dialect, inValueLengthLimit).isEmpty)
-    Assert.assertEquals("(`left` = 5) or (`left` > 5)",
+    Assert.assertEquals(
+      "(`left` = 5) or (`left` > 5)",
       Utils.compileFilter(validOrFilter, dialect, inValueLengthLimit).get)
     Assert.assertTrue(Utils.compileFilter(invalidOrFilter, dialect, inValueLengthLimit).isEmpty)
   }
@@ -73,48 +91,45 @@ class TestUtils extends ExpectedExceptionTest {
       ConfigurationOptions.DORIS_TABLE_IDENTIFIER -> "a.b",
       "test_underline" -> "x_y",
       "user" -> "user",
-      "password" -> "password"
-    )
+      "password" -> "password")
     val result1 = Utils.params(parameters1, logger)
     Assert.assertEquals("a.b", result1(ConfigurationOptions.DORIS_TABLE_IDENTIFIER))
     Assert.assertEquals("x_y", result1("doris.test.underline"))
     Assert.assertEquals("user", result1("doris.request.auth.user"))
     Assert.assertEquals("password", result1("doris.request.auth.password"))
 
-
     val parameters2 = Map(
-      ConfigurationOptions.TABLE_IDENTIFIER -> "a.b"
-    )
+      ConfigurationOptions.TABLE_IDENTIFIER -> "a.b")
     val result2 = Utils.params(parameters2, logger)
     Assert.assertEquals("a.b", result2(ConfigurationOptions.DORIS_TABLE_IDENTIFIER))
 
     val parameters3 = Map(
-      ConfigurationOptions.DORIS_PASSWORD -> "a.b"
-    )
+      ConfigurationOptions.DORIS_PASSWORD -> "a.b")
     thrown.expect(classOf[DorisException])
-    thrown.expectMessage(startsWith(s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource,"))
+    thrown.expectMessage(
+      startsWith(s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource,"))
     Utils.params(parameters3, logger)
 
     val parameters4 = Map(
-      ConfigurationOptions.DORIS_USER -> "a.b"
-    )
+      ConfigurationOptions.DORIS_USER -> "a.b")
     thrown.expect(classOf[DorisException])
-    thrown.expectMessage(startsWith(s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource,"))
+    thrown.expectMessage(
+      startsWith(s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource,"))
     Utils.params(parameters4, logger)
 
     val parameters5 = Map(
-      ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD -> "a.b"
-    )
+      ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD -> "a.b")
     thrown.expect(classOf[DorisException])
     thrown.expectMessage(
-      startsWith(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource,"))
+      startsWith(
+        s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource,"))
     Utils.params(parameters5, logger)
 
     val parameters6 = Map(
-      ConfigurationOptions.DORIS_REQUEST_AUTH_USER -> "a.b"
-    )
+      ConfigurationOptions.DORIS_REQUEST_AUTH_USER -> "a.b")
     thrown.expect(classOf[DorisException])
-    thrown.expectMessage(startsWith(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource,"))
+    thrown.expectMessage(startsWith(
+      s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource,"))
     Utils.params(parameters6, logger)
   }
 }

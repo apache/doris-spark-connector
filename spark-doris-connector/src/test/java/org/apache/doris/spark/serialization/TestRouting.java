@@ -25,23 +25,21 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-
 public class TestRouting {
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
+  @Rule public ExpectedException thrown = ExpectedException.none();
 
-    @Test
-    public void testRouting() throws Exception {
-        Routing r1 = new Routing("10.11.12.13:1234");
-        Assert.assertEquals("10.11.12.13", r1.getHost());
-        Assert.assertEquals(1234, r1.getPort());
+  @Test
+  public void testRouting() throws Exception {
+    Routing r1 = new Routing("10.11.12.13:1234");
+    Assert.assertEquals("10.11.12.13", r1.getHost());
+    Assert.assertEquals(1234, r1.getPort());
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage(startsWith("argument "));
-        new Routing("10.11.12.13:wxyz");
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectMessage(startsWith("argument "));
+    new Routing("10.11.12.13:wxyz");
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage(startsWith("Parse "));
-        new Routing("10.11.12.13");
-    }
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectMessage(startsWith("Parse "));
+    new Routing("10.11.12.13");
+  }
 }

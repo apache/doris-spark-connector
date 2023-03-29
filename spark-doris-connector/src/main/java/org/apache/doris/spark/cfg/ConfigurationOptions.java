@@ -18,76 +18,77 @@
 package org.apache.doris.spark.cfg;
 
 public interface ConfigurationOptions {
-    // doris fe node address
-    String DORIS_FENODES = "doris.fenodes";
+  // doris fe node address
+  String DORIS_FENODES = "doris.fenodes";
 
-    String DORIS_DEFAULT_CLUSTER = "default_cluster";
+  String DORIS_DEFAULT_CLUSTER = "default_cluster";
 
-    String TABLE_IDENTIFIER = "table.identifier";
-    String DORIS_TABLE_IDENTIFIER = "doris.table.identifier";
-    String DORIS_READ_FIELD = "doris.read.field";
-    String DORIS_FILTER_QUERY = "doris.filter.query";
-    String DORIS_FILTER_QUERY_IN_MAX_COUNT = "doris.filter.query.in.max.count";
-    int DORIS_FILTER_QUERY_IN_VALUE_UPPER_LIMIT = 10000;
+  String TABLE_IDENTIFIER = "table.identifier";
+  String DORIS_TABLE_IDENTIFIER = "doris.table.identifier";
+  String DORIS_READ_FIELD = "doris.read.field";
+  String DORIS_FILTER_QUERY = "doris.filter.query";
+  String DORIS_FILTER_QUERY_IN_MAX_COUNT = "doris.filter.query.in.max.count";
+  int DORIS_FILTER_QUERY_IN_VALUE_UPPER_LIMIT = 10000;
 
-    String DORIS_USER = "doris.user";
-    String DORIS_REQUEST_AUTH_USER = "doris.request.auth.user";
-    // use password to save doris.request.auth.password
-    // reuse credentials mask method in spark ExternalCatalogUtils#maskCredentials
-    String DORIS_PASSWORD = "doris.password";
-    String DORIS_REQUEST_AUTH_PASSWORD = "doris.request.auth.password";
+  String DORIS_USER = "doris.user";
+  String DORIS_REQUEST_AUTH_USER = "doris.request.auth.user";
+  // use password to save doris.request.auth.password
+  // reuse credentials mask method in spark ExternalCatalogUtils#maskCredentials
+  String DORIS_PASSWORD = "doris.password";
+  String DORIS_REQUEST_AUTH_PASSWORD = "doris.request.auth.password";
 
-    String DORIS_REQUEST_RETRIES = "doris.request.retries";
-    String DORIS_REQUEST_CONNECT_TIMEOUT_MS = "doris.request.connect.timeout.ms";
-    String DORIS_REQUEST_READ_TIMEOUT_MS = "doris.request.read.timeout.ms";
-    String DORIS_REQUEST_QUERY_TIMEOUT_S = "doris.request.query.timeout.s";
-    int DORIS_REQUEST_RETRIES_DEFAULT = 3;
-    int DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT = 30 * 1000;
-    int DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT = 30 * 1000;
-    int DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT = 3600;
+  String DORIS_REQUEST_RETRIES = "doris.request.retries";
+  String DORIS_REQUEST_CONNECT_TIMEOUT_MS = "doris.request.connect.timeout.ms";
+  String DORIS_REQUEST_READ_TIMEOUT_MS = "doris.request.read.timeout.ms";
+  String DORIS_REQUEST_QUERY_TIMEOUT_S = "doris.request.query.timeout.s";
+  int DORIS_REQUEST_RETRIES_DEFAULT = 3;
+  int DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT = 30 * 1000;
+  int DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT = 30 * 1000;
+  int DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT = 3600;
 
-    String DORIS_TABLET_SIZE = "doris.request.tablet.size";
-    int DORIS_TABLET_SIZE_DEFAULT = Integer.MAX_VALUE;
-    int DORIS_TABLET_SIZE_MIN = 1;
+  String DORIS_TABLET_SIZE = "doris.request.tablet.size";
+  int DORIS_TABLET_SIZE_DEFAULT = Integer.MAX_VALUE;
+  int DORIS_TABLET_SIZE_MIN = 1;
 
-    String DORIS_BATCH_SIZE = "doris.batch.size";
-    int DORIS_BATCH_SIZE_DEFAULT = 1024;
+  String DORIS_BATCH_SIZE = "doris.batch.size";
+  int DORIS_BATCH_SIZE_DEFAULT = 1024;
 
-    String DORIS_EXEC_MEM_LIMIT = "doris.exec.mem.limit";
-    long DORIS_EXEC_MEM_LIMIT_DEFAULT = 2147483648L;
+  String DORIS_EXEC_MEM_LIMIT = "doris.exec.mem.limit";
+  long DORIS_EXEC_MEM_LIMIT_DEFAULT = 2147483648L;
 
-    String DORIS_VALUE_READER_CLASS = "doris.value.reader.class";
+  String DORIS_VALUE_READER_CLASS = "doris.value.reader.class";
 
-    String DORIS_DESERIALIZE_ARROW_ASYNC = "doris.deserialize.arrow.async";
-    boolean DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT = false;
+  String DORIS_DESERIALIZE_ARROW_ASYNC = "doris.deserialize.arrow.async";
+  boolean DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT = false;
 
-    String DORIS_DESERIALIZE_QUEUE_SIZE = "doris.deserialize.queue.size";
-    int DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT = 64;
+  String DORIS_DESERIALIZE_QUEUE_SIZE = "doris.deserialize.queue.size";
+  int DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT = 64;
 
-    String DORIS_WRITE_FIELDS = "doris.write.fields";
+  String DORIS_WRITE_FIELDS = "doris.write.fields";
 
-    String DORIS_SINK_BATCH_SIZE = "doris.sink.batch.size";
-    int SINK_BATCH_SIZE_DEFAULT = 10000;
+  String DORIS_SINK_BATCH_SIZE = "doris.sink.batch.size";
+  int SINK_BATCH_SIZE_DEFAULT = 10000;
 
-    String DORIS_SINK_MAX_RETRIES = "doris.sink.max-retries";
-    int SINK_MAX_RETRIES_DEFAULT = 1;
+  String DORIS_SINK_MAX_RETRIES = "doris.sink.max-retries";
+  int SINK_MAX_RETRIES_DEFAULT = 1;
 
-    String DORIS_MAX_FILTER_RATIO = "doris.max.filter.ratio";
+  String DORIS_MAX_FILTER_RATIO = "doris.max.filter.ratio";
 
-    String STREAM_LOAD_PROP_PREFIX = "doris.sink.properties.";
+  String STREAM_LOAD_PROP_PREFIX = "doris.sink.properties.";
 
-    String DORIS_SINK_TASK_PARTITION_SIZE = "doris.sink.task.partition.size";
+  String DORIS_SINK_TASK_PARTITION_SIZE = "doris.sink.task.partition.size";
 
-    /**
-     * Set doris sink task partition size. If you set a small coalesce size and you don't have the action operations, this may result in the same parallelism in your computation.
-     * To avoid this, you can use repartition operations. This will add a shuffle step, but means the current upstream partitions will be executed in parallel.
-     */
-    String DORIS_SINK_TASK_USE_REPARTITION = "doris.sink.task.use.repartition";
+  /**
+   * Set doris sink task partition size. If you set a small coalesce size and you don't have the
+   * action operations, this may result in the same parallelism in your computation. To avoid this,
+   * you can use repartition operations. This will add a shuffle step, but means the current
+   * upstream partitions will be executed in parallel.
+   */
+  String DORIS_SINK_TASK_USE_REPARTITION = "doris.sink.task.use.repartition";
 
-    boolean DORIS_SINK_TASK_USE_REPARTITION_DEFAULT = false;
+  boolean DORIS_SINK_TASK_USE_REPARTITION_DEFAULT = false;
 
-    String DORIS_SINK_BATCH_INTERVAL_MS = "doris.sink.batch.interval.ms";
+  String DORIS_SINK_BATCH_INTERVAL_MS = "doris.sink.batch.interval.ms";
 
-    int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
-
+  int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
 }

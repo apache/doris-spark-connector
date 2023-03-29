@@ -17,8 +17,8 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.SparkSession
 import org.junit.Ignore
 import org.junit.Test
 
@@ -44,9 +44,7 @@ class TestSparkConnector {
       cfg = Some(Map(
         "doris.fenodes" -> dorisFeNodes,
         "doris.request.auth.user" -> dorisUser,
-        "doris.request.auth.password" -> dorisPwd
-      ))
-    )
+        "doris.request.auth.password" -> dorisPwd)))
     dorisSparkRDD.map(println(_)).count()
     sc.stop()
   }
@@ -57,18 +55,17 @@ class TestSparkConnector {
     val df = session.createDataFrame(Seq(
       ("zhangsan", "m"),
       ("lisi", "f"),
-      ("wangwu", "m")
-    )).toDF("name","gender")
+      ("wangwu", "m"))).toDF("name", "gender")
     df.write
       .format("doris")
       .option("doris.fenodes", dorisFeNodes)
       .option("doris.table.identifier", dorisTable)
       .option("user", dorisUser)
       .option("password", dorisPwd)
-      //specify your field
+      // specify your field
       .option("doris.write.fields", "name,gender")
-      .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.batch.size", 2)
+      .option("sink.max-retries", 2)
       .save()
     session.stop()
   }
@@ -87,7 +84,6 @@ class TestSparkConnector {
     dorisSparkDF.show()
     session.stop()
   }
-
 
   @Test
   def structuredStreamingWriteTest(): Unit = {
@@ -110,10 +106,9 @@ class TestSparkConnector {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
-      .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.batch.size", 2)
+      .option("sink.max-retries", 2)
       .start().awaitTermination()
     spark.stop()
   }
 }
-

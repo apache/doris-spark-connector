@@ -24,73 +24,72 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RespContent {
 
-    @JsonProperty(value = "TxnId")
-    private int TxnId;
+  @JsonProperty(value = "TxnId")
+  private int TxnId;
 
-    @JsonProperty(value = "Label")
-    private String Label;
+  @JsonProperty(value = "Label")
+  private String Label;
 
-    @JsonProperty(value = "Status")
-    private String Status;
+  @JsonProperty(value = "Status")
+  private String Status;
 
-    @JsonProperty(value = "ExistingJobStatus")
-    private String ExistingJobStatus;
+  @JsonProperty(value = "ExistingJobStatus")
+  private String ExistingJobStatus;
 
-    @JsonProperty(value = "Message")
-    private String Message;
+  @JsonProperty(value = "Message")
+  private String Message;
 
-    @JsonProperty(value = "NumberTotalRows")
-    private long NumberTotalRows;
+  @JsonProperty(value = "NumberTotalRows")
+  private long NumberTotalRows;
 
-    @JsonProperty(value = "NumberLoadedRows")
-    private long NumberLoadedRows;
+  @JsonProperty(value = "NumberLoadedRows")
+  private long NumberLoadedRows;
 
-    @JsonProperty(value = "NumberFilteredRows")
-    private int NumberFilteredRows;
+  @JsonProperty(value = "NumberFilteredRows")
+  private int NumberFilteredRows;
 
-    @JsonProperty(value = "NumberUnselectedRows")
-    private int NumberUnselectedRows;
+  @JsonProperty(value = "NumberUnselectedRows")
+  private int NumberUnselectedRows;
 
-    @JsonProperty(value = "LoadBytes")
-    private long LoadBytes;
+  @JsonProperty(value = "LoadBytes")
+  private long LoadBytes;
 
-    @JsonProperty(value = "LoadTimeMs")
-    private int LoadTimeMs;
+  @JsonProperty(value = "LoadTimeMs")
+  private int LoadTimeMs;
 
-    @JsonProperty(value = "BeginTxnTimeMs")
-    private int BeginTxnTimeMs;
+  @JsonProperty(value = "BeginTxnTimeMs")
+  private int BeginTxnTimeMs;
 
-    @JsonProperty(value = "StreamLoadPutTimeMs")
-    private int StreamLoadPutTimeMs;
+  @JsonProperty(value = "StreamLoadPutTimeMs")
+  private int StreamLoadPutTimeMs;
 
-    @JsonProperty(value = "ReadDataTimeMs")
-    private int ReadDataTimeMs;
+  @JsonProperty(value = "ReadDataTimeMs")
+  private int ReadDataTimeMs;
 
-    @JsonProperty(value = "WriteDataTimeMs")
-    private int WriteDataTimeMs;
+  @JsonProperty(value = "WriteDataTimeMs")
+  private int WriteDataTimeMs;
 
-    @JsonProperty(value = "CommitAndPublishTimeMs")
-    private int CommitAndPublishTimeMs;
+  @JsonProperty(value = "CommitAndPublishTimeMs")
+  private int CommitAndPublishTimeMs;
 
-    @JsonProperty(value = "ErrorURL")
-    private String ErrorURL;
+  @JsonProperty(value = "ErrorURL")
+  private String ErrorURL;
 
-    public String getStatus() {
-        return Status;
+  public String getStatus() {
+    return Status;
+  }
+
+  public String getMessage() {
+    return Message;
+  }
+
+  @Override
+  public String toString() {
+    ObjectMapper mapper = new ObjectMapper();
+    try {
+      return mapper.writeValueAsString(this);
+    } catch (JsonProcessingException e) {
+      return "";
     }
-
-    public String getMessage() {
-        return Message;
-    }
-
-    @Override
-    public String toString() {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            return mapper.writeValueAsString(this);
-        } catch (JsonProcessingException e) {
-            return "";
-        }
-
-    }
+  }
 }

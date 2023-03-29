@@ -17,12 +17,14 @@
 
 package org.apache.doris.spark.rdd
 
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent._
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
 
 import scala.collection.JavaConversions._
 import scala.util.Try
+import scala.util.control.Breaks
+
 import org.apache.doris.spark.backend.BackendClient
 import org.apache.doris.spark.cfg.ConfigurationOptions._
 import org.apache.doris.spark.cfg.Settings
@@ -35,8 +37,6 @@ import org.apache.doris.spark.util.ErrorMessages
 import org.apache.doris.spark.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE
 import org.apache.doris.thrift.{TScanCloseParams, TScanNextBatchParams, TScanOpenParams, TScanOpenResult}
 import org.apache.log4j.Logger
-
-import scala.util.control.Breaks
 
 /**
  * read data from Doris BE to array.
@@ -55,17 +55,27 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
   protected var rowBatch: RowBatch = _
   // flag indicate if support deserialize Arrow to RowBatch asynchronously
   protected lazy val deserializeArrowToRowBatchAsync: Boolean = Try {
-    settings.getProperty(DORIS_DESERIALIZE_ARROW_ASYNC, DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT.toString).toBoolean
+    settings.getProperty(
+      DORIS_DESERIALIZE_ARROW_ASYNC,
+      DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT.toString).toBoolean
   } getOrElse {
-    logger.warn(ErrorMessages.PARSE_BOOL_FAILED_MESSAGE, DORIS_DESERIALIZE_ARROW_ASYNC, settings.getProperty(DORIS_DESERIALIZE_ARROW_ASYNC))
+    logger.warn(
+      ErrorMessages.PARSE_BOOL_FAILED_MESSAGE,
+      DORIS_DESERIALIZE_ARROW_ASYNC,
+      settings.getProperty(DORIS_DESERIALIZE_ARROW_ASYNC))
     DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT
   }
 
   protected var rowBatchBlockingQueue: BlockingQueue[RowBatch] = {
     val blockingQueueSize = Try {
-      settings.getProperty(DORIS_DESERIALIZE_QUEUE_SIZE, DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT.toString).toInt
+      settings.getProperty(
+        DORIS_DESERIALIZE_QUEUE_SIZE,
+        DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT.toString).toInt
     } getOrElse {
-      logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_DESERIALIZE_QUEUE_SIZE, settings.getProperty(DORIS_DESERIALIZE_QUEUE_SIZE))
+      logger.warn(
+        ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE,
+        DORIS_DESERIALIZE_QUEUE_SIZE,
+        settings.getProperty(DORIS_DESERIALIZE_QUEUE_SIZE))
       DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT
     }
 
@@ -89,21 +99,32 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
     val batchSize = Try {
       settings.getProperty(DORIS_BATCH_SIZE, DORIS_BATCH_SIZE_DEFAULT.toString).toInt
     } getOrElse {
-        logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_BATCH_SIZE, settings.getProperty(DORIS_BATCH_SIZE))
-        DORIS_BATCH_SIZE_DEFAULT
+      logger.warn(
+        ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE,
+        DORIS_BATCH_SIZE,
+        settings.getProperty(DORIS_BATCH_SIZE))
+      DORIS_BATCH_SIZE_DEFAULT
     }
 
     val queryDorisTimeout = Try {
-      settings.getProperty(DORIS_REQUEST_QUERY_TIMEOUT_S, DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT.toString).toInt
+      settings.getProperty(
+        DORIS_REQUEST_QUERY_TIMEOUT_S,
+        DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT.toString).toInt
     } getOrElse {
-      logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_REQUEST_QUERY_TIMEOUT_S, settings.getProperty(DORIS_REQUEST_QUERY_TIMEOUT_S))
+      logger.warn(
+        ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE,
+        DORIS_REQUEST_QUERY_TIMEOUT_S,
+        settings.getProperty(DORIS_REQUEST_QUERY_TIMEOUT_S))
       DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT
     }
 
     val execMemLimit = Try {
       settings.getProperty(DORIS_EXEC_MEM_LIMIT, DORIS_EXEC_MEM_LIMIT_DEFAULT.toString).toLong
     } getOrElse {
-      logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_EXEC_MEM_LIMIT, settings.getProperty(DORIS_EXEC_MEM_LIMIT))
+      logger.warn(
+        ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE,
+        DORIS_EXEC_MEM_LIMIT,
+        settings.getProperty(DORIS_EXEC_MEM_LIMIT))
       DORIS_EXEC_MEM_LIMIT_DEFAULT
     }
 
@@ -114,15 +135,15 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
     params.setPasswd(settings.getProperty(DORIS_REQUEST_AUTH_PASSWORD, ""))
 
     logger.debug(s"Open scan params is, " +
-        s"cluster: ${params.getCluster}, " +
-        s"database: ${params.getDatabase}, " +
-        s"table: ${params.getTable}, " +
-        s"tabletId: ${params.getTabletIds}, " +
-        s"batch size: $batchSize, " +
-        s"query timeout: $queryDorisTimeout, " +
-        s"execution memory limit: $execMemLimit, " +
-        s"user: ${params.getUser}, " +
-        s"query plan: ${params.getOpaquedQueryPlan}")
+      s"cluster: ${params.getCluster}, " +
+      s"database: ${params.getDatabase}, " +
+      s"table: ${params.getTable}, " +
+      s"tabletId: ${params.getTabletIds}, " +
+      s"batch size: $batchSize, " +
+      s"query timeout: $queryDorisTimeout, " +
+      s"execution memory limit: $execMemLimit, " +
+      s"user: ${params.getUser}, " +
+      s"query plan: ${params.getOpaquedQueryPlan}")
 
     params
   }

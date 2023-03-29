@@ -22,13 +22,12 @@ import scala.reflect.ClassTag
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_VALUE_READER_CLASS
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.rest.PartitionDefinition
-
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 private[spark] class ScalaDorisRDD[T: ClassTag](
     sc: SparkContext,
     params: Map[String, String] = Map.empty)
-    extends AbstractDorisRDD[T](sc, params) {
+  extends AbstractDorisRDD[T](sc, params) {
   override def compute(split: Partition, context: TaskContext): ScalaDorisRDDIterator[T] = {
     new ScalaDorisRDDIterator(context, split.asInstanceOf[DorisPartition].dorisPartition)
   }
@@ -37,7 +36,7 @@ private[spark] class ScalaDorisRDD[T: ClassTag](
 private[spark] class ScalaDorisRDDIterator[T](
     context: TaskContext,
     partition: PartitionDefinition)
-    extends AbstractDorisRDDIterator[T](context, partition) {
+  extends AbstractDorisRDDIterator[T](context, partition) {
 
   override def initReader(settings: Settings) = {
     settings.setProperty(DORIS_VALUE_READER_CLASS, classOf[ScalaValueReader].getName)

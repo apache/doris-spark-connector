@@ -22,14 +22,13 @@ import scala.reflect.ClassTag
 
 import org.apache.doris.spark.cfg.SparkSettings
 import org.apache.doris.spark.rest.{PartitionDefinition, RestService}
-
-import org.apache.spark.rdd.RDD
 import org.apache.spark.{Partition, SparkContext}
+import org.apache.spark.rdd.RDD
 
-private[spark] abstract class AbstractDorisRDD[T: ClassTag](
+abstract private[spark] class AbstractDorisRDD[T: ClassTag](
     @transient private var sc: SparkContext,
     val params: Map[String, String] = Map.empty)
-    extends RDD[T](sc, Nil) {
+  extends RDD[T](sc, Nil) {
 
   override def getPartitions: Array[Partition] = {
     dorisPartitions.zipWithIndex.map { case (dorisPartition, idx) =>
@@ -60,7 +59,7 @@ private[spark] abstract class AbstractDorisRDD[T: ClassTag](
 }
 
 private[spark] class DorisPartition(rddId: Int, idx: Int, val dorisPartition: PartitionDefinition)
-    extends Partition {
+  extends Partition {
 
   override def hashCode(): Int = 31 * (31 * (31 + rddId) + idx) + dorisPartition.hashCode()
 

@@ -22,85 +22,88 @@ import java.util.List;
 import java.util.Objects;
 
 public class Schema {
-    private int status = 0;
-    private String keysType;
-    private List<Field> properties;
+  private int status = 0;
+  private String keysType;
+  private List<Field> properties;
 
-    public Schema() {
-        properties = new ArrayList<>();
-    }
+  public Schema() {
+    properties = new ArrayList<>();
+  }
 
-    public Schema(int fieldCount) {
-        properties = new ArrayList<>(fieldCount);
-    }
+  public Schema(int fieldCount) {
+    properties = new ArrayList<>(fieldCount);
+  }
 
-    public int getStatus() {
-        return status;
-    }
+  public int getStatus() {
+    return status;
+  }
 
-    public void setStatus(int status) {
-        this.status = status;
-    }
+  public void setStatus(int status) {
+    this.status = status;
+  }
 
-    public String getKeysType() {
-        return keysType;
-    }
+  public String getKeysType() {
+    return keysType;
+  }
 
-    public void setKeysType(String keysType) {
-        this.keysType = keysType;
-    }
+  public void setKeysType(String keysType) {
+    this.keysType = keysType;
+  }
 
-    public List<Field> getProperties() {
-        return properties;
-    }
+  public List<Field> getProperties() {
+    return properties;
+  }
 
-    public void setProperties(List<Field> properties) {
-        this.properties = properties;
-    }
+  public void setProperties(List<Field> properties) {
+    this.properties = properties;
+  }
 
-    public void put(String name, String type, String comment, int scale, int precision, String aggregation_type) {
-        properties.add(new Field(name, type, comment, scale, precision, aggregation_type));
-    }
+  public void put(
+      String name, String type, String comment, int scale, int precision, String aggregation_type) {
+    properties.add(new Field(name, type, comment, scale, precision, aggregation_type));
+  }
 
-    public void put(Field f) {
-        properties.add(f);
-    }
+  public void put(Field f) {
+    properties.add(f);
+  }
 
-    public Field get(int index) {
-        if (index >= properties.size()) {
-            throw new IndexOutOfBoundsException("Index: " + index + ", Fields size：" + properties.size());
-        }
-        return properties.get(index);
+  public Field get(int index) {
+    if (index >= properties.size()) {
+      throw new IndexOutOfBoundsException("Index: " + index + ", Fields size：" + properties.size());
     }
+    return properties.get(index);
+  }
 
-    public int size() {
-        return properties.size();
-    }
+  public int size() {
+    return properties.size();
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Schema schema = (Schema) o;
-        return status == schema.status &&
-                Objects.equals(properties, schema.properties);
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
     }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    Schema schema = (Schema) o;
+    return status == schema.status && Objects.equals(properties, schema.properties);
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(status, properties);
-    }
+  @Override
+  public int hashCode() {
+    return Objects.hash(status, properties);
+  }
 
-    @Override
-    public String toString() {
-        return "Schema{" +
-                "status=" + status +
-                ", keysType='" + keysType +
-                ", properties=" + properties +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "Schema{"
+        + "status="
+        + status
+        + ", keysType='"
+        + keysType
+        + ", properties="
+        + properties
+        + '}';
+  }
 }

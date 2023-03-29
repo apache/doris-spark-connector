@@ -15,58 +15,58 @@
 // specific language governing permissions and limitations
 // under the License.
 package org.apache.doris.spark.rest.models;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 
-/**
- * Be response model
- **/
+/** Be response model */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BackendV2 {
 
-    @JsonProperty(value = "backends")
-    private List<BackendRowV2> backends;
+  @JsonProperty(value = "backends")
+  private List<BackendRowV2> backends;
 
-    public List<BackendRowV2> getBackends() {
-        return backends;
+  public List<BackendRowV2> getBackends() {
+    return backends;
+  }
+
+  public void setRows(List<BackendRowV2> rows) {
+    this.backends = rows;
+  }
+
+  public static class BackendRowV2 {
+    @JsonProperty("ip")
+    public String ip;
+
+    @JsonProperty("http_port")
+    public int httpPort;
+
+    @JsonProperty("is_alive")
+    public boolean isAlive;
+
+    public String getIp() {
+      return ip;
     }
 
-    public void setRows(List<BackendRowV2> rows) {
-        this.backends = rows;
+    public void setIp(String ip) {
+      this.ip = ip;
     }
 
-    public static class BackendRowV2 {
-        @JsonProperty("ip")
-        public String ip;
-        @JsonProperty("http_port")
-        public int httpPort;
-        @JsonProperty("is_alive")
-        public boolean isAlive;
-
-        public String getIp() {
-            return ip;
-        }
-
-        public void setIp(String ip) {
-            this.ip = ip;
-        }
-
-        public int getHttpPort() {
-            return httpPort;
-        }
-
-        public void setHttpPort(int httpPort) {
-            this.httpPort = httpPort;
-        }
-
-        public boolean isAlive() {
-            return isAlive;
-        }
-
-        public void setAlive(boolean alive) {
-            isAlive = alive;
-        }
+    public int getHttpPort() {
+      return httpPort;
     }
+
+    public void setHttpPort(int httpPort) {
+      this.httpPort = httpPort;
+    }
+
+    public boolean isAlive() {
+      return isAlive;
+    }
+
+    public void setAlive(boolean alive) {
+      isAlive = alive;
+    }
+  }
 }

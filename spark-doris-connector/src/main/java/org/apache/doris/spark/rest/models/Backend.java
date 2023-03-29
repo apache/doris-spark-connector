@@ -15,26 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 package org.apache.doris.spark.rest.models;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 
-/**
- * Be response model
- **/
+/** Be response model */
 @Deprecated
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Backend {
 
-    @JsonProperty(value = "rows")
-    private List<BackendRow> rows;
+  @JsonProperty(value = "rows")
+  private List<BackendRow> rows;
 
-    public List<BackendRow> getRows() {
-        return rows;
-    }
+  public List<BackendRow> getRows() {
+    return rows;
+  }
 
-    public void setRows(List<BackendRow> rows) {
-        this.rows = rows;
-    }
+  public void setRows(List<BackendRow> rows) {
+    this.rows = rows;
+  }
 }

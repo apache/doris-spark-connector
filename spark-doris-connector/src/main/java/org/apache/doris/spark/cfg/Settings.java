@@ -20,7 +20,6 @@ package org.apache.doris.spark.cfg;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Properties;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.exception.IllegalArgumentException;
 import org.apache.doris.spark.util.ErrorMessages;
@@ -29,90 +28,90 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class Settings {
-    private final static Logger logger = LoggerFactory.getLogger(Settings.class);
+  private static final Logger logger = LoggerFactory.getLogger(Settings.class);
 
-    public abstract String getProperty(String name);
+  public abstract String getProperty(String name);
 
-    public abstract void setProperty(String name, String value);
+  public abstract void setProperty(String name, String value);
 
-    public abstract Properties asProperties();
+  public abstract Properties asProperties();
 
-    public abstract Settings copy();
+  public abstract Settings copy();
 
-    public String getProperty(String name, String defaultValue) {
-        String value = getProperty(name);
-        if (StringUtils.isEmpty(value)) {
-            return defaultValue;
-        }
-        return value;
+  public String getProperty(String name, String defaultValue) {
+    String value = getProperty(name);
+    if (StringUtils.isEmpty(value)) {
+      return defaultValue;
+    }
+    return value;
+  }
+
+  public Integer getIntegerProperty(String name) {
+    return getIntegerProperty(name, null);
+  }
+
+  public Integer getIntegerProperty(String name, Integer defaultValue) {
+    try {
+      if (getProperty(name) != null) {
+        return Integer.parseInt(getProperty(name));
+      }
+    } catch (NumberFormatException e) {
+      logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, name, getProperty(name));
+    }
+    return defaultValue;
+  }
+
+  public Settings merge(Properties properties) {
+    if (properties == null || properties.isEmpty()) {
+      return this;
     }
 
-    public Integer getIntegerProperty(String name) {
-        return getIntegerProperty(name, null);
+    Enumeration<?> propertyNames = properties.propertyNames();
+
+    for (; propertyNames.hasMoreElements(); ) {
+      Object prop = propertyNames.nextElement();
+      if (prop instanceof String) {
+        Object value = properties.get(prop);
+        setProperty((String) prop, value.toString());
+      }
     }
 
-    public Integer getIntegerProperty(String name, Integer defaultValue) {
-        try {
-            if (getProperty(name) != null) {
-                 return Integer.parseInt(getProperty(name));
-            }
-        } catch (NumberFormatException e) {
-            logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, name, getProperty(name));
-        }
-        return defaultValue;
+    return this;
+  }
+
+  public Settings merge(Map<String, String> map) {
+    if (map == null || map.isEmpty()) {
+      return this;
     }
 
-    public Settings merge(Properties properties) {
-        if (properties == null || properties.isEmpty()) {
-            return this;
-        }
-
-        Enumeration<?> propertyNames = properties.propertyNames();
-
-        for (; propertyNames.hasMoreElements();) {
-            Object prop = propertyNames.nextElement();
-            if (prop instanceof String) {
-                Object value = properties.get(prop);
-                setProperty((String) prop, value.toString());
-            }
-        }
-
-        return this;
+    for (Map.Entry<String, String> entry : map.entrySet()) {
+      setProperty(entry.getKey(), entry.getValue());
     }
 
-    public Settings merge(Map<String, String> map) {
-        if (map == null || map.isEmpty()) {
-            return this;
-        }
+    return this;
+  }
 
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            setProperty(entry.getKey(), entry.getValue());
-        }
+  public Settings load(String source) throws IllegalArgumentException {
+    Properties copy = IOUtils.propsFromString(source);
+    merge(copy);
+    return this;
+  }
 
-        return this;
+  public String save() throws IllegalArgumentException {
+    Properties copy = asProperties();
+    return IOUtils.propsToString(copy);
+  }
+
+  @Override
+  public int hashCode() {
+    return asProperties().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == null) {
+      return false;
     }
-
-    public Settings load(String source) throws IllegalArgumentException {
-        Properties copy = IOUtils.propsFromString(source);
-        merge(copy);
-        return this;
-    }
-
-    public String save() throws IllegalArgumentException {
-        Properties copy = asProperties();
-        return IOUtils.propsToString(copy);
-    }
-
-    @Override
-    public int hashCode() {
-        return asProperties().hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == null) {
-            return false;
-        }
-        return asProperties().equals(((Settings) obj).asProperties());
-    }
+    return asProperties().equals(((Settings) obj).asProperties());
+  }
 }

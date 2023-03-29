@@ -21,15 +21,14 @@ import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_VALUE_READER_CLASS
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.rdd.{AbstractDorisRDD, AbstractDorisRDDIterator, DorisPartition}
 import org.apache.doris.spark.rest.PartitionDefinition
-
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 
 private[spark] class ScalaDorisRowRDD(
-  sc: SparkContext,
-  params: Map[String, String] = Map.empty,
-  struct: StructType)
+    sc: SparkContext,
+    params: Map[String, String] = Map.empty,
+    struct: StructType)
   extends AbstractDorisRDD[Row](sc, params) {
 
   override def compute(split: Partition, context: TaskContext): ScalaDorisRowRDDIterator = {
@@ -38,9 +37,9 @@ private[spark] class ScalaDorisRowRDD(
 }
 
 private[spark] class ScalaDorisRowRDDIterator(
-  context: TaskContext,
-  partition: PartitionDefinition,
-  struct: StructType)
+    context: TaskContext,
+    partition: PartitionDefinition,
+    struct: StructType)
   extends AbstractDorisRDDIterator[Row](context, partition) {
 
   override def initReader(settings: Settings) = {

@@ -17,6 +17,8 @@
 
 package org.apache.doris.spark.sql
 
+import java.sql.{Date, Timestamp}
+
 import org.apache.commons.lang3.StringUtils
 import org.apache.doris.spark.cfg.ConfigurationOptions
 import org.apache.doris.spark.exception.DorisException
@@ -24,9 +26,8 @@ import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.sql.sources._
 import org.slf4j.Logger
 
-import java.sql.{Date, Timestamp}
-
 private[sql] object Utils {
+
   /**
    * quote column name
    * @param colName column name
@@ -41,7 +42,10 @@ private[sql] object Utils {
    * @param inValueLengthLimit max length of in value array
    * @return if Doris FE can handle this filter, return None if Doris FE can not handled it.
    */
-  def compileFilter(filter: Filter, dialect: JdbcDialect, inValueLengthLimit: Int): Option[String] = {
+  def compileFilter(
+      filter: Filter,
+      dialect: JdbcDialect,
+      inValueLengthLimit: Int): Option[String] = {
     Option(filter match {
       case EqualTo(attribute, value) => s"${quote(attribute)} = ${compileValue(value)}"
       case GreaterThan(attribute, value) => s"${quote(attribute)} > ${compileValue(value)}"
@@ -104,9 +108,9 @@ private[sql] object Utils {
   def params(parameters: Map[String, String], logger: Logger) = {
     // '.' seems to be problematic when specifying the options
     val dottedParams = parameters.map { case (k, v) =>
-      if (k.startsWith("sink.properties.") || k.startsWith("doris.sink.properties.")){
-        (k,v)
-      }else {
+      if (k.startsWith("sink.properties.") || k.startsWith("doris.sink.properties.")) {
+        (k, v)
+      } else {
         (k.replace('_', '.'), v)
       }
     }
@@ -121,22 +125,27 @@ private[sql] object Utils {
     val processedParams = dottedParams.map {
       case (ConfigurationOptions.DORIS_PASSWORD, _) =>
         logger.error(s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource.")
-        throw new DorisException(s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource," +
-          s" use 'password' option to set password.")
+        throw new DorisException(
+          s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource," +
+            s" use 'password' option to set password.")
       case (ConfigurationOptions.DORIS_USER, _) =>
         logger.error(s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource.")
-        throw new DorisException(s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource," +
-          s" use 'user' option to set user.")
+        throw new DorisException(
+          s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource," +
+            s" use 'user' option to set user.")
       case (k, v) =>
         if (k.startsWith("doris.")) (k, v)
         else ("doris." + k, v)
-    }.map{
+    }.map {
       case (ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD, _) =>
-        logger.error(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource.")
-        throw new DorisException(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in" +
-          s" Doris Datasource, use 'password' option to set password.")
+        logger.error(
+          s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource.")
+        throw new DorisException(
+          s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in" +
+            s" Doris Datasource, use 'password' option to set password.")
       case (ConfigurationOptions.DORIS_REQUEST_AUTH_USER, _) =>
-        logger.error(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource.")
+        logger.error(
+          s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource.")
         throw new DorisException(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in" +
           s" Doris Datasource, use 'user' option to set user.")
       case (ConfigurationOptions.DORIS_PASSWORD, v) =>
@@ -148,13 +157,15 @@ private[sql] object Utils {
 
     // Set the preferred resource if it was specified originally
     val finalParams = preferredTableIdentifier match {
-      case Some(tableIdentifier) => processedParams + (ConfigurationOptions.DORIS_TABLE_IDENTIFIER -> tableIdentifier)
+      case Some(tableIdentifier) =>
+        processedParams + (ConfigurationOptions.DORIS_TABLE_IDENTIFIER -> tableIdentifier)
       case None => processedParams
     }
 
     // validate path is available
-    finalParams.getOrElse(ConfigurationOptions.DORIS_TABLE_IDENTIFIER,
-        throw new DorisException("table identifier must be specified for doris table identifier."))
+    finalParams.getOrElse(
+      ConfigurationOptions.DORIS_TABLE_IDENTIFIER,
+      throw new DorisException("table identifier must be specified for doris table identifier."))
 
     finalParams
   }

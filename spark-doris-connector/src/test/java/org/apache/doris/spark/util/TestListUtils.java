@@ -17,26 +17,25 @@
 
 package org.apache.doris.spark.util;
 
-import org.junit.Assert;
-import org.junit.Test;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class TestListUtils {
 
-    @Test
-    public void testGetSerializedList() throws Exception {
-        int size = 15000;
-        List<Map<Object, Object>> batch = new ArrayList<>();
-        for (int i = 0; i < size; i++) {
-            Map<Object, Object> entity = new HashMap<>();
-            batch.add(entity);
-        }
-        Assert.assertEquals(ListUtils.getSerializedList(batch).size(), 1);
-
-        Assert.assertEquals(ListUtils.getSerializedList(new ArrayList<>()).size(), 1);
-
+  @Test
+  public void testGetSerializedList() throws Exception {
+    int size = 15000;
+    List<Map<Object, Object>> batch = new ArrayList<>();
+    for (int i = 0; i < size; i++) {
+      Map<Object, Object> entity = new HashMap<>();
+      batch.add(entity);
     }
+    Assert.assertEquals(ListUtils.getSerializedList(batch).size(), 1);
+
+    Assert.assertEquals(ListUtils.getSerializedList(new ArrayList<>()).size(), 1);
+  }
 }

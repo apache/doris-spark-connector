@@ -39,8 +39,7 @@ class TestConnectorWriteDoris {
     val df = spark.createDataFrame(Seq(
       ("1", 100, "待付款"),
       ("2", 200, "待发货"),
-      ("3", 300, "已收货")
-    )).toDF("order_id", "order_amount", "order_status")
+      ("3", 300, "已收货"))).toDF("order_id", "order_amount", "order_status")
     df.write
       .format("doris")
       .option("doris.fenodes", dorisFeNodes)
@@ -52,7 +51,6 @@ class TestConnectorWriteDoris {
       .save()
     spark.stop()
   }
-
 
   @Test
   def csvDataWriteTest(): Unit = {
@@ -66,15 +64,15 @@ class TestConnectorWriteDoris {
     df.createTempView("tmp_tb")
     val doris = spark.sql(
       s"""
-        |CREATE TEMPORARY VIEW test_lh
-        |USING doris
-        |OPTIONS(
-        | "table.identifier"="test.test_lh",
-        | "fenodes"="${dorisFeNodes}",
-        | "user"="${dorisUser}",
-        | "password"="${dorisPwd}"
-        |);
-        |""".stripMargin)
+         |CREATE TEMPORARY VIEW test_lh
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="test.test_lh",
+         | "fenodes"="${dorisFeNodes}",
+         | "user"="${dorisUser}",
+         | "password"="${dorisPwd}"
+         |);
+         |""".stripMargin)
     spark.sql(
       """
         |insert into test_lh select  name,gender,age from tmp_tb ;

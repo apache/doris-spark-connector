@@ -18,24 +18,38 @@ package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.exception.DorisException
 
-class DorisWriterOption(val feHostPort: String ,val dbName: String,val tbName: String,
-                        val  user: String ,val password: String,
-                        val maxRowCount: Long,val maxRetryTimes:Int)
+class DorisWriterOption(
+    val feHostPort: String,
+    val dbName: String,
+    val tbName: String,
+    val user: String,
+    val password: String,
+    val maxRowCount: Long,
+    val maxRetryTimes: Int)
 
-object DorisWriterOption{
- def apply(parameters: Map[String, String]): DorisWriterOption={
-  val feHostPort: String = parameters.getOrElse(DorisWriterOptionKeys.feHostPort, throw new DorisException("feHostPort is empty"))
+object DorisWriterOption {
+  def apply(parameters: Map[String, String]): DorisWriterOption = {
+    val feHostPort: String = parameters.getOrElse(
+      DorisWriterOptionKeys.feHostPort,
+      throw new DorisException("feHostPort is empty"))
 
-  val dbName: String = parameters.getOrElse(DorisWriterOptionKeys.dbName, throw new DorisException("dbName is empty"))
+    val dbName: String = parameters.getOrElse(
+      DorisWriterOptionKeys.dbName,
+      throw new DorisException("dbName is empty"))
 
-  val tbName: String = parameters.getOrElse(DorisWriterOptionKeys.tbName, throw new DorisException("tbName is empty"))
+    val tbName: String = parameters.getOrElse(
+      DorisWriterOptionKeys.tbName,
+      throw new DorisException("tbName is empty"))
 
-  val user: String = parameters.getOrElse(DorisWriterOptionKeys.user, throw new DorisException("user is empty"))
+    val user: String =
+      parameters.getOrElse(DorisWriterOptionKeys.user, throw new DorisException("user is empty"))
 
-  val password: String = parameters.getOrElse(DorisWriterOptionKeys.password, throw new DorisException("password is empty"))
+    val password: String = parameters.getOrElse(
+      DorisWriterOptionKeys.password,
+      throw new DorisException("password is empty"))
 
-  val maxRowCount: Long = parameters.getOrElse(DorisWriterOptionKeys.maxRowCount, "1024").toLong
-  val maxRetryTimes: Int = parameters.getOrElse(DorisWriterOptionKeys.maxRetryTimes, "3").toInt
-  new DorisWriterOption(feHostPort, dbName, tbName, user, password, maxRowCount, maxRetryTimes)
- }
+    val maxRowCount: Long = parameters.getOrElse(DorisWriterOptionKeys.maxRowCount, "1024").toLong
+    val maxRetryTimes: Int = parameters.getOrElse(DorisWriterOptionKeys.maxRetryTimes, "3").toInt
+    new DorisWriterOption(feHostPort, dbName, tbName, user, password, maxRowCount, maxRetryTimes)
+  }
 }

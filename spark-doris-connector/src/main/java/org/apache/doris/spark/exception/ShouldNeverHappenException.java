@@ -17,4 +17,4 @@
 
 package org.apache.doris.spark.exception;
 
-public class ShouldNeverHappenException extends DorisException { }
+public class ShouldNeverHappenException extends DorisException {}

@@ -23,48 +23,43 @@ import org.apache.doris.spark.exception.IllegalArgumentException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * present an Doris BE address.
- */
+/** present an Doris BE address. */
 public class Routing {
-    private final static Logger logger = LoggerFactory.getLogger(Routing.class);
+  private static final Logger logger = LoggerFactory.getLogger(Routing.class);
 
-    private String host;
-    private int port;
+  private String host;
+  private int port;
 
-    public Routing(String routing) throws IllegalArgumentException {
-        parseRouting(routing);
+  public Routing(String routing) throws IllegalArgumentException {
+    parseRouting(routing);
+  }
+
+  private void parseRouting(String routing) throws IllegalArgumentException {
+    logger.debug("Parse Doris BE address: '{}'.", routing);
+    String[] hostPort = routing.split(":");
+    if (hostPort.length != 2) {
+      logger.error("Format of Doris BE address '{}' is illegal.", routing);
+      throw new IllegalArgumentException("Doris BE", routing);
     }
-
-    private void parseRouting(String routing) throws IllegalArgumentException {
-        logger.debug("Parse Doris BE address: '{}'.", routing);
-        String[] hostPort = routing.split(":");
-        if (hostPort.length != 2) {
-            logger.error("Format of Doris BE address '{}' is illegal.", routing);
-            throw new IllegalArgumentException("Doris BE", routing);
-        }
-        this.host = hostPort[0];
-        try {
-            this.port = Integer.parseInt(hostPort[1]);
-        } catch (NumberFormatException e) {
-            logger.error(PARSE_NUMBER_FAILED_MESSAGE, "Doris BE's port", hostPort[1]);
-            throw new IllegalArgumentException("Doris BE", routing);
-        }
+    this.host = hostPort[0];
+    try {
+      this.port = Integer.parseInt(hostPort[1]);
+    } catch (NumberFormatException e) {
+      logger.error(PARSE_NUMBER_FAILED_MESSAGE, "Doris BE's port", hostPort[1]);
+      throw new IllegalArgumentException("Doris BE", routing);
     }
+  }
 
-    public String getHost() {
-        return host;
-    }
+  public String getHost() {
+    return host;
+  }
 
-    public int getPort() {
-        return port;
-    }
+  public int getPort() {
+    return port;
+  }
 
-    @Override
-    public String toString() {
-        return "Doris BE{" +
-                "host='" + host + '\'' +
-                ", port=" + port +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "Doris BE{" + "host='" + host + '\'' + ", port=" + port + '}';
+  }
 }

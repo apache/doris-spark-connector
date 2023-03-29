@@ -17,13 +17,17 @@
 
 package org.apache.doris.spark.exception;
 
+import java.util.List;
 import org.apache.doris.thrift.TStatusCode;
 
-import java.util.List;
-
 public class DorisInternalException extends DorisException {
-    public DorisInternalException(String server, TStatusCode statusCode, List<String> errorMsgs) {
-        super("Doris server " + server + " internal failed, status code [" + statusCode + "] error message is " + errorMsgs);
-    }
-
+  public DorisInternalException(String server, TStatusCode statusCode, List<String> errorMsgs) {
+    super(
+        "Doris server "
+            + server
+            + " internal failed, status code ["
+            + statusCode
+            + "] error message is "
+            + errorMsgs);
+  }
 }

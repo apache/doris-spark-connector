@@ -18,6 +18,7 @@
 package org.apache.doris.spark.sql
 
 import scala.collection.JavaConverters._
+
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.ShouldNeverHappenException
@@ -27,8 +28,8 @@ import org.apache.doris.spark.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE
 import org.slf4j.{Logger, LoggerFactory}
 
 class ScalaDorisRowValueReader(
-  partition: PartitionDefinition,
-  settings: Settings)
+    partition: PartitionDefinition,
+    settings: Settings)
   extends ScalaValueReader(partition, settings) {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[ScalaDorisRowValueReader].getName)
@@ -41,7 +42,7 @@ class ScalaDorisRowValueReader(
       throw new ShouldNeverHappenException
     }
     val row: ScalaDorisRow = new ScalaDorisRow(rowOrder)
-    rowBatch.next.asScala.zipWithIndex.foreach{
+    rowBatch.next.asScala.zipWithIndex.foreach {
       case (s, index) if index < row.values.size => row.values.update(index, s)
       case _ => // nothing
     }
