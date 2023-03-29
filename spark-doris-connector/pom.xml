@@ -71,6 +71,9 @@
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.77.Final</netty.version>
         <fasterxml.jackson.version>2.13.3</fasterxml.jackson.version>
+        <maven.plugin.spotless.version>2.30.0</maven.plugin.spotless.version>
+        <spotless.java.googlejavaformat.version>1.7</spotless.java.googlejavaformat.version>
+        <spotless.scala.scalafmt.version>3.7.1</spotless.scala.scalafmt.version>
     </properties>
 
     <dependencies>
@@ -379,6 +382,45 @@
                         <phase>compile</phase>
                         <goals>
                             <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${maven.plugin.spotless.version}</version>
+                <configuration>
+                    <upToDateChecking>
+                        <enabled>true</enabled>
+                    </upToDateChecking>
+                    <java>
+                        <includes>
+                            <include>src/main/java/**/*.java</include>
+                            <include>src/test/java/**/*.java</include>
+                        </includes>
+                        <googleJavaFormat>
+                            <version>${spotless.java.googlejavaformat.version}</version>
+                            <style>GOOGLE</style>
+                        </googleJavaFormat>
+                        <removeUnusedImports></removeUnusedImports>
+                    </java>
+                    <scala>
+                        <includes>
+                            <include>src/main/scala/**/*.scala</include>
+                            <include>src/test/scala/**/*.scala</include>
+                        </includes>
+                        <scalafmt>
+                            <version>${spotless.scala.scalafmt.version}</version>
+                            <scalaMajorVersion>${scala.version}</scalaMajorVersion>
+                            <file>${maven.multiModuleProjectDirectory}/.scalafmt.conf</file>
+                        </scalafmt>
+                    </scala>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
                         </goals>
                     </execution>
                 </executions>
