@@ -27,12 +27,13 @@ import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 import org.slf4j.{Logger, LoggerFactory}
+
 import java.io.IOException
+import java.time.Duration
 import java.util
-import org.apache.doris.spark.rest.RestService
 import java.util.Objects
 import scala.collection.JavaConverters.mapAsJavaMapConverter
-import scala.util.control.Breaks
+import scala.util.{Failure, Success}
 
 private[sql] class DorisSourceProvider extends DataSourceRegister
   with RelationProvider
@@ -85,50 +86,29 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
-        if (rowsBuffer.size > maxRowCount - 1 ) {
-          flush
+        if (rowsBuffer.size > maxRowCount - 1) {
+          flush()
         }
       })
       // flush buffer
       if (!rowsBuffer.isEmpty) {
-        flush
+        flush()
       }
 
       /**
        * flush data to Doris and do retry when flush error
        *
        */
-      def flush = {
-        val loop = new Breaks
-        var err: Exception = null
-        loop.breakable {
-
-          for (i <- 1 to maxRetryTimes) {
-            try {
-              dorisStreamLoader.loadV2(rowsBuffer)
-              rowsBuffer.clear()
-              Thread.sleep(batchInterValMs.longValue())
-              loop.break()
-            }
-            catch {
-              case e: Exception =>
-                try {
-                  logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
-                  if (err == null) err = e
-                  Thread.sleep(1000 * i)
-                } catch {
-                  case ex: InterruptedException =>
-                    Thread.currentThread.interrupt()
-                    throw new IOException("unable to flush; interrupted while doing another attempt", e)
-                }
-            }
-          }
-
-          if (!rowsBuffer.isEmpty) {
-            throw new IOException(s"Failed to load ${maxRowCount} batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
-          }
+      def flush(): Unit = {
+        Utils.retry[Unit, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+          dorisStreamLoader.loadV2(rowsBuffer)
+          rowsBuffer.clear()
+        } match {
+          case Success(_) =>
+          case Failure(e) =>
+            throw new IOException(
+              s"Failed to load $maxRowCount batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
         }
-
       }
 
     })

@@ -17,12 +17,6 @@
 
 package org.apache.doris.spark.rdd
 
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent._
-import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
-
-import scala.collection.JavaConversions._
-import scala.util.Try
 import org.apache.doris.spark.backend.BackendClient
 import org.apache.doris.spark.cfg.ConfigurationOptions._
 import org.apache.doris.spark.cfg.Settings
@@ -36,12 +30,18 @@ import org.apache.doris.spark.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE
 import org.apache.doris.thrift.{TScanCloseParams, TScanNextBatchParams, TScanOpenParams, TScanOpenResult}
 import org.apache.log4j.Logger
 
+import java.util.concurrent._
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
+import scala.collection.JavaConversions._
+import scala.util.Try
 import scala.util.control.Breaks
 
 /**
  * read data from Doris BE to array.
+ *
  * @param partition Doris RDD partition
- * @param settings request configuration
+ * @param settings  request configuration
  */
 class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
   private val logger = Logger.getLogger(classOf[ScalaValueReader])
@@ -89,8 +89,8 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
     val batchSize = Try {
       settings.getProperty(DORIS_BATCH_SIZE, DORIS_BATCH_SIZE_DEFAULT.toString).toInt
     } getOrElse {
-        logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_BATCH_SIZE, settings.getProperty(DORIS_BATCH_SIZE))
-        DORIS_BATCH_SIZE_DEFAULT
+      logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_BATCH_SIZE, settings.getProperty(DORIS_BATCH_SIZE))
+      DORIS_BATCH_SIZE_DEFAULT
     }
 
     val queryDorisTimeout = Try {
@@ -114,15 +114,15 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
     params.setPasswd(settings.getProperty(DORIS_REQUEST_AUTH_PASSWORD, ""))
 
     logger.debug(s"Open scan params is, " +
-        s"cluster: ${params.getCluster}, " +
-        s"database: ${params.getDatabase}, " +
-        s"table: ${params.getTable}, " +
-        s"tabletId: ${params.getTabletIds}, " +
-        s"batch size: $batchSize, " +
-        s"query timeout: $queryDorisTimeout, " +
-        s"execution memory limit: $execMemLimit, " +
-        s"user: ${params.getUser}, " +
-        s"query plan: ${params.getOpaquedQueryPlan}")
+      s"cluster: ${params.getCluster}, " +
+      s"database: ${params.getDatabase}, " +
+      s"table: ${params.getTable}, " +
+      s"tabletId: ${params.getTabletIds}, " +
+      s"batch size: $batchSize, " +
+      s"query timeout: $queryDorisTimeout, " +
+      s"execution memory limit: $execMemLimit, " +
+      s"user: ${params.getUser}, " +
+      s"query plan: ${params.getOpaquedQueryPlan}")
 
     params
   }
@@ -163,6 +163,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
 
   /**
    * read data and cached in rowBatch.
+   *
    * @return true if hax next value
    */
   def hasNext: Boolean = {
@@ -209,6 +210,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
 
   /**
    * get next value.
+   *
    * @return next value
    */
   def next: AnyRef = {
