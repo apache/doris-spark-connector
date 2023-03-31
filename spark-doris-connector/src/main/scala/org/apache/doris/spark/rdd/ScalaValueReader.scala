@@ -41,7 +41,7 @@ import scala.util.control.Breaks
  * read data from Doris BE to array.
  *
  * @param partition Doris RDD partition
- * @param settings  request configuration
+ * @param settings request configuration
  */
 class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
   private val logger = Logger.getLogger(classOf[ScalaValueReader])
@@ -89,8 +89,8 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
     val batchSize = Try {
       settings.getProperty(DORIS_BATCH_SIZE, DORIS_BATCH_SIZE_DEFAULT.toString).toInt
     } getOrElse {
-      logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_BATCH_SIZE, settings.getProperty(DORIS_BATCH_SIZE))
-      DORIS_BATCH_SIZE_DEFAULT
+        logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_BATCH_SIZE, settings.getProperty(DORIS_BATCH_SIZE))
+        DORIS_BATCH_SIZE_DEFAULT
     }
 
     val queryDorisTimeout = Try {
@@ -114,15 +114,15 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
     params.setPasswd(settings.getProperty(DORIS_REQUEST_AUTH_PASSWORD, ""))
 
     logger.debug(s"Open scan params is, " +
-      s"cluster: ${params.getCluster}, " +
-      s"database: ${params.getDatabase}, " +
-      s"table: ${params.getTable}, " +
-      s"tabletId: ${params.getTabletIds}, " +
-      s"batch size: $batchSize, " +
-      s"query timeout: $queryDorisTimeout, " +
-      s"execution memory limit: $execMemLimit, " +
-      s"user: ${params.getUser}, " +
-      s"query plan: ${params.getOpaquedQueryPlan}")
+        s"cluster: ${params.getCluster}, " +
+        s"database: ${params.getDatabase}, " +
+        s"table: ${params.getTable}, " +
+        s"tabletId: ${params.getTabletIds}, " +
+        s"batch size: $batchSize, " +
+        s"query timeout: $queryDorisTimeout, " +
+        s"execution memory limit: $execMemLimit, " +
+        s"user: ${params.getUser}, " +
+        s"query plan: ${params.getOpaquedQueryPlan}")
 
     params
   }
