@@ -16,7 +16,6 @@
 // under the License.
 package org.apache.doris.spark;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -25,13 +24,13 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
-import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.StreamLoadException;
+import org.apache.doris.spark.format.DataFormat;
+import org.apache.doris.spark.format.DataFormatFactory;
+import org.apache.doris.spark.format.FormatEnum;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
-import org.apache.doris.spark.util.ListUtils;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -50,16 +49,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 
 /**
  * DorisStreamLoad
  **/
 public class DorisStreamLoad implements Serializable {
-    private String FIELD_DELIMITER;
-    private String LINE_DELIMITER;
-    private String NULL_VALUE = "\\N";
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
 
@@ -72,23 +67,14 @@ public class DorisStreamLoad implements Serializable {
     private String tbl;
     private String authEncoded;
     private String columns;
-    private String[] dfColumns;
     private String maxFilterRatio;
     private Map<String, String> streamLoadProp;
     private static final long cacheExpireTimeout = 4 * 60;
     private LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
-    private String fileType;
+    private DataFormat dataFormat;
 
-    public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
-        this.db = db;
-        this.tbl = tbl;
-        this.user = user;
-        this.passwd = passwd;
-        this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
-        this.authEncoded = getAuthEncoded(user, passwd);
-    }
 
-    public DorisStreamLoad(SparkSettings settings) throws IOException, DorisException {
+    public DorisStreamLoad(SparkSettings settings) throws StreamLoadException {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
         this.tbl = dbTable[1];
@@ -102,14 +88,11 @@ public class DorisStreamLoad implements Serializable {
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
-        fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
-        if (fileType.equals("csv")){
-            FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
-            LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
-        }
+        String formatType = this.streamLoadProp.getOrDefault("format",FormatEnum.csv.name());
+        dataFormat = DataFormatFactory.getDataFormat(formatType,null,this.streamLoadProp);
     }
 
-    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
+    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws StreamLoadException {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
         this.tbl = dbTable[1];
@@ -119,18 +102,14 @@ public class DorisStreamLoad implements Serializable {
 
         this.authEncoded = getAuthEncoded(user, passwd);
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
-        this.dfColumns = dfColumns;
 
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
         this.streamLoadProp = getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
-        fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
-        if ("csv".equals(fileType)) {
-            FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
-            LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
-        }
+        String formatType = this.streamLoadProp.getOrDefault("format", FormatEnum.csv.name());
+        dataFormat = DataFormatFactory.getDataFormat(formatType,dfColumns,this.streamLoadProp);
     }
 
     public String getLoadUrlStr() {
@@ -162,7 +141,7 @@ public class DorisStreamLoad implements Serializable {
                     .filter(entry -> !"read_json_by_line".equals(entry.getKey()))
                     .forEach(entry -> httpPut.setHeader(entry.getKey(), entry.getValue()));
         }
-        if (fileType.equals("json")) {
+        if (dataFormat.getType().equalsIgnoreCase(FormatEnum.json.name())) {
             httpPut.setHeader("strip_outer_array", "true");
         }
         return httpPut;
@@ -187,40 +166,13 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public String listToString(List<List<Object>> rows) {
-        return rows.stream().map(row ->
-                row.stream().map(field ->
-                        (field == null) ? NULL_VALUE : field.toString()
-                ).collect(Collectors.joining(FIELD_DELIMITER))
-        ).collect(Collectors.joining(LINE_DELIMITER));
-    }
 
 
-    public void loadV2(List<List<Object>> rows) throws StreamLoadException, JsonProcessingException {
-        if (fileType.equals("csv")) {
-            load(listToString(rows));
-        } else if(fileType.equals("json")) {
-            List<Map<Object, Object>> dataList = new ArrayList<>();
-            try {
-                for (List<Object> row : rows) {
-                    Map<Object, Object> dataMap = new HashMap<>();
-                    if (dfColumns.length == row.size()) {
-                        for (int i = 0; i < dfColumns.length; i++) {
-                            dataMap.put(dfColumns[i], row.get(i));
-                        }
-                    }
-                    dataList.add(dataMap);
-                }
-            } catch (Exception e) {
-                throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
-            }
-            // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
-            List<String> serializedList = ListUtils.getSerializedList(dataList);
-            for (String serializedRows : serializedList) {
-                load(serializedRows);
-            }
-        } else {
-            throw new StreamLoadException(String.format("Unsupported file format in stream load: %s.", fileType));
+
+    public void loadV2(List<List<Object>> rows) throws Exception {
+        List<String> serializedList = dataFormat.wtriteAsString(rows);
+        for (String serializedRows : serializedList) {
+            load(serializedRows);
         }
     }
 
