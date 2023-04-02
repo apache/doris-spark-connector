@@ -1,9 +1,10 @@
 package org.apache.doris.spark.format;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-public abstract class DataFormat {
+public abstract class DataFormat implements Serializable {
 
     protected String type;
 

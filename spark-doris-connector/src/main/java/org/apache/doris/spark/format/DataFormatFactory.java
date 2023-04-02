@@ -4,9 +4,10 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public class DataFormatFactory {
+public class DataFormatFactory implements Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataFormatFactory.class);
 
