@@ -73,33 +73,12 @@ public class DorisStreamLoad implements Serializable {
     private LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private DataFormat dataFormat;
 
-
-    public DorisStreamLoad(SparkSettings settings) throws StreamLoadException {
-        String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
-        this.db = dbTable[0];
-        this.tbl = dbTable[1];
-        this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
-        this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
-        this.authEncoded = getAuthEncoded(user, passwd);
-        this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
-
-        this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
-        this.streamLoadProp = getStreamLoadProp(settings);
-        cache = CacheBuilder.newBuilder()
-                .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
-                .build(new BackendCacheLoader(settings));
-        String formatType = this.streamLoadProp.getOrDefault("format",FormatEnum.csv.name());
-        dataFormat = DataFormatFactory.getDataFormat(formatType,null,this.streamLoadProp);
-    }
-
     public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws StreamLoadException {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
         this.tbl = dbTable[1];
         this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
-
-
         this.authEncoded = getAuthEncoded(user, passwd);
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
 

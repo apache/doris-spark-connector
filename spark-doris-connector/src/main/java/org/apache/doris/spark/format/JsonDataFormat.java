@@ -19,6 +19,7 @@ public class JsonDataFormat extends DataFormat{
         List<Map<Object, Object>> dataList = new ArrayList<>();
         for (List<Object> row : rows) {
             Map<Object, Object> dataMap = new HashMap<>();
+            // when created from CachedDorisStreamLoadClient, the dfColumns is null
             if (dfColumns!= null && dfColumns.length != row.size()) {
                 throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
             }
