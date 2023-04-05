@@ -122,6 +122,8 @@ public class DorisStreamLoad implements Serializable {
         }
         if (dataFormat.getType().equalsIgnoreCase(FormatEnum.json.name())) {
             httpPut.setHeader("strip_outer_array", "true");
+            //to solve the error : The size of this batch exceed the max size [104857600]  of json type data. Split the file, or use 'read_json_by_line'
+            httpPut.setHeader("read_json_by_line","true");
         }
         return httpPut;
     }
