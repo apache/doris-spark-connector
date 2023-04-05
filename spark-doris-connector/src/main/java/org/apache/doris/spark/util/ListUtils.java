@@ -43,10 +43,11 @@ public class ListUtils {
      * @throws JsonProcessingException
      */
     public static void divideAndSerialize(List<Map<Object, Object>> batch, List<String> result) throws JsonProcessingException {
-        String serializedResult = (new ObjectMapper()).writeValueAsString(batch);
+
         // if an error occurred in the batch call to getBytes ,average divide the batch
         try {
             //the "Requested array size exceeds VM limit" exception occurs when the collection is large
+            String serializedResult = (new ObjectMapper()).writeValueAsString(batch);
             serializedResult.getBytes("UTF-8");
             result.add(serializedResult);
             return;
