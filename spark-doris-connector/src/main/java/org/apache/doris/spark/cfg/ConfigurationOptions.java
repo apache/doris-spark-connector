@@ -85,4 +85,10 @@ public interface ConfigurationOptions {
     String DORIS_SINK_TASK_USE_REPARTITION = "doris.sink.task.use.repartition";
 
     boolean DORIS_SINK_TASK_USE_REPARTITION_DEFAULT = false;
+
+    //设置每个分区仅提交一个StreamLoad任务，以保证任务失败时task重试不会导致对同一批数据重复提交StreamLoad任务。
+    String DORIS_SINK_PER_PARTITION_TASK_ATOMICITY = "doris.sink.per.partition.task.atomicity";
+
+    boolean DORIS_SINK_PER_PARTITION_TASK_ATOMICITY_DEFAULT = false;
+
 }
