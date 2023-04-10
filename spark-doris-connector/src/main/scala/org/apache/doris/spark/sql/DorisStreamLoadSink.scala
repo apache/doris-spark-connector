@@ -71,10 +71,12 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
     def flush(batch: Iterable[util.List[Object]]): Unit = {
       val loop = new Breaks
       var err: Exception = null
+      var loadSuccess: Boolean = false;
       loop.breakable {
         (1 to maxRetryTimes).foreach { i =>
           try {
             dorisStreamLoader.loadV2(batch.toList.asJava)
+            loadSuccess = true
             Thread.sleep(batchInterValMs.longValue())
             loop.break()
           } catch {
@@ -89,6 +91,9 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
                   throw new IOException("unable to flush; interrupted while doing another attempt", ex)
               }
           }
+        }
+        // check load success, if not throw exception
+        if (!loadSuccess) {
           throw new IOException(s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
         }
       }
