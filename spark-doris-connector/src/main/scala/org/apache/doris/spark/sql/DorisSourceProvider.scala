@@ -69,6 +69,8 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
     logger.info(s"maxRowCount ${maxRowCount}")
     logger.info(s"maxRetryTimes ${maxRetryTimes}")
+    logger.info(s"sinkTaskUseRepartition ${sinkTaskUseRepartition}")
+    logger.info(s"sinkTaskPartitionSize ${sinkTaskPartitionSize}")
     logger.info(s"batchInterVarMs ${batchInterValMs}")
 
     var resultRdd = data.rdd

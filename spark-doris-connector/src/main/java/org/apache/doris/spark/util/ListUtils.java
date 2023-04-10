@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,18 +41,18 @@ public class ListUtils {
      * recursively splits large collections to normal collection and serializes the collection
      * @param batch
      * @param result
-     * @throws JsonProcessingException
      */
-    public static void divideAndSerialize(List<Map<Object, Object>> batch, List<String> result) throws JsonProcessingException {
-        String serializedResult = (new ObjectMapper()).writeValueAsString(batch);
+    public static void divideAndSerialize(List<Map<Object, Object>> batch, List<String> result) {
+
         // if an error occurred in the batch call to getBytes ,average divide the batch
         try {
             //the "Requested array size exceeds VM limit" exception occurs when the collection is large
-            serializedResult.getBytes("UTF-8");
+            String serializedResult = ObjectMapperUtils.writeValueAsString(batch);
+            serializedResult.getBytes(StandardCharsets.UTF_8);
             result.add(serializedResult);
             return;
         } catch (Throwable error) {
-            LOG.error("getBytes error:{} ,average divide the collection", error);
+            LOG.error("getBytes error,average divide the collection", error);
         }
         for (List<Map<Object, Object>> avgSubCollection : getAvgSubCollections(batch)) {
             divideAndSerialize(avgSubCollection, result);
