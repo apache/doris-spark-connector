@@ -90,4 +90,15 @@ public interface ConfigurationOptions {
 
     int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
 
+    /**
+     * Format timestamp type data into a string of the specified format
+     */
+    String DORIS_SINK_ENABLE_DATE_FORMAT = "doris.sink.enable-date-format";
+
+    String DORIS_SINK_ENABLE_DATE_FORMAT_DEFAULT = "true";
+
+    String DORIS_SINK_DATE_FORMAT_PATTERN = "doris.sink.date-format-pattern";
+
+    String DORIS_SINK_DATE_FORMAT_PATTERN_DEFAULT = "yyyy-MM-dd HH:mm:ss.SSS";
+
 }

@@ -25,13 +25,11 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
-import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
 import org.apache.doris.spark.util.ListUtils;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -47,6 +45,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +60,7 @@ import java.util.stream.Collectors;
 public class DorisStreamLoad implements Serializable {
     private String FIELD_DELIMITER;
     private String LINE_DELIMITER;
-    private String NULL_VALUE = "\\N";
+    private static final String NULL_VALUE = "\\N";
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
 
@@ -76,19 +77,11 @@ public class DorisStreamLoad implements Serializable {
     private String maxFilterRatio;
     private Map<String, String> streamLoadProp;
     private static final long cacheExpireTimeout = 4 * 60;
-    private LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
-    private String fileType;
+    private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
+    private final String fileType;
+    private SimpleDateFormat dateFormat = null;
 
-    public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
-        this.db = db;
-        this.tbl = tbl;
-        this.user = user;
-        this.passwd = passwd;
-        this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
-        this.authEncoded = getAuthEncoded(user, passwd);
-    }
-
-    public DorisStreamLoad(SparkSettings settings) throws IOException, DorisException {
+    public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
         this.tbl = dbTable[1];
@@ -96,41 +89,28 @@ public class DorisStreamLoad implements Serializable {
         this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
         this.authEncoded = getAuthEncoded(user, passwd);
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
-
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
         this.streamLoadProp = getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
-        fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
-        if (fileType.equals("csv")){
-            FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
-            LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
+        fileType = streamLoadProp.getOrDefault("format", "csv");
+        if ("csv".equals(fileType)){
+            FIELD_DELIMITER = streamLoadProp.getOrDefault("column_separator", "\t");
+            LINE_DELIMITER = streamLoadProp.getOrDefault("line_delimiter", "\n");
+        }
+        boolean enableDateFormat = Boolean.parseBoolean(settings.getProperty(ConfigurationOptions.DORIS_SINK_ENABLE_DATE_FORMAT,
+                ConfigurationOptions.DORIS_SINK_ENABLE_DATE_FORMAT_DEFAULT));
+        String dateFormatPattern = settings.getProperty(ConfigurationOptions.DORIS_SINK_DATE_FORMAT_PATTERN,
+                ConfigurationOptions.DORIS_SINK_DATE_FORMAT_PATTERN_DEFAULT);
+        if (enableDateFormat) {
+            dateFormat = new SimpleDateFormat(dateFormatPattern);
         }
     }
 
-    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
-        String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
-        this.db = dbTable[0];
-        this.tbl = dbTable[1];
-        this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
-        this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
-
-
-        this.authEncoded = getAuthEncoded(user, passwd);
-        this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
+    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) {
+        this(settings);
         this.dfColumns = dfColumns;
-
-        this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
-        this.streamLoadProp = getStreamLoadProp(settings);
-        cache = CacheBuilder.newBuilder()
-                .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
-                .build(new BackendCacheLoader(settings));
-        fileType = this.streamLoadProp.get("format") == null ? "csv" : this.streamLoadProp.get("format");
-        if ("csv".equals(fileType)) {
-            FIELD_DELIMITER = this.streamLoadProp.get("column_separator") == null ? "\t" : this.streamLoadProp.get("column_separator");
-            LINE_DELIMITER = this.streamLoadProp.get("line_delimiter") == null ? "\n" : this.streamLoadProp.get("line_delimiter");
-        }
     }
 
     public String getLoadUrlStr() {
@@ -189,9 +169,19 @@ public class DorisStreamLoad implements Serializable {
 
     public String listToString(List<List<Object>> rows) {
         return rows.stream().map(row ->
-                row.stream().map(field ->
-                        (field == null) ? NULL_VALUE : field.toString()
-                ).collect(Collectors.joining(FIELD_DELIMITER))
+                row.stream().map(field -> {
+                    if (field == null) {
+                        return NULL_VALUE;
+                    } else {
+                        // format timestamp, if not enable date format, return milliseconds
+                        if (field instanceof Timestamp) {
+                            return dateFormat != null ?
+                                    dateFormat.format(new Date(((Timestamp) field).getTime()))
+                                    : String.valueOf(((Timestamp) field).getTime());
+                        }
+                        return field.toString();
+                    }
+                }).collect(Collectors.joining(FIELD_DELIMITER))
         ).collect(Collectors.joining(LINE_DELIMITER));
     }
 
@@ -215,7 +205,7 @@ public class DorisStreamLoad implements Serializable {
                 throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
             }
             // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
-            List<String> serializedList = ListUtils.getSerializedList(dataList);
+            List<String> serializedList = ListUtils.getSerializedList(dataList, dateFormat);
             for (String serializedRows : serializedList) {
                 load(serializedRows);
             }

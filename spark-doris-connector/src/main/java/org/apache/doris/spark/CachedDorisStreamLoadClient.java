@@ -39,25 +39,20 @@ public class CachedDorisStreamLoadClient {
     static {
         dorisStreamLoadLoadingCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.SECONDS)
-                .removalListener(new RemovalListener<Object, Object>() {
-                    @Override
-                    public void onRemoval(RemovalNotification<Object, Object> removalNotification) {
-                        //do nothing
-                    }
+                .removalListener(removalNotification -> {
+                    //do nothing
                 })
                 .build(
                         new CacheLoader<SparkSettings, DorisStreamLoad>() {
                             @Override
-                            public DorisStreamLoad load(SparkSettings sparkSettings) throws IOException, DorisException {
-                                DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(sparkSettings);
-                                return dorisStreamLoad;
+                            public DorisStreamLoad load(SparkSettings sparkSettings) {
+                                return new DorisStreamLoad(sparkSettings);
                             }
                         }
                 );
     }
 
     public static DorisStreamLoad getOrCreate(SparkSettings settings) throws ExecutionException {
-        DorisStreamLoad dorisStreamLoad = dorisStreamLoadLoadingCache.get(settings);
-        return dorisStreamLoad;
+        return dorisStreamLoadLoadingCache.get(settings);
     }
 }

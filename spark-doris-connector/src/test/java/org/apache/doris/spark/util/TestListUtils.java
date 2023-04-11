@@ -34,9 +34,9 @@ public class TestListUtils {
             Map<Object, Object> entity = new HashMap<>();
             batch.add(entity);
         }
-        Assert.assertEquals(ListUtils.getSerializedList(batch).size(), 1);
+        Assert.assertEquals(ListUtils.getSerializedList(batch, null).size(), 1);
 
-        Assert.assertEquals(ListUtils.getSerializedList(new ArrayList<>()).size(), 1);
+        Assert.assertEquals(ListUtils.getSerializedList(new ArrayList<>(), null).size(), 1);
 
     }
 }
