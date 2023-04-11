@@ -32,13 +32,9 @@ import java.util.Map;
 public class ListUtils {
     private static final Logger LOG = LoggerFactory.getLogger(ListUtils.class);
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            ;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public static List<String> getSerializedList(List<Map<Object, Object>> batch, SimpleDateFormat dateFormat) throws JsonProcessingException {
-        if (dateFormat != null) {
-            MAPPER.setDateFormat(dateFormat);
-        }
+    public static List<String> getSerializedList(List<Map<Object, Object>> batch) throws JsonProcessingException {
         List<String> result = new ArrayList<>();
         divideAndSerialize(batch, result);
         return result;

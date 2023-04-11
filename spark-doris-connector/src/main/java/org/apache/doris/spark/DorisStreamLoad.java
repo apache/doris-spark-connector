@@ -79,7 +79,7 @@ public class DorisStreamLoad implements Serializable {
     private static final long cacheExpireTimeout = 4 * 60;
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private final String fileType;
-    private SimpleDateFormat dateFormat = null;
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSS");
 
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
@@ -98,13 +98,6 @@ public class DorisStreamLoad implements Serializable {
         if ("csv".equals(fileType)){
             FIELD_DELIMITER = streamLoadProp.getOrDefault("column_separator", "\t");
             LINE_DELIMITER = streamLoadProp.getOrDefault("line_delimiter", "\n");
-        }
-        boolean enableDateFormat = Boolean.parseBoolean(settings.getProperty(ConfigurationOptions.DORIS_SINK_ENABLE_DATE_FORMAT,
-                ConfigurationOptions.DORIS_SINK_ENABLE_DATE_FORMAT_DEFAULT));
-        String dateFormatPattern = settings.getProperty(ConfigurationOptions.DORIS_SINK_DATE_FORMAT_PATTERN,
-                ConfigurationOptions.DORIS_SINK_DATE_FORMAT_PATTERN_DEFAULT);
-        if (enableDateFormat) {
-            dateFormat = new SimpleDateFormat(dateFormatPattern);
         }
     }
 
@@ -169,19 +162,8 @@ public class DorisStreamLoad implements Serializable {
 
     public String listToString(List<List<Object>> rows) {
         return rows.stream().map(row ->
-                row.stream().map(field -> {
-                    if (field == null) {
-                        return NULL_VALUE;
-                    } else {
-                        // format timestamp, if not enable date format, return milliseconds
-                        if (field instanceof Timestamp) {
-                            return dateFormat != null ?
-                                    dateFormat.format(new Date(((Timestamp) field).getTime()))
-                                    : String.valueOf(((Timestamp) field).getTime());
-                        }
-                        return field.toString();
-                    }
-                }).collect(Collectors.joining(FIELD_DELIMITER))
+                row.stream().map(field -> field == null ? NULL_VALUE : field.toString())
+                        .collect(Collectors.joining(FIELD_DELIMITER))
         ).collect(Collectors.joining(LINE_DELIMITER));
     }
 
@@ -196,7 +178,12 @@ public class DorisStreamLoad implements Serializable {
                     Map<Object, Object> dataMap = new HashMap<>();
                     if (dfColumns.length == row.size()) {
                         for (int i = 0; i < dfColumns.length; i++) {
-                            dataMap.put(dfColumns[i], row.get(i));
+                            Object col = row.get(i);
+                            if (col instanceof Timestamp) {
+                                dataMap.put(dfColumns[i], col.toString());
+                                continue;
+                            }
+                            dataMap.put(dfColumns[i], col);
                         }
                     }
                     dataList.add(dataMap);
@@ -205,7 +192,7 @@ public class DorisStreamLoad implements Serializable {
                 throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
             }
             // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
-            List<String> serializedList = ListUtils.getSerializedList(dataList, dateFormat);
+            List<String> serializedList = ListUtils.getSerializedList(dataList);
             for (String serializedRows : serializedList) {
                 load(serializedRows);
             }
