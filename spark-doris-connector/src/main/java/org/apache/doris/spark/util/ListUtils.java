@@ -20,15 +20,19 @@ package org.apache.doris.spark.util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class ListUtils {
     private static final Logger LOG = LoggerFactory.getLogger(ListUtils.class);
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static List<String> getSerializedList(List<Map<Object, Object>> batch) throws JsonProcessingException {
         List<String> result = new ArrayList<>();
@@ -43,7 +47,7 @@ public class ListUtils {
      * @throws JsonProcessingException
      */
     public static void divideAndSerialize(List<Map<Object, Object>> batch, List<String> result) throws JsonProcessingException {
-        String serializedResult = (new ObjectMapper()).writeValueAsString(batch);
+        String serializedResult = MAPPER.writeValueAsString(batch);
         // if an error occurred in the batch call to getBytes ,average divide the batch
         try {
             //the "Requested array size exceeds VM limit" exception occurs when the collection is large
@@ -51,7 +55,7 @@ public class ListUtils {
             result.add(serializedResult);
             return;
         } catch (Throwable error) {
-            LOG.error("getBytes error:{} ,average divide the collection", error);
+            LOG.error("getBytes error:{} ,average divide the collection", ExceptionUtils.getStackTrace(error));
         }
         for (List<Map<Object, Object>> avgSubCollection : getAvgSubCollections(batch)) {
             divideAndSerialize(avgSubCollection, result);
