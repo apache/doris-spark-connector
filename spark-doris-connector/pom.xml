@@ -23,10 +23,10 @@
     <parent>
         <groupId>org.apache</groupId>
         <artifactId>apache</artifactId>
-        <version>23</version>
+        <version>29</version>
     </parent>
     <groupId>org.apache.doris</groupId>
-    <artifactId>spark-doris-connector-${spark.minor.version}_${scala.version}</artifactId>
+    <artifactId>spark-doris-connector-${spark.major.version}_${scala.version}</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>Spark Doris Connector</name>
     <url>https://doris.apache.org/</url>
@@ -63,14 +63,10 @@
     </mailingLists>
     <properties>
         <spark.version>3.1.2</spark.version>
-        <spark.minor.version>3.1</spark.minor.version>
-        <scala.version>2.12.8</scala.version>
+        <spark.major.version>3.1</spark.major.version>
         <scala.version>2.12</scala.version>
         <libthrift.version>0.13.0</libthrift.version>
         <arrow.version>5.0.0</arrow.version>
-        <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
-        <maven-javadoc-plugin.version>3.3.0</maven-javadoc-plugin.version>
-        <maven-source-plugin.version>3.2.1</maven-source-plugin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.77.Final</netty.version>
@@ -350,7 +346,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven-compiler-plugin.version}</version>
                 <configuration>
                     <source>8</source>
                     <target>8</target>
@@ -359,7 +354,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
                     <skip>true</skip>
                     <source>8</source>
@@ -377,7 +371,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>${maven-source-plugin.version}</version>
                 <configuration>
                     <attach>true</attach>
                 </configuration>
@@ -406,7 +399,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
-                <version>3.0.0-M5</version>
                 <configuration>
                     <arguments>${releaseArgs}</arguments>
                 </configuration>
