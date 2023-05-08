@@ -17,9 +17,9 @@
 
 package org.apache.doris.spark.sql
 
+import org.apache.doris.sdk.thrift.{TPrimitiveType, TScanColumnDesc}
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.models.{Field, Schema}
-import org.apache.doris.thrift.{TPrimitiveType, TScanColumnDesc}
 import org.apache.spark.sql.types._
 import org.hamcrest.core.StringStartsWith.startsWith
 import org.junit.{Assert, Ignore, Test}
