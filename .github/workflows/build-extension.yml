@@ -42,18 +42,11 @@ jobs:
         java-version: '8'
         cache: 'maven'
 
-    - name: Setup thrift
-      run: |
-        wget http://archive.ubuntu.com/ubuntu/pool/universe/t/thrift/thrift-compiler_0.13.0-2build2_amd64.deb
-        sudo dpkg -i thrift-compiler_0.13.0-2build2_amd64.deb
-        thrift --version
-
     - name: Build spark connector v2
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=2.3.4 \
           -Dscala.version=2.11 \
-          -Dthrift.binary=/usr/bin/thrift \
           -Dspark.major.version=2.3
 
     - name: Build spark connector v3
@@ -61,7 +54,6 @@ jobs:
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=3.1.2 \
           -Dscala.version=2.12 \
-          -Dthrift.binary=/usr/bin/thrift \
           -Dspark.major.version=3.1
           
 

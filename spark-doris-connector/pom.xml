@@ -250,7 +250,6 @@
                         <configuration>
                             <sources>
                                 <!-- add arbitrary num of src dirs here -->
-                                <source>${project.build.directory}/generated-sources/thrift/</source>
                                 <source>${basedir}/src/main/java</source>
                                 <source>${basedir}/src/main/scala</source>
                             </sources>
