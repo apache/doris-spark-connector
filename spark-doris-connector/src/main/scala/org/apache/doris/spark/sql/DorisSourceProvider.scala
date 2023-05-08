@@ -17,9 +17,9 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.DorisStreamLoad
-import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
+import org.apache.doris.spark.cfg.SparkSettings
 import org.apache.doris.spark.sql.DorisSourceProvider.SHORT_NAME
+import org.apache.doris.spark.writer.DorisWriter
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.execution.streaming.Sink
 import org.apache.spark.sql.sources._
@@ -28,12 +28,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 import org.slf4j.{Logger, LoggerFactory}
 
-import java.io.IOException
-import java.time.Duration
-import java.util
-import java.util.Objects
 import scala.collection.JavaConverters.mapAsJavaMapConverter
-import scala.util.{Failure, Success}
 
 private[sql] class DorisSourceProvider extends DataSourceRegister
   with RelationProvider
@@ -60,58 +55,9 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     val sparkSettings = new SparkSettings(sqlContext.sparkContext.getConf)
     sparkSettings.merge(Utils.params(parameters, logger).asJava)
     // init stream loader
-    val dorisStreamLoader = new DorisStreamLoad(sparkSettings, data.columns)
+    val writer = new DorisWriter(sparkSettings)
+    writer.write(data)
 
-    val maxRowCount = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
-    val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
-    val sinkTaskPartitionSize = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
-    val sinkTaskUseRepartition = sparkSettings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION, ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
-    val batchInterValMs = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS, ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
-
-    logger.info(s"maxRowCount ${maxRowCount}")
-    logger.info(s"maxRetryTimes ${maxRetryTimes}")
-    logger.info(s"batchInterVarMs ${batchInterValMs}")
-
-    var resultRdd = data.rdd
-    if (Objects.nonNull(sinkTaskPartitionSize)) {
-      resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
-    }
-
-    resultRdd.foreachPartition(partition => {
-      val rowsBuffer: util.List[util.List[Object]] = new util.ArrayList[util.List[Object]](maxRowCount)
-      partition.foreach(row => {
-        val line: util.List[Object] = new util.ArrayList[Object]()
-        for (i <- 0 until row.size) {
-          val field = row.get(i)
-          line.add(field.asInstanceOf[AnyRef])
-        }
-        rowsBuffer.add(line)
-        if (rowsBuffer.size > maxRowCount - 1 ) {
-          flush()
-        }
-      })
-      // flush buffer
-      if (!rowsBuffer.isEmpty) {
-        flush()
-      }
-
-      /**
-       * flush data to Doris and do retry when flush error
-       *
-       */
-      def flush(): Unit = {
-        Utils.retry[Unit, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
-          dorisStreamLoader.loadV2(rowsBuffer)
-          rowsBuffer.clear()
-        } match {
-          case Success(_) =>
-          case Failure(e) =>
-            throw new IOException(
-              s"Failed to load $maxRowCount batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
-        }
-      }
-
-    })
     new BaseRelation {
       override def sqlContext: SQLContext = unsupportedException
 

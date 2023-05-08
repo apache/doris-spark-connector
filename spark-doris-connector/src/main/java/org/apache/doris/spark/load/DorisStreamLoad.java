@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package org.apache.doris.spark;
+package org.apache.doris.spark.load;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,9 +45,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import java.sql.Date;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -73,13 +71,11 @@ public class DorisStreamLoad implements Serializable {
     private String tbl;
     private String authEncoded;
     private String columns;
-    private String[] dfColumns;
     private String maxFilterRatio;
     private Map<String, String> streamLoadProp;
     private static final long cacheExpireTimeout = 4 * 60;
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private final String fileType;
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSS");
 
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
@@ -101,10 +97,10 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) {
-        this(settings);
-        this.dfColumns = dfColumns;
-    }
+    // public DorisStreamLoad(SparkSettings settings, String[] dfColumns) {
+    //     this(settings);
+    //     this.dfColumns = dfColumns;
+    // }
 
     public String getLoadUrlStr() {
         if (StringUtils.isEmpty(loadUrlStr)) {
@@ -168,7 +164,7 @@ public class DorisStreamLoad implements Serializable {
     }
 
 
-    public void loadV2(List<List<Object>> rows) throws StreamLoadException, JsonProcessingException {
+    public void loadV2(List<List<Object>> rows, String[] dfColumns) throws StreamLoadException, JsonProcessingException {
         if (fileType.equals("csv")) {
             load(listToString(rows));
         } else if(fileType.equals("json")) {
