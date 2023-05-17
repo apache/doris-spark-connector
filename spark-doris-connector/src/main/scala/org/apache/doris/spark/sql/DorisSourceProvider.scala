@@ -65,6 +65,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     val maxRetryTimes = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
     val sinkTaskPartitionSize = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
     val sinkTaskUseRepartition = sparkSettings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION, ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
+    val partitionTaskAtomicity = settings.getProperty(ConfigurationOptions.DORIS_SINK_PER_PARTITION_TASK_ATOMICITY, ConfigurationOptions.DORIS_SINK_PER_PARTITION_TASK_ATOMICITY_DEFAULT.toString).toBoolean
 
     logger.info(s"maxRowCount ${maxRowCount}")
     logger.info(s"maxRetryTimes ${maxRetryTimes}")
@@ -83,10 +84,11 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
-        if (rowsBuffer.size > maxRowCount) {
+        if (!partitionTaskAtomicity && rowsBuffer.size > maxRowCount) {
           flush
         }
       })
+      flush
       // flush buffer
       if (!rowsBuffer.isEmpty) {
         flush

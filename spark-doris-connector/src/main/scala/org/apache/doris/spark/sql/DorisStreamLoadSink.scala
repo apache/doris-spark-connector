@@ -71,7 +71,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
           }
         }
         rowArray.add(rowNode)
-        if (!partitionTaskAtomicity & rowArray.size > maxRowCount - 1) {
+        if (!partitionTaskAtomicity && rowArray.size > maxRowCount - 1) {
           flush
         }
       })
