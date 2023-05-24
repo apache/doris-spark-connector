@@ -106,7 +106,7 @@ private[spark] object SchemaUtils {
       case "DECIMALV2"       => DecimalType(precision, scale)
       case "DECIMAL32"       => DecimalType(precision, scale)
       case "DECIMAL64"       => DecimalType(precision, scale)
-      case "DECIMAL128I"     => DecimalType(precision, scale)
+      case "DECIMAL128"     => DecimalType(precision, scale)
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
       case "ARRAY"           => DataTypes.StringType
