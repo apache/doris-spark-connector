@@ -17,12 +17,12 @@
 
 package org.apache.doris.spark.sql
 
+import org.apache.doris.sdk.thrift.TScanColumnDesc
 import scala.collection.JavaConversions._
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.{Field, Schema}
-import org.apache.doris.thrift.TScanColumnDesc
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
@@ -106,7 +106,7 @@ private[spark] object SchemaUtils {
       case "DECIMALV2"       => DecimalType(precision, scale)
       case "DECIMAL32"       => DecimalType(precision, scale)
       case "DECIMAL64"       => DecimalType(precision, scale)
-      case "DECIMAL128I"     => DecimalType(precision, scale)
+      case "DECIMAL128"      => DecimalType(precision, scale)
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
       case "ARRAY"           => DataTypes.StringType

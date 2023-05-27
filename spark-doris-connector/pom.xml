@@ -65,15 +65,21 @@
         <spark.version>3.1.2</spark.version>
         <spark.major.version>3.1</spark.major.version>
         <scala.version>2.12</scala.version>
-        <libthrift.version>0.13.0</libthrift.version>
+        <libthrift.version>0.16.0</libthrift.version>
         <arrow.version>5.0.0</arrow.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.77.Final</netty.version>
         <fasterxml.jackson.version>2.13.3</fasterxml.jackson.version>
+        <thrift-service.version>1.0.0</thrift-service.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.doris</groupId>
+            <artifactId>thrift-service</artifactId>
+            <version>${thrift-service.version}</version>
+        </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
@@ -244,29 +250,10 @@
                         <configuration>
                             <sources>
                                 <!-- add arbitrary num of src dirs here -->
-                                <source>${project.build.directory}/generated-sources/thrift/</source>
                                 <source>${basedir}/src/main/java</source>
                                 <source>${basedir}/src/main/scala</source>
                             </sources>
                         </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.thrift.tools</groupId>
-                <artifactId>maven-thrift-plugin</artifactId>
-                <version>0.1.11</version>
-                <configuration>
-                    <thriftExecutable>${thrift.binary}</thriftExecutable>
-                    <generator>java:fullcamel</generator>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>thrift-sources</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
                     </execution>
                 </executions>
             </plugin>

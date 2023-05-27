@@ -198,7 +198,6 @@ echo_g " build starting..."
 ${MVN_BIN} clean package \
   -Dspark.version=${SPARK_VERSION} \
   -Dscala.version=${SCALA_VERSION} \
-  -Dthrift.binary=${THRIFT_BIN} \
   -Dspark.major.version=${SPARK_MAJOR_VERSION} "$@"
 
 EXIT_CODE=$?
