@@ -18,7 +18,6 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.sql.DorisWriterOptionKeys.maxRowCount
 import org.apache.doris.spark.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.streaming.Sink
