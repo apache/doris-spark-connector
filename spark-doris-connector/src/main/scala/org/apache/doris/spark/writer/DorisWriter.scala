@@ -19,14 +19,16 @@ package org.apache.doris.spark.writer
 
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
+import org.apache.doris.spark.sql.Utils
 import org.apache.spark.sql.DataFrame
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.io.IOException
+import java.time.Duration
 import java.util
 import java.util.Objects
 import scala.collection.JavaConverters._
-import scala.util.control.Breaks
+import scala.util.{Failure, Success}
 
 class DorisWriter(settings: SparkSettings) {
 
@@ -62,35 +64,17 @@ class DorisWriter(settings: SparkSettings) {
      *
      */
     def flush(batch: Iterable[util.List[Object]], dfColumns: Array[String]): Unit = {
-      val loop = new Breaks
-      var err: Exception = null
-      var loadSuccess: Boolean = false;
-      loop.breakable {
-        (1 to maxRetryTimes).foreach { i =>
-          try {
-            dorisStreamLoader.loadV2(batch.toList.asJava, dfColumns)
-            loadSuccess = true
-            Thread.sleep(batchInterValMs.longValue())
-            loop.break()
-          } catch {
-            case e: Exception =>
-              try {
-                logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
-                if (err == null) err = e
-                Thread.sleep(1000 * i)
-              } catch {
-                case ex: InterruptedException =>
-                  Thread.currentThread.interrupt()
-                  throw new IOException("unable to flush; interrupted while doing another attempt", ex)
-              }
-          }
-        }
-        // check load success, if not throw exception
-        if (!loadSuccess) {
-          throw new IOException(s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
-        }
+      Utils.retry[Unit, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+        dorisStreamLoader.loadV2(batch.toList.asJava, dfColumns)
+      } match {
+        case Success(_) =>
+        case Failure(e) =>
+          throw new IOException(
+            s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
       }
     }
+
+
   }
 
 

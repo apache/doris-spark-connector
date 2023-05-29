@@ -31,7 +31,7 @@ import scala.annotation.tailrec
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
-private[sql] object Utils {
+private[spark] object Utils {
   /**
    * quote column name
    * @param colName column name
@@ -169,7 +169,9 @@ private[sql] object Utils {
     assert(retryTimes >= 0)
     val result = Try(f)
     result match {
-      case Success(result) => Success(result)
+      case Success(result) =>
+        LockSupport.parkNanos(interval.toNanos)
+        Success(result)
       case Failure(exception: T) if retryTimes > 0 =>
         logger.warn(s"Execution failed caused by: ", exception)
         logger.warn(s"$retryTimes times retry remaining, the next will be in ${interval.toMillis}ms")
