@@ -24,11 +24,12 @@ import org.apache.spark.sql.execution.streaming.Sink
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import org.slf4j.{Logger, LoggerFactory}
 
-import collection.JavaConverters._
 import java.io.IOException
+import java.time.Duration
 import java.util
 import java.util.Objects
-import scala.util.control.Breaks
+import scala.collection.JavaConverters._
+import scala.util.{Failure, Success}
 
 private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSettings) extends Sink with Serializable {
 
@@ -69,33 +70,13 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
      *
      */
     def flush(batch: Iterable[util.List[Object]]): Unit = {
-      val loop = new Breaks
-      var err: Exception = null
-      var loadSuccess: Boolean = false;
-      loop.breakable {
-        (1 to maxRetryTimes).foreach { i =>
-          try {
-            dorisStreamLoader.loadV2(batch.toList.asJava)
-            loadSuccess = true
-            Thread.sleep(batchInterValMs.longValue())
-            loop.break()
-          } catch {
-            case e: Exception =>
-              try {
-                logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
-                if (err == null) err = e
-                Thread.sleep(1000 * i)
-              } catch {
-                case ex: InterruptedException =>
-                  Thread.currentThread.interrupt()
-                  throw new IOException("unable to flush; interrupted while doing another attempt", ex)
-              }
-          }
-        }
-        // check load success, if not throw exception
-        if (!loadSuccess) {
-          throw new IOException(s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", err)
-        }
+      Utils.retry[Unit, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+        dorisStreamLoader.loadV2(batch.toList.asJava)
+      } match {
+        case Success(_) =>
+        case Failure(e) =>
+          throw new IOException(
+            s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max $maxRetryTimes retry times.", e)
       }
     }
   }

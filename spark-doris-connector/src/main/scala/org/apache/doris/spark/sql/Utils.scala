@@ -25,6 +25,11 @@ import org.apache.spark.sql.sources._
 import org.slf4j.Logger
 
 import java.sql.{Date, Timestamp}
+import java.time.Duration
+import java.util.concurrent.locks.LockSupport
+import scala.annotation.tailrec
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 
 private[sql] object Utils {
   /**
@@ -157,5 +162,20 @@ private[sql] object Utils {
         throw new DorisException("table identifier must be specified for doris table identifier."))
 
     finalParams
+  }
+
+  @tailrec
+  def retry[R, T <: Throwable : ClassTag](retryTimes: Int, interval: Duration, logger: Logger)(f: => R): Try[R] = {
+    assert(retryTimes >= 0)
+    val result = Try(f)
+    result match {
+      case Success(result) => Success(result)
+      case Failure(exception: T) if retryTimes > 0 =>
+        logger.warn(s"Execution failed caused by: ", exception)
+        logger.warn(s"$retryTimes times retry remaining, the next will be in ${interval.toMillis}ms")
+        LockSupport.parkNanos(interval.toNanos)
+        retry(retryTimes - 1, interval, logger)(f)
+      case Failure(exception) => Failure(exception)
+    }
   }
 }
