@@ -17,106 +17,109 @@
 
 package org.apache.doris.spark.sql
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.{CachedDorisStreamLoadClient, DorisStreamLoad}
-import org.apache.spark.sql.execution.QueryExecution
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.streaming.Sink
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import org.slf4j.{Logger, LoggerFactory}
+
 import java.io.IOException
-import org.apache.doris.spark.rest.RestService
+import java.time.Duration
+import java.util
 import java.util.Objects
-import scala.util.control.Breaks
+import scala.collection.JavaConverters._
+import scala.util.{Failure, Success}
 
 private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSettings) extends Sink with Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisStreamLoadSink].getName)
   @volatile private var latestBatchId = -1L
-  val maxRowCount: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
+  val batchSize: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE, ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
   val maxRetryTimes: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES, ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
   val sinkTaskPartitionSize = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
   val sinkTaskUseRepartition = settings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION, ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
+// <<<<<<< baishaode_pr
   val partitionTaskAtomicity = settings.getProperty(ConfigurationOptions.DORIS_SINK_PER_PARTITION_TASK_ATOMICITY, ConfigurationOptions.DORIS_SINK_PER_PARTITION_TASK_ATOMICITY_DEFAULT.toString).toBoolean
+// =======
+  val batchInterValMs = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS, ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
+
+// >>>>>>> master
   val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
     if (batchId <= latestBatchId) {
       logger.info(s"Skipping already committed batch $batchId")
     } else {
-      write(data.queryExecution)
+      write(data.rdd)
       latestBatchId = batchId
     }
   }
 
-  def write(queryExecution: QueryExecution): Unit = {
-    val schema = queryExecution.analyzed.output
-    var resultRdd = queryExecution.toRdd
+  def write(rdd: RDD[Row]): Unit = {
+    var resultRdd = rdd
     if (Objects.nonNull(sinkTaskPartitionSize)) {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
-    // write for each partition
-    resultRdd.foreachPartition(iter => {
-      val objectMapper = new ObjectMapper()
-      val rowArray = objectMapper.createArrayNode()
-      iter.foreach(row => {
-        val rowNode = objectMapper.createObjectNode()
-        for (i <- 0 until row.numFields) {
-          val colName = schema(i).name
-          val value = row.copy().getUTF8String(i)
-          if (value == null) {
-            rowNode.putNull(colName)
-          } else {
-            rowNode.put(colName, value.toString)
-          }
-        }
-        rowArray.add(rowNode)
-        if (!partitionTaskAtomicity && rowArray.size > maxRowCount - 1) {
-          flush
-        }
-      })
-      flush
+// <<<<<<< baishaode_pr
+//     // write for each partition
+//     resultRdd.foreachPartition(iter => {
+//       val objectMapper = new ObjectMapper()
+//       val rowArray = objectMapper.createArrayNode()
+//       iter.foreach(row => {
+//         val rowNode = objectMapper.createObjectNode()
+//         for (i <- 0 until row.numFields) {
+//           val colName = schema(i).name
+//           val value = row.copy().getUTF8String(i)
+//           if (value == null) {
+//             rowNode.putNull(colName)
+//           } else {
+//             rowNode.put(colName, value.toString)
+//           }
+//         }
+//         rowArray.add(rowNode)
+//         if (!partitionTaskAtomicity && rowArray.size > maxRowCount - 1) {
+//           flush
+//         }
+//       })
+//       flush
 
-      // flush buffer
-      if (!rowArray.isEmpty) {
-        flush
+//       // flush buffer
+//       if (!rowArray.isEmpty) {
+//         flush
+//       }
+// =======
+    if (!partitionTaskAtomicity){
+      resultRdd
+        .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
+        .foreachPartition(partition => {
+          partition
+            .grouped(batchSize)
+            .foreach(batch => flush(batch))
+        })
+    }else{
+      resultRdd
+        .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
+        .foreachPartition(partition => {
+          flush(partition.toIterable)
+        })
+    }
+// >>>>>>> master
+
+    /**
+     * flush data to Doris and do retry when flush error
+     *
+     */
+    def flush(batch: Iterable[util.List[Object]]): Unit = {
+      Utils.retry[Unit, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+        dorisStreamLoader.loadV2(batch.toList.asJava)
+      } match {
+        case Success(_) =>
+        case Failure(e) =>
+          throw new IOException(
+            s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max $maxRetryTimes retry times.", e)
       }
-
-      /**
-       * flush data to Doris and do retry when flush error
-       *
-       */
-      def flush = {
-        val loop = new Breaks
-        loop.breakable {
-
-          for (i <- 0 to maxRetryTimes) {
-            try {
-              dorisStreamLoader.load(rowArray.toString)
-              rowArray.removeAll()
-              loop.break()
-            }
-            catch {
-              case e: Exception =>
-                try {
-                  logger.debug("Failed to load data on BE: {} node ", dorisStreamLoader.getLoadUrlStr)
-                  Thread.sleep(1000 * i)
-                } catch {
-                  case ex: InterruptedException =>
-                    logger.warn("Data that failed to load : " + rowArray.toString)
-                    Thread.currentThread.interrupt()
-                    throw new IOException("unable to flush; interrupted while doing another attempt", e)
-                }
-            }
-          }
-
-          if (!rowArray.isEmpty) {
-            logger.warn("Data that failed to load : " + rowArray.toString)
-            throw new IOException(s"Failed to load data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max retry times.")
-          }
-        }
-      }
-    })
+    }
   }
 
   override def toString: String = "DorisStreamLoadSink"

@@ -17,25 +17,22 @@
 
 package org.apache.doris.spark.sql
 
-import scala.collection.JavaConverters._
-
+import org.apache.doris.sdk.thrift.TScanColumnDesc
+import scala.collection.JavaConversions._
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.{Field, Schema}
-import org.apache.doris.thrift.TScanColumnDesc
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.spark.sql.types._
-
 import org.slf4j.LoggerFactory
-
-import scala.collection.mutable
 
 private[spark] object SchemaUtils {
   private val logger = LoggerFactory.getLogger(SchemaUtils.getClass.getSimpleName.stripSuffix("$"))
 
   /**
    * discover Doris table schema from Doris FE.
+   *
    * @param cfg configuration
    * @return Spark Catalyst StructType
    */
@@ -46,6 +43,7 @@ private[spark] object SchemaUtils {
 
   /**
    * discover Doris table schema from Doris FE.
+   *
    * @param cfg configuration
    * @return inner schema struct
    */
@@ -55,35 +53,34 @@ private[spark] object SchemaUtils {
 
   /**
    * convert inner schema struct to Spark Catalyst StructType
+   *
    * @param schema inner schema
    * @return Spark Catalyst StructType
    */
   def convertToStruct(dorisReadFields: String, schema: Schema): StructType = {
-    var fieldList = new Array[String](schema.size())
-    val fieldSet = new mutable.HashSet[String]()
-    var fields = List[StructField]()
-    if (dorisReadFields != null && dorisReadFields.length > 0) {
-      fieldList = dorisReadFields.split(",")
-      for (field <- fieldList) {
-        fieldSet.add(field)
-      }
-      schema.getProperties.asScala.foreach(f =>
-        if (fieldSet.contains(f.getName)) {
-          fields :+= DataTypes.createStructField(f.getName, getCatalystType(f.getType, f.getPrecision, f.getScale), true)
-        })
+    val fieldList = if (dorisReadFields != null && dorisReadFields.length > 0) {
+      dorisReadFields.split(",")
     } else {
-      schema.getProperties.asScala.foreach(f =>
-        fields :+= DataTypes.createStructField(f.getName, getCatalystType(f.getType, f.getPrecision, f.getScale), true)
-      )
+      Array.empty[String]
     }
-    DataTypes.createStructType(fields.asJava)
+    val fields = schema.getProperties
+      .filter(x => fieldList.contains(x.getName) || fieldList.isEmpty)
+      .map(f =>
+        DataTypes.createStructField(
+          f.getName,
+          getCatalystType(f.getType, f.getPrecision, f.getScale),
+          true
+        )
+      )
+    DataTypes.createStructType(fields)
   }
 
   /**
    * translate Doris Type to Spark Catalyst type
+   *
    * @param dorisType Doris type
    * @param precision decimal precision
-   * @param scale decimal scale
+   * @param scale     decimal scale
    * @return Spark Catalyst type
    */
   def getCatalystType(dorisType: String, precision: Int, scale: Int): DataType = {
@@ -97,15 +94,22 @@ private[spark] object SchemaUtils {
       case "FLOAT"           => DataTypes.FloatType
       case "DOUBLE"          => DataTypes.DoubleType
       case "DATE"            => DataTypes.StringType
+      case "DATEV2"          => DataTypes.StringType
       case "DATETIME"        => DataTypes.StringType
+      case "DATETIMEV2"      => DataTypes.StringType
       case "BINARY"          => DataTypes.BinaryType
       case "DECIMAL"         => DecimalType(precision, scale)
       case "CHAR"            => DataTypes.StringType
       case "LARGEINT"        => DataTypes.StringType
       case "VARCHAR"         => DataTypes.StringType
+      case "JSONB"           => DataTypes.StringType
       case "DECIMALV2"       => DecimalType(precision, scale)
+      case "DECIMAL32"       => DecimalType(precision, scale)
+      case "DECIMAL64"       => DecimalType(precision, scale)
+      case "DECIMAL128"      => DecimalType(precision, scale)
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
+      case "ARRAY"           => DataTypes.StringType
       case "HLL"             =>
         throw new DorisException("Unsupported type " + dorisType)
       case _                 =>
@@ -115,6 +119,7 @@ private[spark] object SchemaUtils {
 
   /**
    * convert Doris return schema to inner schema struct.
+   *
    * @param tscanColumnDescs Doris BE return schema
    * @return inner schema struct
    */

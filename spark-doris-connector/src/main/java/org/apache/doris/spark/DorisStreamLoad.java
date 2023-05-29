@@ -21,39 +21,46 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
-import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
 import org.apache.doris.spark.util.ListUtils;
+import org.apache.http.HttpHeaders;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.BufferedHttpEntity;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.Serializable;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 /**
  * DorisStreamLoad
  **/
-public class DorisStreamLoad implements Serializable{
-    public static final String FIELD_DELIMITER = "\t";
-    public static final String LINE_DELIMITER = "\n";
-    public static final String NULL_VALUE = "\\N";
+public class DorisStreamLoad implements Serializable {
+    private String FIELD_DELIMITER;
+    private String LINE_DELIMITER;
+    private static final String NULL_VALUE = "\\N";
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
 
@@ -64,56 +71,39 @@ public class DorisStreamLoad implements Serializable{
     private String loadUrlStr;
     private String db;
     private String tbl;
-    private String authEncoding;
+    private String authEncoded;
     private String columns;
     private String[] dfColumns;
     private String maxFilterRatio;
-    private Map<String,String> streamLoadProp;
+    private Map<String, String> streamLoadProp;
     private static final long cacheExpireTimeout = 4 * 60;
-    private LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
+    private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
+    private final String fileType;
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSS");
 
-    public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd) {
-        this.db = db;
-        this.tbl = tbl;
-        this.user = user;
-        this.passwd = passwd;
-        this.loadUrlStr = String.format(loadUrlPattern, hostPort, db, tbl);
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
-    }
-
-    public DorisStreamLoad(SparkSettings settings) throws IOException, DorisException {
+    public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
         this.tbl = dbTable[1];
         this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
+        this.authEncoded = getAuthEncoded(user, passwd);
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
-
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
-        this.streamLoadProp=getStreamLoadProp(settings);
+        this.streamLoadProp = getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
+        fileType = streamLoadProp.getOrDefault("format", "csv");
+        if ("csv".equals(fileType)){
+            FIELD_DELIMITER = streamLoadProp.getOrDefault("column_separator", "\t");
+            LINE_DELIMITER = streamLoadProp.getOrDefault("line_delimiter", "\n");
+        }
     }
 
-    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) throws IOException, DorisException {
-        String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
-        this.db = dbTable[0];
-        this.tbl = dbTable[1];
-        this.user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
-        this.passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
-
-
-        this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
-        this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
+    public DorisStreamLoad(SparkSettings settings, String[] dfColumns) {
+        this(settings);
         this.dfColumns = dfColumns;
-
-        this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
-        this.streamLoadProp=getStreamLoadProp(settings);
-        cache = CacheBuilder.newBuilder()
-                .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
-                .build(new BackendCacheLoader(settings));
     }
 
     public String getLoadUrlStr() {
@@ -122,43 +112,33 @@ public class DorisStreamLoad implements Serializable{
         }
         return loadUrlStr;
     }
+    private CloseableHttpClient getHttpClient() {
+        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create()
+                .disableRedirectHandling();
+        return httpClientBuilder.build();
+    }
 
-    private HttpURLConnection getConnection(String urlStr, String label) throws IOException {
-        URL url = new URL(urlStr);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setInstanceFollowRedirects(false);
-        conn.setRequestMethod("PUT");
-        conn.setRequestProperty("Authorization", "Basic " + authEncoding);
-        conn.addRequestProperty("Expect", "100-continue");
-        conn.addRequestProperty("Content-Type", "text/plain; charset=UTF-8");
-        conn.addRequestProperty("label", label);
-        if (columns != null && !columns.equals("")) {
-            conn.addRequestProperty("columns", columns);
+    private HttpPut getHttpPut(String label, String loadUrlStr) {
+        HttpPut httpPut = new HttpPut(loadUrlStr);
+        httpPut.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + authEncoded);
+        httpPut.setHeader(HttpHeaders.EXPECT, "100-continue");
+        httpPut.setHeader(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8");
+        httpPut.setHeader("label", label);
+        if (StringUtils.isNotBlank(columns)) {
+            httpPut.setHeader("columns", columns);
         }
-
-        if (maxFilterRatio != null && !maxFilterRatio.equals("")) {
-            conn.addRequestProperty("max_filter_ratio", maxFilterRatio);
+        if (StringUtils.isNotBlank(maxFilterRatio)) {
+            httpPut.setHeader("max_filter_ratio", maxFilterRatio);
         }
-
-        conn.setDoOutput(true);
-        conn.setDoInput(true);
-        if(streamLoadProp != null ){
-            streamLoadProp.forEach((k,v) -> {
-                if(streamLoadProp.containsKey("format")){
-                    return;
-                }
-                if(streamLoadProp.containsKey("strip_outer_array")) {
-                    return;
-                }
-                if(streamLoadProp.containsKey("read_json_by_line")){
-                    return;
-                }
-                conn.addRequestProperty(k, v);
-            });
+        if (MapUtils.isNotEmpty(streamLoadProp)) {
+            streamLoadProp.entrySet().stream()
+                    .filter(entry -> !"read_json_by_line".equals(entry.getKey()))
+                    .forEach(entry -> httpPut.setHeader(entry.getKey(), entry.getValue()));
         }
-        conn.addRequestProperty("format", "json");
-        conn.addRequestProperty("strip_outer_array", "true");
-        return conn;
+        if (fileType.equals("json")) {
+            httpPut.setHeader("strip_outer_array", "true");
+        }
+        return httpPut;
     }
 
     public static class LoadResponse {
@@ -171,69 +151,70 @@ public class DorisStreamLoad implements Serializable{
             this.respMsg = respMsg;
             this.respContent = respContent;
         }
+
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append("status: ").append(status);
-            sb.append(", resp msg: ").append(respMsg);
-            sb.append(", resp content: ").append(respContent);
-            return sb.toString();
+            return "status: " + status +
+                    ", resp msg: " + respMsg +
+                    ", resp content: " + respContent;
         }
     }
 
     public String listToString(List<List<Object>> rows) {
-        StringJoiner lines = new StringJoiner(LINE_DELIMITER);
-        for (List<Object> row : rows) {
-            StringJoiner line = new StringJoiner(FIELD_DELIMITER);
-            for (Object field : row) {
-                if (field == null) {
-                    line.add(NULL_VALUE);
-                } else {
-                    line.add(field.toString());
-                }
-            }
-            lines.add(line.toString());
-        }
-        return lines.toString();
+        return rows.stream().map(row ->
+                row.stream().map(field -> field == null ? NULL_VALUE : field.toString())
+                        .collect(Collectors.joining(FIELD_DELIMITER))
+        ).collect(Collectors.joining(LINE_DELIMITER));
     }
 
 
     public void loadV2(List<List<Object>> rows) throws StreamLoadException, JsonProcessingException {
-        List<Map<Object,Object>> dataList = new ArrayList<>();
-        try {
-            for (List<Object> row : rows) {
-                Map<Object,Object> dataMap = new HashMap<>();
-                if (dfColumns.length == row.size()) {
-                    for (int i = 0; i < dfColumns.length; i++) {
-                        dataMap.put(dfColumns[i], row.get(i));
+        if (fileType.equals("csv")) {
+            load(listToString(rows));
+        } else if(fileType.equals("json")) {
+            List<Map<Object, Object>> dataList = new ArrayList<>();
+            try {
+                for (List<Object> row : rows) {
+                    Map<Object, Object> dataMap = new HashMap<>();
+                    if (dfColumns.length == row.size()) {
+                        for (int i = 0; i < dfColumns.length; i++) {
+                            Object col = row.get(i);
+                            if (col instanceof Timestamp) {
+                                dataMap.put(dfColumns[i], col.toString());
+                                continue;
+                            }
+                            dataMap.put(dfColumns[i], col);
+                        }
                     }
+                    dataList.add(dataMap);
                 }
-                dataList.add(dataMap);
+            } catch (Exception e) {
+                throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
             }
-        } catch (Exception e) {
-            throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
-        }
-        // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
-        List<String> serializedList = ListUtils.getSerializedList(dataList);
-        for (String serializedRows : serializedList) {
-            load(serializedRows);
+            // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
+            List<String> serializedList = ListUtils.getSerializedList(dataList);
+            for (String serializedRows : serializedList) {
+                load(serializedRows);
+            }
+        } else {
+            throw new StreamLoadException(String.format("Unsupported file format in stream load: %s.", fileType));
         }
     }
 
     public void load(String value) throws StreamLoadException {
         LoadResponse loadResponse = loadBatch(value);
-        if(loadResponse.status != 200){
-            LOG.info("Streamload Response HTTP Status Error:{}",loadResponse);
+        if (loadResponse.status != HttpStatus.SC_OK) {
+            LOG.info("Streamload Response HTTP Status Error:{}", loadResponse);
             throw new StreamLoadException("stream load error: " + loadResponse.respContent);
-        }else{
-            LOG.info("Streamload Response:{}",loadResponse);
+        } else {
             ObjectMapper obj = new ObjectMapper();
             try {
                 RespContent respContent = obj.readValue(loadResponse.respContent, RespContent.class);
-                if(!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())){
-                    LOG.info("Streamload Response RES STATUS Error:{}", loadResponse);
-                    throw new StreamLoadException("stream load error: " + respContent.getMessage());
+                if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
+                    LOG.error("Streamload Response RES STATUS Error:{}", loadResponse);
+                    throw new StreamLoadException("stream load error: " + loadResponse);
                 }
+                LOG.info("Streamload Response:{}", loadResponse);
             } catch (IOException e) {
                 throw new StreamLoadException(e);
             }
@@ -247,56 +228,35 @@ public class DorisStreamLoad implements Serializable{
                 calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND),
                 UUID.randomUUID().toString().replaceAll("-", ""));
 
-        String loadUrlStr = String.format(loadUrlPattern, getBackend(), db, tbl);
-        LOG.debug("Streamload Request:{} ,Body:{}", loadUrlStr, value);
-        //only to record the BE node in case of an exception
-        this.loadUrlStr = loadUrlStr;
+        int responseHttpStatus = -1;
+        try (CloseableHttpClient httpClient = getHttpClient()) {
+            String loadUrlStr = String.format(loadUrlPattern, getBackend(), db, tbl);
+            LOG.debug("Streamload Request:{} ,Body:{}", loadUrlStr, value);
+            //only to record the BE node in case of an exception
+            this.loadUrlStr = loadUrlStr;
 
-        HttpURLConnection feConn = null;
-        HttpURLConnection beConn = null;
-        int status = -1;
-        try {
-            // build request and send to new be location
-            beConn = getConnection(loadUrlStr, label);
-            // send data to be
-            BufferedOutputStream bos = new BufferedOutputStream(beConn.getOutputStream());
-            bos.write(value.getBytes("UTF-8"));
-            bos.close();
-
-            // get respond
-            status = beConn.getResponseCode();
-            String respMsg = beConn.getResponseMessage();
-            InputStream stream = (InputStream) beConn.getContent();
-            BufferedReader br = new BufferedReader(new InputStreamReader(stream));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                response.append(line);
-            }
-            return new LoadResponse(status, respMsg, response.toString());
-
-        } catch (Exception e) {
+            HttpPut httpPut = getHttpPut(label, loadUrlStr);
+            httpPut.setEntity(new StringEntity(value, StandardCharsets.UTF_8));
+            HttpResponse httpResponse = httpClient.execute(httpPut);
+            responseHttpStatus = httpResponse.getStatusLine().getStatusCode();
+            String respMsg = httpResponse.getStatusLine().getReasonPhrase();
+            String response = EntityUtils.toString(new BufferedHttpEntity(httpResponse.getEntity()), StandardCharsets.UTF_8);
+            return new LoadResponse(responseHttpStatus, respMsg, response);
+        } catch (IOException e) {
             e.printStackTrace();
-            String err = "http request exception,load url : "+loadUrlStr+",failed to execute spark streamload with label: " + label;
+            String err = "http request exception,load url : " + loadUrlStr + ",failed to execute spark streamload with label: " + label;
             LOG.warn(err, e);
-            return new LoadResponse(status, e.getMessage(), err);
-        } finally {
-            if (feConn != null) {
-                feConn.disconnect();
-            }
-            if (beConn != null) {
-                beConn.disconnect();
-            }
+            return new LoadResponse(responseHttpStatus, e.getMessage(), err);
         }
     }
 
-    public Map<String,String> getStreamLoadProp(SparkSettings sparkSettings){
-        Map<String,String> streamLoadPropMap = new HashMap<>();
+    public Map<String, String> getStreamLoadProp(SparkSettings sparkSettings) {
+        Map<String, String> streamLoadPropMap = new HashMap<>();
         Properties properties = sparkSettings.asProperties();
         for (String key : properties.stringPropertyNames()) {
-            if( key.contains(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX)){
+            if (key.contains(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX)) {
                 String subKey = key.substring(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX.length());
-                streamLoadPropMap.put(subKey,properties.getProperty(key));
+                streamLoadPropMap.put(subKey, properties.getProperty(key));
             }
         }
         return streamLoadPropMap;
@@ -310,8 +270,13 @@ public class DorisStreamLoad implements Serializable{
             BackendV2.BackendRowV2 backend = backends.get(0);
             return backend.getIp() + ":" + backend.getHttpPort();
         } catch (ExecutionException e) {
-            throw new RuntimeException("get backends info fail",e);
+            throw new RuntimeException("get backends info fail", e);
         }
+    }
+
+    private static String getAuthEncoded(String user, String passwd) {
+        String raw = String.format("%s:%s", user, passwd);
+        return Base64.getEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

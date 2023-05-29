@@ -38,11 +38,12 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
+import org.apache.doris.sdk.thrift.TScanBatchResult;
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.rest.models.Schema;
-import org.apache.doris.thrift.TScanBatchResult;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +88,7 @@ public class RowBatch {
         this.arrowStreamReader = new ArrowStreamReader(
                 new ByteArrayInputStream(nextResult.getRows()),
                 rootAllocator
-                );
+        );
         try {
             VectorSchemaRoot root = arrowStreamReader.getVectorSchemaRoot();
             while (arrowStreamReader.loadNextBatch()) {
@@ -239,6 +240,9 @@ public class RowBatch {
                         }
                         break;
                     case "DECIMALV2":
+                    case "DECIMAL32":
+                    case "DECIMAL64":
+                    case "DECIMAL128I":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.DECIMAL),
                                 typeMismatchMessage(currentType, mt));
                         DecimalVector decimalVector = (DecimalVector) curFieldVector;
@@ -252,11 +256,14 @@ public class RowBatch {
                         }
                         break;
                     case "DATE":
+                    case "DATEV2":
                     case "DATETIME":
+                    case "DATETIMEV2":
                     case "LARGEINT":
                     case "CHAR":
                     case "VARCHAR":
                     case "STRING":
+                    case "JSONB":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR),
                                 typeMismatchMessage(currentType, mt));
                         VarCharVector varCharVector = (VarCharVector) curFieldVector;
@@ -266,6 +273,19 @@ public class RowBatch {
                                 continue;
                             }
                             String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
+                            addValueToRow(rowIndex, value);
+                        }
+                        break;
+                    case "ARRAY":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.LIST),
+                                typeMismatchMessage(currentType, mt));
+                        ListVector listVector = (ListVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (listVector.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                continue;
+                            }
+                            String value = listVector.getObject(rowIndex).toString();
                             addValueToRow(rowIndex, value);
                         }
                         break;
