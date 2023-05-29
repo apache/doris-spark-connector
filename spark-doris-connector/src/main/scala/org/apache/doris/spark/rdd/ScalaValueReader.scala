@@ -169,7 +169,6 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
 
   /**
    * read data and cached in rowBatch.
-   *
    * @return true if hax next value
    */
   def hasNext: Boolean = {
@@ -216,7 +215,6 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
 
   /**
    * get next value.
-   *
    * @return next value
    */
   def next: AnyRef = {

@@ -86,7 +86,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
           line.add(field.asInstanceOf[AnyRef])
         }
         rowsBuffer.add(line)
-        if (rowsBuffer.size > maxRowCount - 1) {
+        if (rowsBuffer.size > maxRowCount - 1 ) {
           flush()
         }
       })
