@@ -30,7 +30,7 @@ import java.util.Objects
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success}
 
-class DorisWriter(settings: SparkSettings) {
+class DorisWriter(settings: SparkSettings) extends Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
@@ -48,6 +48,7 @@ class DorisWriter(settings: SparkSettings) {
 
   def write(dataFrame: DataFrame): Unit = {
     var resultRdd = dataFrame.rdd
+    val dfColumns = dataFrame.columns
     if (Objects.nonNull(sinkTaskPartitionSize)) {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
@@ -56,7 +57,7 @@ class DorisWriter(settings: SparkSettings) {
       .foreachPartition(partition => {
         partition
           .grouped(batchSize)
-          .foreach(batch => flush(batch, dataFrame.columns))
+          .foreach(batch => flush(batch, dfColumns))
       })
 
     /**
@@ -73,7 +74,6 @@ class DorisWriter(settings: SparkSettings) {
             s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
       }
     }
-
 
   }
 
