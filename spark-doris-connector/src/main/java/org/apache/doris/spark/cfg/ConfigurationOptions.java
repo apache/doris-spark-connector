@@ -86,19 +86,18 @@ public interface ConfigurationOptions {
 
     boolean DORIS_SINK_TASK_USE_REPARTITION_DEFAULT = false;
 
-// <<<<<<< baishaode_pr
-    //Set only one StreamLoad task to be submitted per partition to ensure that task retries do not result in repeated submission of StreamLoad tasks on the same batch of data if the task fails.
-    String DORIS_SINK_PER_PARTITION_TASK_ATOMICITY = "doris.sink.per.partition.task.atomicity";
-
-    boolean DORIS_SINK_PER_PARTITION_TASK_ATOMICITY_DEFAULT = false;
-// =======
     String DORIS_SINK_BATCH_INTERVAL_MS = "doris.sink.batch.interval.ms";
 
     int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
-// >>>>>>> master
 
 
-    //设置每个分区仅提交一个StreamLoad任务，以保证任务失败时task重试不会导致对同一批数据重复提交StreamLoad任务。
+
+
+    /*
+    Set only one StreamLoad task to be submitted per partition
+    to ensure that task retries do not result in repeated submission
+    of StreamLoad tasks on the same batch of data if the task fails.
+     */
     String DORIS_SINK_PER_PARTITION_TASK_ATOMICITY = "doris.sink.per.partition.task.atomicity";
 
     boolean DORIS_SINK_PER_PARTITION_TASK_ATOMICITY_DEFAULT = false;
