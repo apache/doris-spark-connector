@@ -90,4 +90,16 @@ public interface ConfigurationOptions {
 
     int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
 
+
+
+
+    /*
+    Set only one StreamLoad task to be submitted per partition
+    to ensure that task retries do not result in repeated submission
+    of StreamLoad tasks on the same batch of data if the task fails.
+     */
+    String DORIS_SINK_PER_PARTITION_TASK_ATOMICITY = "doris.sink.per.partition.task.atomicity";
+
+    boolean DORIS_SINK_PER_PARTITION_TASK_ATOMICITY_DEFAULT = false;
+
 }

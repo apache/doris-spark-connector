@@ -43,7 +43,8 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
   private val batchInterValMs: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS,
     ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
-
+  val partitionTaskAtomicity = settings.getProperty(ConfigurationOptions.DORIS_SINK_PER_PARTITION_TASK_ATOMICITY,
+    ConfigurationOptions.DORIS_SINK_PER_PARTITION_TASK_ATOMICITY_DEFAULT.toString).toBoolean
   private val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
 
   def write(dataFrame: DataFrame): Unit = {
@@ -52,13 +53,21 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     if (Objects.nonNull(sinkTaskPartitionSize)) {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
-    resultRdd
-      .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
-      .foreachPartition(partition => {
-        partition
-          .grouped(batchSize)
-          .foreach(batch => flush(batch, dfColumns))
-      })
+    if (partitionTaskAtomicity) {
+      resultRdd
+        .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
+        .foreachPartition(partition => {
+          flush(partition.toIterable, dfColumns)
+        })
+    } else {
+      resultRdd
+        .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
+        .foreachPartition(partition => {
+          partition
+            .grouped(batchSize)
+            .foreach(batch => flush(batch, dfColumns))
+        })
+    }
 
     /**
      * flush data to Doris and do retry when flush error
