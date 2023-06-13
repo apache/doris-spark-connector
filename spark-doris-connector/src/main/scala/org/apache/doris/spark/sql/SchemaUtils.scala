@@ -18,12 +18,13 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.sdk.thrift.TScanColumnDesc
+
 import scala.collection.JavaConversions._
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.{Field, Schema}
-import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
+import org.apache.doris.spark.cfg.ConfigurationOptions.{DORIS_IGNORE_TYPE, DORIS_READ_FIELD}
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
 
@@ -38,7 +39,9 @@ private[spark] object SchemaUtils {
    */
   def discoverSchema(cfg: Settings): StructType = {
     val schema = discoverSchemaFromFe(cfg)
-    convertToStruct(cfg.getProperty(DORIS_READ_FIELD), schema)
+    val dorisReadField = cfg.getProperty(DORIS_READ_FIELD)
+    val ignoreColumnType = cfg.getProperty(DORIS_IGNORE_TYPE)
+    convertToStruct(schema, dorisReadField, ignoreColumnType)
   }
 
   /**
@@ -57,14 +60,20 @@ private[spark] object SchemaUtils {
    * @param schema inner schema
    * @return Spark Catalyst StructType
    */
-  def convertToStruct(dorisReadFields: String, schema: Schema): StructType = {
-    val fieldList = if (dorisReadFields != null && dorisReadFields.length > 0) {
+  def convertToStruct(schema: Schema, dorisReadFields: String, ignoredTypes: String): StructType = {
+    val fieldList = if (dorisReadFields != null && dorisReadFields.nonEmpty) {
       dorisReadFields.split(",")
     } else {
       Array.empty[String]
     }
+    val ignoredTypeList = if (ignoredTypes != null && ignoredTypes.nonEmpty) {
+      ignoredTypes.split(",").map(t => t.trim.toUpperCase)
+    } else {
+      Array.empty[String]
+    }
     val fields = schema.getProperties
-      .filter(x => fieldList.contains(x.getName) || fieldList.isEmpty)
+      .filter(x => (fieldList.contains(x.getName) || fieldList.isEmpty)
+        && !ignoredTypeList.contains(x.getType))
       .map(f =>
         DataTypes.createStructField(
           f.getName,
