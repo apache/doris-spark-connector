@@ -90,6 +90,11 @@ public interface ConfigurationOptions {
 
     int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
 
+    /**
+     * set types to ignore, split by comma
+     * e.g.
+     * "doris.ignore-type"="bitmap,hll"
+     */
     String DORIS_IGNORE_TYPE = "doris.ignore-type";
 
 }
