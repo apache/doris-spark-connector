@@ -90,4 +90,6 @@ public interface ConfigurationOptions {
 
     int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
 
+    String DORIS_IGNORE_TYPE = "doris.ignore-type";
+
 }
