@@ -26,10 +26,10 @@ import org.junit.Test
 // Set the connect info before comment out this @Ignore
 @Ignore
 class TestSparkConnector {
-  val dorisFeNodes = "your_fe_host:8030"
+  val dorisFeNodes = "10.16.10.6:8939"
   val dorisUser = "root"
   val dorisPwd = ""
-  val dorisTable = "test.test_tbl"
+  val dorisTable = "test.t3"
 
   val kafkaServers = ""
   val kafkaTopics = ""
@@ -115,5 +115,23 @@ class TestSparkConnector {
       .start().awaitTermination()
     spark.stop()
   }
+
+  @Test
+  def testReadMap(): Unit = {
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    val dorisSparkDF = session.read
+      .format("doris")
+      .option("doris.fenodes", dorisFeNodes)
+      .option("doris.table.identifier", dorisTable)
+      .option("user", dorisUser)
+      .option("password", dorisPwd)
+      .load()
+
+    dorisSparkDF.show()
+    session.stop()
+
+  }
+
 }
 

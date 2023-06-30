@@ -126,6 +126,8 @@ private[spark] object SchemaUtils {
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
       case "ARRAY"           => DataTypes.StringType
+      case "MAP"             => DataTypes.StringType
+      case "STRUCT"          => DataTypes.StringType
       case "HLL"             =>
         throw new DorisException("Unsupported type " + dorisType)
       case _                 =>

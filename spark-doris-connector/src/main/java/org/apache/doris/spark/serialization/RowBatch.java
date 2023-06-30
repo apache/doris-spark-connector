@@ -37,6 +37,8 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
 import org.apache.commons.lang3.ArrayUtils;
@@ -335,6 +337,32 @@ public class RowBatch {
                                 continue;
                             }
                             String value = listVector.getObject(rowIndex).toString();
+                            addValueToRow(rowIndex, value);
+                        }
+                        break;
+                    case "MAP":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.MAP),
+                                typeMismatchMessage(currentType, mt));
+                        MapVector mapVector = (MapVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (mapVector.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                continue;
+                            }
+                            String value = mapVector.getObject(rowIndex).toString();
+                            addValueToRow(rowIndex, value);
+                        }
+                        break;
+                    case "TYPE_STRUCT":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.STRUCT),
+                                typeMismatchMessage(currentType, mt));
+                        StructVector structVector = (StructVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (structVector.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                continue;
+                            }
+                            String value = structVector.getObject(rowIndex).toString();
                             addValueToRow(rowIndex, value);
                         }
                         break;
