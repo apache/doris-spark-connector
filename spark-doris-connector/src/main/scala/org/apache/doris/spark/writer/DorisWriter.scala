@@ -46,6 +46,13 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
   private val batchInterValMs: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS,
     ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
+  private val maxSinkBlocks: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_BLOCKING_TIMES,
+    ConfigurationOptions.SINK_MAX_BLOCKING_TIMES_DEFAULT)
+  private val blockTriggerKeys: String = settings.getProperty(ConfigurationOptions.DORIS_SINK_BLOCKING_TRIGGER_KEYS,
+    ConfigurationOptions.SINK_BLOCKING_TRIGGER_KEYS_DEFAULT)
+  private val maxBlockInterValMs: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_BLOCKING_INTERVAL_MS,
+    ConfigurationOptions.SINK_MAX_BLOCKING_INTERVAL_MS_DEFAULT)
+  private val blockTriggerKeysArray: Array[String] = blockTriggerKeys.split(",")
 
   private val enable2PC: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
     ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT);
@@ -78,7 +85,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     resultRdd.foreachPartition(iterator => {
       while (iterator.hasNext) {
         // do load batch with retries
-        Utils.retry[Int, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+        Utils.retry[Int, Exception](maxRetryTimes, maxSinkBlocks, Duration.ofMillis(batchInterValMs.toLong), Duration.ofMillis(maxBlockInterValMs.toLong), blockTriggerKeysArray, logger) {
           loadFunc(iterator.asJava, schema)
         } match {
           case Success(txnId) => if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
