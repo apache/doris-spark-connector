@@ -29,7 +29,7 @@ class TestSparkConnector {
   val dorisFeNodes = "10.16.10.6:8939"
   val dorisUser = "root"
   val dorisPwd = ""
-  val dorisTable = "test.t3"
+  val dorisTable = "test.spark_type_test"
 
   val kafkaServers = ""
   val kafkaTopics = ""
@@ -114,23 +114,6 @@ class TestSparkConnector {
       .option("sink.max-retries",2)
       .start().awaitTermination()
     spark.stop()
-  }
-
-  @Test
-  def testReadMap(): Unit = {
-
-    val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val dorisSparkDF = session.read
-      .format("doris")
-      .option("doris.fenodes", dorisFeNodes)
-      .option("doris.table.identifier", dorisTable)
-      .option("user", dorisUser)
-      .option("password", dorisPwd)
-      .load()
-
-    dorisSparkDF.show()
-    session.stop()
-
   }
 
 }

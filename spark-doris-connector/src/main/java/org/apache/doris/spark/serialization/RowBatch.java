@@ -353,7 +353,7 @@ public class RowBatch {
                             addValueToRow(rowIndex, value);
                         }
                         break;
-                    case "TYPE_STRUCT":
+                    case "STRUCT":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.STRUCT),
                                 typeMismatchMessage(currentType, mt));
                         StructVector structVector = (StructVector) curFieldVector;
