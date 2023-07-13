@@ -26,10 +26,10 @@ import org.junit.Test
 // Set the connect info before comment out this @Ignore
 @Ignore
 class TestSparkConnector {
-  val dorisFeNodes = "10.16.10.6:8939"
+  val dorisFeNodes = "your_fe_host:8030"
   val dorisUser = "root"
   val dorisPwd = ""
-  val dorisTable = "test.spark_type_test"
+  val dorisTable = "test.test_tbl"
 
   val kafkaServers = ""
   val kafkaTopics = ""
