@@ -22,6 +22,7 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
+import org.apache.doris.spark.util.EscapeHandler;
 import org.apache.doris.spark.util.ListUtils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -102,9 +103,9 @@ public class DorisStreamLoad implements Serializable {
                 .build(new BackendCacheLoader(settings));
         fileType = streamLoadProp.getOrDefault("format", "csv");
         if ("csv".equals(fileType)){
-            FIELD_DELIMITER = streamLoadProp.getOrDefault("column_separator", "\t");
-            LINE_DELIMITER = streamLoadProp.getOrDefault("line_delimiter", "\n");
+            FIELD_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
         }
+        LINE_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
     }
 
     public String getLoadUrlStr() {
