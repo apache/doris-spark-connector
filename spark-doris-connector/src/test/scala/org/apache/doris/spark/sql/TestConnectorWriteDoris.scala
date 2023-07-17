@@ -25,10 +25,10 @@ import org.junit.{Ignore, Test}
 @Ignore
 class TestConnectorWriteDoris {
 
-  val dorisFeNodes = "10.16.10.6:8939"
+  val dorisFeNodes = "127.0.0.1:8030"
   val dorisUser = "root"
   val dorisPwd = ""
-  val dorisTable = "test.t5"
+  val dorisTable = "test.test_order"
 
   val kafkaServers = "127.0.0.1:9093"
   val kafkaTopics = "test_spark"
@@ -36,16 +36,11 @@ class TestConnectorWriteDoris {
   @Test
   def listDataWriteTest(): Unit = {
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
-    // val df = spark.createDataFrame(Seq(
-    //   ("1", 100, "待付款"),
-    //   ("2", 200, "待发货"),
-    //   ("3", 300, "已收货")
-    // )).toDF("order_id", "order_amount", "order_status")
     val df = spark.createDataFrame(Seq(
-      (1, "2023-07-17 00:00:00"),
-      (2, "2023-07-17 00:00:02"),
-      (3, "2023-07-17 00:00:20")
-    )).toDF("id", "c4")
+      ("1", 100, "待付款"),
+      ("2", 200, "待发货"),
+      ("3", 300, "已收货")
+    )).toDF("order_id", "order_amount", "order_status")
     df.write
       .format("doris")
       .option("doris.fenodes", dorisFeNodes)
@@ -54,8 +49,6 @@ class TestConnectorWriteDoris {
       .option("password", dorisPwd)
       .option("sink.batch.size", 2)
       .option("sink.max-retries", 2)
-      .option("sink.properties.column_separator", "\\x01")
-      .option("sink.properties.line_delimiter", "\\x02")
       .save()
     spark.stop()
   }
