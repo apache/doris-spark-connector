@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 package org.apache.doris.spark.load;
 
 import org.apache.doris.spark.cfg.ConfigurationOptions;
@@ -22,6 +23,7 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
+import org.apache.doris.spark.util.EscapeHandler;
 import org.apache.doris.spark.util.ListUtils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -102,9 +104,9 @@ public class DorisStreamLoad implements Serializable {
                 .build(new BackendCacheLoader(settings));
         fileType = streamLoadProp.getOrDefault("format", "csv");
         if ("csv".equals(fileType)){
-            FIELD_DELIMITER = streamLoadProp.getOrDefault("column_separator", "\t");
-            LINE_DELIMITER = streamLoadProp.getOrDefault("line_delimiter", "\n");
+            FIELD_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
         }
+        LINE_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
     }
 
     public String getLoadUrlStr() {
