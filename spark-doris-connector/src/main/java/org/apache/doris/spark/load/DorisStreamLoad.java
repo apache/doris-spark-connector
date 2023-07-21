@@ -69,7 +69,7 @@ import java.util.stream.Collectors;
  **/
 public class DorisStreamLoad implements Serializable {
     private String FIELD_DELIMITER;
-    private String LINE_DELIMITER;
+    private final String LINE_DELIMITER;
     private static final String NULL_VALUE = "\\N";
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
@@ -89,6 +89,8 @@ public class DorisStreamLoad implements Serializable {
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private final String fileType;
 
+    private boolean readJsonByLine = false;
+
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
@@ -105,6 +107,12 @@ public class DorisStreamLoad implements Serializable {
         fileType = streamLoadProp.getOrDefault("format", "csv");
         if ("csv".equals(fileType)){
             FIELD_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
+        } else if ("json".equalsIgnoreCase(fileType)) {
+            readJsonByLine = Boolean.parseBoolean(streamLoadProp.getOrDefault("read_json_by_line", "false"));
+            boolean stripOuterArray = Boolean.parseBoolean(streamLoadProp.getOrDefault("strip_outer_array", "false"));
+            if (readJsonByLine == stripOuterArray) {
+                throw new IllegalArgumentException("Only one of options 'read_json_by_line' and 'strip_outer_array' can be set to true");
+            }
         }
         LINE_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
     }
@@ -134,12 +142,7 @@ public class DorisStreamLoad implements Serializable {
             httpPut.setHeader("max_filter_ratio", maxFilterRatio);
         }
         if (MapUtils.isNotEmpty(streamLoadProp)) {
-            streamLoadProp.entrySet().stream()
-                    .filter(entry -> !"read_json_by_line".equals(entry.getKey()))
-                    .forEach(entry -> httpPut.setHeader(entry.getKey(), entry.getValue()));
-        }
-        if (fileType.equals("json")) {
-            httpPut.setHeader("strip_outer_array", "true");
+            streamLoadProp.forEach(httpPut::setHeader);
         }
         return httpPut;
     }
@@ -195,7 +198,7 @@ public class DorisStreamLoad implements Serializable {
                 throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
             }
             // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
-            List<String> serializedList = ListUtils.getSerializedList(dataList);
+            List<String> serializedList = ListUtils.getSerializedList(dataList, readJsonByLine ? LINE_DELIMITER : null);
             for (String serializedRows : serializedList) {
                 load(serializedRows);
             }
