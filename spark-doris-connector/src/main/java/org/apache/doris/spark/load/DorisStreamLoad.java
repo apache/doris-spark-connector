@@ -101,9 +101,9 @@ public class DorisStreamLoad implements Serializable {
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
         fileType = streamLoadProp.getOrDefault("format", "csv");
-        if ("csv".equals(fileType)){
-            FIELD_DELIMITER = streamLoadProp.getOrDefault("column_separator", "\t");
-            LINE_DELIMITER = streamLoadProp.getOrDefault("line_delimiter", "\n");
+        if ("csv".equals(fileType)) {
+            FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
+            LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
         }
     }
 
@@ -296,6 +296,25 @@ public class DorisStreamLoad implements Serializable {
             return RestService.getBackendRows(settings, LOG);
         }
 
+    }
+
+    private String escapeString(String hexData) {
+        if (hexData.startsWith("\\x") || hexData.startsWith("\\X")) {
+            try {
+                hexData = hexData.substring(2);
+                StringBuilder stringBuilder = new StringBuilder();
+                for (int i = 0; i < hexData.length(); i += 2) {
+                    String hexByte = hexData.substring(i, i + 2);
+                    int decimal = Integer.parseInt(hexByte, 16);
+                    char character = (char) decimal;
+                    stringBuilder.append(character);
+                }
+                return stringBuilder.toString();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return hexData;
     }
 
 }
