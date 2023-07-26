@@ -314,7 +314,7 @@ public class DorisStreamLoad implements Serializable {
                 }
                 return stringBuilder.toString();
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new RuntimeException("escape column_separator or line_delimiter error.{}" , e);
             }
         }
         return hexData;
