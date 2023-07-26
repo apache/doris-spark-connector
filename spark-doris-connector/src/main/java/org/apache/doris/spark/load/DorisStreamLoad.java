@@ -14,7 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 package org.apache.doris.spark.load;
 
 import org.apache.doris.spark.cfg.ConfigurationOptions;
@@ -23,7 +22,6 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
-import org.apache.doris.spark.util.EscapeHandler;
 import org.apache.doris.spark.util.ListUtils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -105,8 +103,8 @@ public class DorisStreamLoad implements Serializable {
                 .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
                 .build(new BackendCacheLoader(settings));
         fileType = streamLoadProp.getOrDefault("format", "csv");
-        if ("csv".equals(fileType)){
-            FIELD_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
+        if ("csv".equals(fileType)) {
+            FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
         } else if ("json".equalsIgnoreCase(fileType)) {
             readJsonByLine = Boolean.parseBoolean(streamLoadProp.getOrDefault("read_json_by_line", "false"));
             boolean stripOuterArray = Boolean.parseBoolean(streamLoadProp.getOrDefault("strip_outer_array", "false"));
@@ -114,7 +112,7 @@ public class DorisStreamLoad implements Serializable {
                 throw new IllegalArgumentException("Only one of options 'read_json_by_line' and 'strip_outer_array' can be set to true");
             }
         }
-        LINE_DELIMITER = EscapeHandler.escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
+        LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
     }
 
     public String getLoadUrlStr() {
@@ -301,6 +299,25 @@ public class DorisStreamLoad implements Serializable {
             return RestService.getBackendRows(settings, LOG);
         }
 
+    }
+
+    private String escapeString(String hexData) {
+        if (hexData.startsWith("\\x") || hexData.startsWith("\\X")) {
+            try {
+                hexData = hexData.substring(2);
+                StringBuilder stringBuilder = new StringBuilder();
+                for (int i = 0; i < hexData.length(); i += 2) {
+                    String hexByte = hexData.substring(i, i + 2);
+                    int decimal = Integer.parseInt(hexByte, 16);
+                    char character = (char) decimal;
+                    stringBuilder.append(character);
+                }
+                return stringBuilder.toString();
+            } catch (Exception e) {
+                throw new RuntimeException("escape column_separator or line_delimiter error.{}" , e);
+            }
+        }
+        return hexData;
     }
 
 }

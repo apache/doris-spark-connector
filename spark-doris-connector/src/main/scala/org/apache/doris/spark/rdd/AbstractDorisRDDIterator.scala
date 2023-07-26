@@ -33,7 +33,7 @@ private[spark] abstract class AbstractDorisRDDIterator[T](
   private var closed = false
 
   // the reader obtain data from Doris BE
-  lazy val reader = {
+  private lazy val reader = {
     initialized = true
     val settings = partition.settings()
     initReader(settings)
@@ -64,7 +64,7 @@ private[spark] abstract class AbstractDorisRDDIterator[T](
     createValue(value)
   }
 
-  def closeIfNeeded(): Unit = {
+  private def closeIfNeeded(): Unit = {
     logger.trace(s"Close status is '$closed' when close Doris RDD Iterator")
     if (!closed) {
       close()
