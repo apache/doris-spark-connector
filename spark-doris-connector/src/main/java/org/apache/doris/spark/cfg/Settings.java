@@ -62,6 +62,17 @@ public abstract class Settings {
         return defaultValue;
     }
 
+    public Boolean getBooleanProperty(String name) {
+        return getBooleanProperty(name, null);
+    }
+
+    public Boolean getBooleanProperty(String name, Boolean defaultValue) {
+        if (getProperty(name) != null) {
+            return Boolean.valueOf(getProperty(name));
+        }
+        return defaultValue;
+    }
+
     public Settings merge(Properties properties) {
         if (properties == null || properties.isEmpty()) {
             return this;

@@ -18,6 +18,7 @@
 package org.apache.doris.spark.writer
 
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
+import org.apache.doris.spark.listener.DorisTransactionListener
 import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.doris.spark.sql.Utils
 import org.apache.spark.sql.DataFrame
@@ -44,9 +45,19 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
   private val batchInterValMs: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS,
     ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
 
+  private val enable2PC: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
+    ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT);
+
   private val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
 
   def write(dataFrame: DataFrame): Unit = {
+
+    val sc = dataFrame.sqlContext.sparkContext
+    val successTxnAcc = sc.collectionAccumulator[Int]("successTxnAcc")
+    if (enable2PC) {
+      sc.addSparkListener(new DorisTransactionListener(successTxnAcc, dorisStreamLoader))
+    }
+
     var resultRdd = dataFrame.rdd
     val dfColumns = dataFrame.columns
     if (Objects.nonNull(sinkTaskPartitionSize)) {
@@ -65,10 +76,10 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
      *
      */
     def flush(batch: Iterable[util.List[Object]], dfColumns: Array[String]): Unit = {
-      Utils.retry[Unit, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
-        dorisStreamLoader.loadV2(batch.toList.asJava, dfColumns)
+      Utils.retry[util.List[Integer], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+        dorisStreamLoader.loadV2(batch.toList.asJava, dfColumns, enable2PC)
       } match {
-        case Success(_) =>
+        case Success(txnIds) => if (enable2PC) txnIds.forEach(txnId => successTxnAcc.add(txnId))
         case Failure(e) =>
           throw new IOException(
             s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)

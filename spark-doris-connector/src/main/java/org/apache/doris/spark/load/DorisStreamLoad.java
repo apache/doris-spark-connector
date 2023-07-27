@@ -23,8 +23,10 @@ import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
 import org.apache.doris.spark.util.ListUtils;
+import org.apache.doris.spark.util.ResponseUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -34,6 +36,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.BufferedHttpEntity;
 import org.apache.http.entity.StringEntity;
@@ -74,9 +77,14 @@ public class DorisStreamLoad implements Serializable {
 
     private final static List<String> DORIS_SUCCESS_STATUS = new ArrayList<>(Arrays.asList("Success", "Publish Timeout"));
     private static String loadUrlPattern = "http://%s/api/%s/%s/_stream_load?";
+
+    private static String abortUrlPattern = "http://%s/api/%s/%s/_stream_load_2pc?";
+
     private String user;
     private String passwd;
     private String loadUrlStr;
+
+    private String abortUrlStr;
     private String db;
     private String tbl;
     private String authEncoded;
@@ -121,13 +129,14 @@ public class DorisStreamLoad implements Serializable {
         }
         return loadUrlStr;
     }
+
     private CloseableHttpClient getHttpClient() {
         HttpClientBuilder httpClientBuilder = HttpClientBuilder.create()
                 .disableRedirectHandling();
         return httpClientBuilder.build();
     }
 
-    private HttpPut getHttpPut(String label, String loadUrlStr) {
+    private HttpPut getHttpPut(String label, String loadUrlStr, Boolean enable2PC) {
         HttpPut httpPut = new HttpPut(loadUrlStr);
         httpPut.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + authEncoded);
         httpPut.setHeader(HttpHeaders.EXPECT, "100-continue");
@@ -138,6 +147,9 @@ public class DorisStreamLoad implements Serializable {
         }
         if (StringUtils.isNotBlank(maxFilterRatio)) {
             httpPut.setHeader("max_filter_ratio", maxFilterRatio);
+        }
+        if (enable2PC) {
+            httpPut.setHeader("two_phase_commit", "true");
         }
         if (MapUtils.isNotEmpty(streamLoadProp)) {
             streamLoadProp.forEach(httpPut::setHeader);
@@ -164,94 +176,162 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public String listToString(List<List<Object>> rows) {
-        return rows.stream().map(row ->
-                row.stream().map(field -> field == null ? NULL_VALUE : field.toString())
-                        .collect(Collectors.joining(FIELD_DELIMITER))
-        ).collect(Collectors.joining(LINE_DELIMITER));
-    }
+    public List<Integer> loadV2(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC) throws StreamLoadException, JsonProcessingException {
 
+        List<String> loadData = parseLoadData(rows, dfColumns);
+        List<Integer> txnIds = new ArrayList<>(loadData.size());
 
-    public void loadV2(List<List<Object>> rows, String[] dfColumns) throws StreamLoadException, JsonProcessingException {
-        if (fileType.equals("csv")) {
-            load(listToString(rows));
-        } else if(fileType.equals("json")) {
-            List<Map<Object, Object>> dataList = new ArrayList<>();
-            try {
-                for (List<Object> row : rows) {
-                    Map<Object, Object> dataMap = new HashMap<>();
-                    if (dfColumns.length == row.size()) {
-                        for (int i = 0; i < dfColumns.length; i++) {
-                            Object col = row.get(i);
-                            if (col instanceof Timestamp) {
-                                dataMap.put(dfColumns[i], col.toString());
-                                continue;
-                            }
-                            dataMap.put(dfColumns[i], col);
-                        }
-                    }
-                    dataList.add(dataMap);
+        try {
+            for (String data : loadData) {
+                txnIds.add(load(data, enable2PC));
+            }
+        } catch (StreamLoadException e) {
+            if (enable2PC) {
+                LOG.error("load batch failed, abort previously pre-committed transactions");
+                for (Integer txnId : txnIds) {
+                    abort(txnId);
                 }
-            } catch (Exception e) {
-                throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
             }
-            // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
-            List<String> serializedList = ListUtils.getSerializedList(dataList, readJsonByLine ? LINE_DELIMITER : null);
-            for (String serializedRows : serializedList) {
-                load(serializedRows);
-            }
-        } else {
-            throw new StreamLoadException(String.format("Unsupported file format in stream load: %s.", fileType));
+            throw e;
         }
+
+        return txnIds;
+
     }
 
-    public void load(String value) throws StreamLoadException {
-        LoadResponse loadResponse = loadBatch(value);
-        if (loadResponse.status != HttpStatus.SC_OK) {
-            LOG.info("Streamload Response HTTP Status Error:{}", loadResponse);
-            throw new StreamLoadException("stream load error: " + loadResponse.respContent);
-        } else {
-            ObjectMapper obj = new ObjectMapper();
-            try {
-                RespContent respContent = obj.readValue(loadResponse.respContent, RespContent.class);
-                if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
-                    LOG.error("Streamload Response RES STATUS Error:{}", loadResponse);
-                    throw new StreamLoadException("stream load error: " + loadResponse);
-                }
-                LOG.info("Streamload Response:{}", loadResponse);
-            } catch (IOException e) {
-                throw new StreamLoadException(e);
-            }
-        }
-    }
+    public int load(String value, Boolean enable2PC) throws StreamLoadException {
 
-    private LoadResponse loadBatch(String value) {
-        Calendar calendar = Calendar.getInstance();
-        String label = String.format("spark_streamload_%s%02d%02d_%02d%02d%02d_%s",
-                calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH),
-                calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND),
-                UUID.randomUUID().toString().replaceAll("-", ""));
+        String label = generateLoadLabel();
 
+        LoadResponse loadResponse;
         int responseHttpStatus = -1;
         try (CloseableHttpClient httpClient = getHttpClient()) {
             String loadUrlStr = String.format(loadUrlPattern, getBackend(), db, tbl);
-            LOG.debug("Streamload Request:{} ,Body:{}", loadUrlStr, value);
-            //only to record the BE node in case of an exception
+            LOG.debug("Stream load Request:{} ,Body:{}", loadUrlStr, value);
+            // only to record the BE node in case of an exception
             this.loadUrlStr = loadUrlStr;
 
-            HttpPut httpPut = getHttpPut(label, loadUrlStr);
+            HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
             httpPut.setEntity(new StringEntity(value, StandardCharsets.UTF_8));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             responseHttpStatus = httpResponse.getStatusLine().getStatusCode();
             String respMsg = httpResponse.getStatusLine().getReasonPhrase();
             String response = EntityUtils.toString(new BufferedHttpEntity(httpResponse.getEntity()), StandardCharsets.UTF_8);
-            return new LoadResponse(responseHttpStatus, respMsg, response);
+            loadResponse = new LoadResponse(responseHttpStatus, respMsg, response);
         } catch (IOException e) {
             e.printStackTrace();
-            String err = "http request exception,load url : " + loadUrlStr + ",failed to execute spark streamload with label: " + label;
+            String err = "http request exception,load url : " + loadUrlStr +
+                    ",failed to execute spark stream load with label: " + label;
             LOG.warn(err, e);
-            return new LoadResponse(responseHttpStatus, e.getMessage(), err);
+            loadResponse = new LoadResponse(responseHttpStatus, e.getMessage(), err);
         }
+
+        if (loadResponse.status != HttpStatus.SC_OK) {
+            LOG.info("Stream load Response HTTP Status Error:{}", loadResponse);
+            // throw new StreamLoadException("stream load error: " + loadResponse.respContent);
+            throw new StreamLoadException("stream load error");
+        } else {
+            ObjectMapper obj = new ObjectMapper();
+            try {
+                RespContent respContent = obj.readValue(loadResponse.respContent, RespContent.class);
+                if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
+                    LOG.error("Stream load Response RES STATUS Error:{}", loadResponse);
+                    throw new StreamLoadException("stream load error");
+                }
+                LOG.info("Stream load Response:{}", loadResponse);
+                return respContent.getTxnId();
+            } catch (IOException e) {
+                throw new StreamLoadException(e);
+            }
+        }
+
+    }
+
+    public void commit(int txnId) throws StreamLoadException {
+
+        try (CloseableHttpClient client = getHttpClient()) {
+
+            String backend = getBackend();
+            String abortUrl = String.format(abortUrlPattern, backend, db, tbl);
+            HttpPut httpPut = new HttpPut(abortUrl);
+            httpPut.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + authEncoded);
+            httpPut.setHeader(HttpHeaders.EXPECT, "100-continue");
+            httpPut.setHeader(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8");
+            httpPut.setHeader("txn_operation", "commit");
+            httpPut.setHeader("txn_id", String.valueOf(txnId));
+
+            CloseableHttpResponse response = client.execute(httpPut);
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != 200 || response.getEntity() == null) {
+                LOG.warn("abort transaction response: " + response.getStatusLine().toString());
+                throw new StreamLoadException("Fail to abort transaction " + txnId + " with url " + abortUrlStr);
+            }
+
+            statusCode = response.getStatusLine().getStatusCode();
+            String reasonPhrase = response.getStatusLine().getReasonPhrase();
+            if (statusCode != 200) {
+                LOG.warn("commit failed with {}, reason {}", backend, reasonPhrase);
+            }
+
+            if (statusCode != 200) {
+                throw new StreamLoadException("stream load error: " + reasonPhrase);
+            }
+
+            ObjectMapper mapper = new ObjectMapper();
+            if (response.getEntity() != null) {
+                String loadResult = EntityUtils.toString(response.getEntity());
+                Map<String, String> res = mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {
+                });
+                if (res.get("status").equals("Fail") && !ResponseUtil.isCommitted(res.get("msg"))) {
+                    throw new StreamLoadException("Commit failed " + loadResult);
+                } else {
+                    LOG.info("load result {}", loadResult);
+                }
+            }
+
+        } catch (IOException e) {
+            throw new StreamLoadException(e);
+        }
+
+    }
+
+    public void abort(int txnId) throws StreamLoadException {
+
+        LOG.info("start abort transaction {}.", txnId);
+
+        try (CloseableHttpClient client = getHttpClient()) {
+            String abortUrl = String.format(abortUrlPattern, getBackend(), db, tbl);
+            HttpPut httpPut = new HttpPut(abortUrl);
+            httpPut.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + authEncoded);
+            httpPut.setHeader(HttpHeaders.EXPECT, "100-continue");
+            httpPut.setHeader(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8");
+            httpPut.setHeader("txn_operation", "abort");
+            httpPut.setHeader("txn_id", String.valueOf(txnId));
+
+            CloseableHttpResponse response = client.execute(httpPut);
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != 200 || response.getEntity() == null) {
+                LOG.warn("abort transaction response: " + response.getStatusLine().toString());
+                throw new StreamLoadException("Fail to abort transaction " + txnId + " with url " + abortUrlStr);
+            }
+
+            ObjectMapper mapper = new ObjectMapper();
+            String loadResult = EntityUtils.toString(response.getEntity());
+            Map<String, String> res = mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>(){});
+            if (!"Success".equals(res.get("status"))) {
+                if (ResponseUtil.isCommitted(res.get("msg"))) {
+                    throw new StreamLoadException("try abort committed transaction, " +
+                            "do you recover from old savepoint?");
+                }
+                LOG.warn("Fail to abort transaction. txnId: {}, error: {}", txnId, res.get("msg"));
+            }
+
+        } catch (IOException e) {
+            throw new StreamLoadException(e);
+        }
+
+        LOG.info("abort transaction {} succeed.", txnId);
+
     }
 
     public Map<String, String> getStreamLoadProp(SparkSettings sparkSettings) {
@@ -268,7 +348,7 @@ public class DorisStreamLoad implements Serializable {
 
     private String getBackend() {
         try {
-            //get backends from cache
+            // get backends from cache
             List<BackendV2.BackendRowV2> backends = cache.get("backends");
             Collections.shuffle(backends);
             BackendV2.BackendRowV2 backend = backends.get(0);
@@ -301,6 +381,60 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
+    private List<String> parseLoadData(List<List<Object>> rows, String[] dfColumns) throws StreamLoadException, JsonProcessingException {
+
+        List<String> loadDataList;
+
+        switch (fileType.toUpperCase()) {
+
+            case "CSV":
+                loadDataList = Collections.singletonList(rows.stream().map(row ->
+                        row.stream().map(field -> field == null ? NULL_VALUE : field.toString())
+                                .collect(Collectors.joining(FIELD_DELIMITER))
+                ).collect(Collectors.joining(LINE_DELIMITER)));
+                break;
+            case "JSON":
+                List<Map<Object, Object>> dataList = new ArrayList<>();
+                try {
+                    for (List<Object> row : rows) {
+                        Map<Object, Object> dataMap = new HashMap<>();
+                        if (dfColumns.length == row.size()) {
+                            for (int i = 0; i < dfColumns.length; i++) {
+                                Object col = row.get(i);
+                                if (col instanceof Timestamp) {
+                                    dataMap.put(dfColumns[i], col.toString());
+                                    continue;
+                                }
+                                dataMap.put(dfColumns[i], col);
+                            }
+                        }
+                        dataList.add(dataMap);
+                    }
+                } catch (Exception e) {
+                    throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
+                }
+                // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
+                loadDataList = ListUtils.getSerializedList(dataList, readJsonByLine ? LINE_DELIMITER : null);
+                break;
+            default:
+                throw new StreamLoadException(String.format("Unsupported file format in stream load: %s.", fileType));
+
+        }
+
+        return loadDataList;
+
+    }
+
+    private String generateLoadLabel() {
+
+        Calendar calendar = Calendar.getInstance();
+        return String.format("spark_streamload_%s%02d%02d_%02d%02d%02d_%s",
+                calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH),
+                calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND),
+                UUID.randomUUID().toString().replaceAll("-", ""));
+
+    }
+
     private String escapeString(String hexData) {
         if (hexData.startsWith("\\x") || hexData.startsWith("\\X")) {
             try {
@@ -314,7 +448,7 @@ public class DorisStreamLoad implements Serializable {
                 }
                 return stringBuilder.toString();
             } catch (Exception e) {
-                throw new RuntimeException("escape column_separator or line_delimiter error.{}" , e);
+                throw new RuntimeException("escape column_separator or line_delimiter error.{}", e);
             }
         }
         return hexData;
