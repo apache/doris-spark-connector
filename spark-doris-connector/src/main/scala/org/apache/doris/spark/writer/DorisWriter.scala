@@ -79,7 +79,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       Utils.retry[util.List[Integer], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
         dorisStreamLoader.loadV2(batch.toList.asJava, dfColumns, enable2PC)
       } match {
-        case Success(txnIds) => if (enable2PC) txnIds.forEach(txnId => successTxnAcc.add(txnId))
+        case Success(txnIds) => if (enable2PC) txnIds.asScala.foreach(txnId => successTxnAcc.add(txnId))
         case Failure(e) =>
           throw new IOException(
             s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
