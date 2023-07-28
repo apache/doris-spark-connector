@@ -83,8 +83,6 @@ public class DorisStreamLoad implements Serializable {
     private String user;
     private String passwd;
     private String loadUrlStr;
-
-    private String abortUrlStr;
     private String db;
     private String tbl;
     private String authEncoded;
@@ -107,9 +105,7 @@ public class DorisStreamLoad implements Serializable {
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
         this.streamLoadProp = getStreamLoadProp(settings);
-        cache = CacheBuilder.newBuilder()
-                .expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
-                .build(new BackendCacheLoader(settings));
+        cache = CacheBuilder.newBuilder().expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES).build(new BackendCacheLoader(settings));
         fileType = streamLoadProp.getOrDefault("format", "csv");
         if ("csv".equals(fileType)) {
             FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
@@ -131,8 +127,7 @@ public class DorisStreamLoad implements Serializable {
     }
 
     private CloseableHttpClient getHttpClient() {
-        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create()
-                .disableRedirectHandling();
+        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create().disableRedirectHandling();
         return httpClientBuilder.build();
     }
 
@@ -170,9 +165,7 @@ public class DorisStreamLoad implements Serializable {
 
         @Override
         public String toString() {
-            return "status: " + status +
-                    ", resp msg: " + respMsg +
-                    ", resp content: " + respContent;
+            return "status: " + status + ", resp msg: " + respMsg + ", resp content: " + respContent;
         }
     }
 
@@ -186,7 +179,7 @@ public class DorisStreamLoad implements Serializable {
                 txnIds.add(load(data, enable2PC));
             }
         } catch (StreamLoadException e) {
-            if (enable2PC) {
+            if (enable2PC && !txnIds.isEmpty()) {
                 LOG.error("load batch failed, abort previously pre-committed transactions");
                 for (Integer txnId : txnIds) {
                     abort(txnId);
@@ -220,8 +213,7 @@ public class DorisStreamLoad implements Serializable {
             loadResponse = new LoadResponse(responseHttpStatus, respMsg, response);
         } catch (IOException e) {
             e.printStackTrace();
-            String err = "http request exception,load url : " + loadUrlStr +
-                    ",failed to execute spark stream load with label: " + label;
+            String err = "http request exception,load url : " + loadUrlStr + ",failed to execute spark stream load with label: " + label;
             LOG.warn(err, e);
             loadResponse = new LoadResponse(responseHttpStatus, e.getMessage(), err);
         }
@@ -317,11 +309,11 @@ public class DorisStreamLoad implements Serializable {
 
             ObjectMapper mapper = new ObjectMapper();
             String loadResult = EntityUtils.toString(response.getEntity());
-            Map<String, String> res = mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>(){});
+            Map<String, String> res = mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {
+            });
             if (!"Success".equals(res.get("status"))) {
                 if (ResponseUtil.isCommitted(res.get("msg"))) {
-                    throw new StreamLoadException("try abort committed transaction, " +
-                            "do you recover from old savepoint?");
+                    throw new StreamLoadException("try abort committed transaction, " + "do you recover from old savepoint?");
                 }
                 LOG.warn("Fail to abort transaction. txnId: {}, error: {}", txnId, res.get("msg"));
             }
@@ -388,10 +380,7 @@ public class DorisStreamLoad implements Serializable {
         switch (fileType.toUpperCase()) {
 
             case "CSV":
-                loadDataList = Collections.singletonList(rows.stream().map(row ->
-                        row.stream().map(field -> field == null ? NULL_VALUE : field.toString())
-                                .collect(Collectors.joining(FIELD_DELIMITER))
-                ).collect(Collectors.joining(LINE_DELIMITER)));
+                loadDataList = Collections.singletonList(rows.stream().map(row -> row.stream().map(field -> field == null ? NULL_VALUE : field.toString()).collect(Collectors.joining(FIELD_DELIMITER))).collect(Collectors.joining(LINE_DELIMITER)));
                 break;
             case "JSON":
                 List<Map<Object, Object>> dataList = new ArrayList<>();
@@ -428,10 +417,7 @@ public class DorisStreamLoad implements Serializable {
     private String generateLoadLabel() {
 
         Calendar calendar = Calendar.getInstance();
-        return String.format("spark_streamload_%s%02d%02d_%02d%02d%02d_%s",
-                calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH),
-                calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND),
-                UUID.randomUUID().toString().replaceAll("-", ""));
+        return String.format("spark_streamload_%s%02d%02d_%02d%02d%02d_%s", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH), calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND), UUID.randomUUID().toString().replaceAll("-", ""));
 
     }
 

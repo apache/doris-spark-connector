@@ -29,6 +29,7 @@ import java.time.Duration
 import java.util
 import java.util.Objects
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.util.{Failure, Success}
 
 class DorisWriter(settings: SparkSettings) extends Serializable {
@@ -53,9 +54,9 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
   def write(dataFrame: DataFrame): Unit = {
 
     val sc = dataFrame.sqlContext.sparkContext
-    val successTxnAcc = sc.collectionAccumulator[Int]("successTxnAcc")
+    val preCommittedTxnAcc = sc.collectionAccumulator[Int]("preCommittedTxnAcc")
     if (enable2PC) {
-      sc.addSparkListener(new DorisTransactionListener(successTxnAcc, dorisStreamLoader))
+      sc.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, dorisStreamLoader))
     }
 
     var resultRdd = dataFrame.rdd
@@ -79,8 +80,24 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       Utils.retry[util.List[Integer], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
         dorisStreamLoader.loadV2(batch.toList.asJava, dfColumns, enable2PC)
       } match {
-        case Success(txnIds) => if (enable2PC) txnIds.asScala.foreach(txnId => successTxnAcc.add(txnId))
+        case Success(txnIds) => if (enable2PC) txnIds.asScala.foreach(txnId => preCommittedTxnAcc.add(txnId))
         case Failure(e) =>
+          if (enable2PC) {
+            // if task run failed, acc value will not be returned to driver,
+            // should abort all pre committed transactions inside the task
+            logger.info("load task failed, start aborting previously pre-committed transactions")
+            val abortFailedTxnIds = mutable.Buffer[Int]()
+            preCommittedTxnAcc.value.asScala.foreach(txnId => {
+              Utils.retry[Unit, Exception](3, Duration.ofSeconds(1), logger) {
+                dorisStreamLoader.abort(txnId)
+              } match {
+                case Success(_) =>
+                case Failure(_) => abortFailedTxnIds += txnId
+              }
+            })
+            if (abortFailedTxnIds.nonEmpty) logger.warn("not aborted txn ids: {}", abortFailedTxnIds.mkString(","))
+            preCommittedTxnAcc.reset()
+          }
           throw new IOException(
             s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
       }
