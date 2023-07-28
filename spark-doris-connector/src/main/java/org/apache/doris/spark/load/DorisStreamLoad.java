@@ -255,17 +255,14 @@ public class DorisStreamLoad implements Serializable {
             CloseableHttpResponse response = client.execute(httpPut);
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode != 200 || response.getEntity() == null) {
-                LOG.warn("abort transaction response: " + response.getStatusLine().toString());
-                throw new StreamLoadException("Fail to abort transaction " + txnId + " with url " + abortUrlStr);
+                LOG.warn("commit transaction response: " + response.getStatusLine().toString());
+                throw new StreamLoadException("Fail to commit transaction " + txnId + " with url " + abortUrl);
             }
 
             statusCode = response.getStatusLine().getStatusCode();
             String reasonPhrase = response.getStatusLine().getReasonPhrase();
             if (statusCode != 200) {
                 LOG.warn("commit failed with {}, reason {}", backend, reasonPhrase);
-            }
-
-            if (statusCode != 200) {
                 throw new StreamLoadException("stream load error: " + reasonPhrase);
             }
 
@@ -304,7 +301,7 @@ public class DorisStreamLoad implements Serializable {
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode != 200 || response.getEntity() == null) {
                 LOG.warn("abort transaction response: " + response.getStatusLine().toString());
-                throw new StreamLoadException("Fail to abort transaction " + txnId + " with url " + abortUrlStr);
+                throw new StreamLoadException("Fail to abort transaction " + txnId + " with url " + abortUrl);
             }
 
             ObjectMapper mapper = new ObjectMapper();
