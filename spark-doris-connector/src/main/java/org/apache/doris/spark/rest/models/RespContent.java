@@ -75,6 +75,10 @@ public class RespContent {
     @JsonProperty(value = "ErrorURL")
     private String ErrorURL;
 
+    public int getTxnId() {
+        return TxnId;
+    }
+
     public String getStatus() {
         return Status;
     }

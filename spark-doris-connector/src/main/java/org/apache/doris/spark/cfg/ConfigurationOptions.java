@@ -97,4 +97,7 @@ public interface ConfigurationOptions {
      */
     String DORIS_IGNORE_TYPE = "doris.ignore-type";
 
+    String DORIS_SINK_ENABLE_2PC = "doris.sink.enable-2pc";
+    boolean DORIS_SINK_ENABLE_2PC_DEFAULT = false;
+
 }
