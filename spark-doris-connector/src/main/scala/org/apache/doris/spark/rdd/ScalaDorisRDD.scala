@@ -39,7 +39,7 @@ private[spark] class ScalaDorisRDDIterator[T](
     partition: PartitionDefinition)
     extends AbstractDorisRDDIterator[T](context, partition) {
 
-  override def initReader(settings: Settings) = {
+  override def initReader(settings: Settings): Unit = {
     settings.setProperty(DORIS_VALUE_READER_CLASS, classOf[ScalaValueReader].getName)
   }
 

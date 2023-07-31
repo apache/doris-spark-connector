@@ -67,7 +67,7 @@ public interface ConfigurationOptions {
     String DORIS_WRITE_FIELDS = "doris.write.fields";
 
     String DORIS_SINK_BATCH_SIZE = "doris.sink.batch.size";
-    int SINK_BATCH_SIZE_DEFAULT = 10000;
+    int SINK_BATCH_SIZE_DEFAULT = 100000;
 
     String DORIS_SINK_MAX_RETRIES = "doris.sink.max-retries";
     int SINK_MAX_RETRIES_DEFAULT = 1;
@@ -89,5 +89,15 @@ public interface ConfigurationOptions {
     String DORIS_SINK_BATCH_INTERVAL_MS = "doris.sink.batch.interval.ms";
 
     int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
+
+    /**
+     * set types to ignore, split by comma
+     * e.g.
+     * "doris.ignore-type"="bitmap,hll"
+     */
+    String DORIS_IGNORE_TYPE = "doris.ignore-type";
+
+    String DORIS_SINK_ENABLE_2PC = "doris.sink.enable-2pc";
+    boolean DORIS_SINK_ENABLE_2PC_DEFAULT = false;
 
 }

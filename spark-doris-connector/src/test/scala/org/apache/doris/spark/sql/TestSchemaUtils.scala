@@ -41,7 +41,7 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     fields :+= DataTypes.createStructField("k1", DataTypes.ByteType, true)
     fields :+= DataTypes.createStructField("k5", DataTypes.LongType, true)
     val expected = DataTypes.createStructType(fields.asJava)
-    Assert.assertEquals(expected, SchemaUtils.convertToStruct("k1,k5", schema))
+    Assert.assertEquals(expected, SchemaUtils.convertToStruct(schema, "k1,k5", null))
   }
 
   @Test
@@ -93,4 +93,24 @@ class TestSchemaUtils extends ExpectedExceptionTest {
 
     Assert.assertEquals(expected, SchemaUtils.convertToSchema(Seq(k1, k2)))
   }
+
+  @Test
+  def testIgnoreTypes(): Unit = {
+
+    val schema = new Schema
+    schema.setStatus(200)
+    val col1 = new Field("col1", "TINYINT", "", 0, 0, "")
+    val col2 = new Field("col2", "BITMAP", "", 0, 0, "")
+    val col3 = new Field("col3", "HLL", "", 0, 0, "")
+    schema.put(col1)
+    schema.put(col2)
+    schema.put(col3)
+
+    var fields = List[StructField]()
+    fields :+= DataTypes.createStructField("col1", DataTypes.ByteType, true)
+    val expected = DataTypes.createStructType(fields.asJava)
+    Assert.assertEquals(expected, SchemaUtils.convertToStruct(schema, null, "bitmap,hll"))
+
+  }
+
 }

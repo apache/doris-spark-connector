@@ -37,11 +37,6 @@ import org.apache.doris.spark.util.ErrorMessages
 import org.apache.doris.spark.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE
 import org.apache.spark.internal.Logging
 
-import java.util.concurrent._
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
-import scala.collection.JavaConversions._
-import scala.util.Try
 import scala.util.control.Breaks
 
 /**
@@ -50,36 +45,45 @@ import scala.util.control.Breaks
  * @param partition Doris RDD partition
  * @param settings request configuration
  */
-class ScalaValueReader(partition: PartitionDefinition, settings: Settings) extends Logging{
+class ScalaValueReader(partition: PartitionDefinition, settings: Settings) extends Logging {
 
-  protected val client = new BackendClient(new Routing(partition.getBeAddress), settings)
-  protected val clientLock =
-    if (deserializeArrowToRowBatchAsync) new ReentrantLock()
-    else new NoOpLock
-  protected var offset = 0
-  protected var eos: AtomicBoolean = new AtomicBoolean(false)
+  private[this] lazy val client = new BackendClient(new Routing(partition.getBeAddress), settings)
+
+  private[this] var offset = 0
+
+  private[this] val eos: AtomicBoolean = new AtomicBoolean(false)
+
   protected var rowBatch: RowBatch = _
+
   // flag indicate if support deserialize Arrow to RowBatch asynchronously
-  protected lazy val deserializeArrowToRowBatchAsync: Boolean = Try {
+  private[this] lazy val deserializeArrowToRowBatchAsync: Boolean = Try {
     settings.getProperty(DORIS_DESERIALIZE_ARROW_ASYNC, DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT.toString).toBoolean
   } getOrElse {
-    logWarning(String.format(ErrorMessages.PARSE_BOOL_FAILED_MESSAGE, DORIS_DESERIALIZE_ARROW_ASYNC, settings.getProperty(DORIS_DESERIALIZE_ARROW_ASYNC)))
+    logWarning(
+      String.format(ErrorMessages.PARSE_BOOL_FAILED_MESSAGE,
+        DORIS_DESERIALIZE_ARROW_ASYNC,
+        settings.getProperty(DORIS_DESERIALIZE_ARROW_ASYNC)
+      )
+    )
     DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT
   }
 
-  protected var rowBatchBlockingQueue: BlockingQueue[RowBatch] = {
+  private[this] val rowBatchBlockingQueue: BlockingQueue[RowBatch] = {
     val blockingQueueSize = Try {
       settings.getProperty(DORIS_DESERIALIZE_QUEUE_SIZE, DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT.toString).toInt
     } getOrElse {
       logWarning(String.format(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_DESERIALIZE_QUEUE_SIZE, settings.getProperty(DORIS_DESERIALIZE_QUEUE_SIZE)))
       DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT
     }
-
-    var queue: BlockingQueue[RowBatch] = null
     if (deserializeArrowToRowBatchAsync) {
-      queue = new ArrayBlockingQueue(blockingQueueSize)
+      new ArrayBlockingQueue(blockingQueueSize)
+    } else {
+      null
     }
-    queue
+  }
+
+  private[this] val clientLock = {
+    if (deserializeArrowToRowBatchAsync) new ReentrantLock() else new NoOpLock
   }
 
   private val openParams: TScanOpenParams = {
@@ -87,7 +91,6 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
     params.cluster = DORIS_DEFAULT_CLUSTER
     params.database = partition.getDatabase
     params.table = partition.getTable
-
     params.tablet_ids = partition.getTabletIds.toList
     params.opaqued_query_plan = partition.getQueryPlan
 
@@ -129,7 +132,6 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
         s"execution memory limit: $execMemLimit, " +
         s"user: ${params.getUser}, " +
         s"query plan: ${params.getOpaquedQueryPlan}")
-
     params
   }
 
@@ -138,8 +140,8 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
   protected val schema: Schema =
     SchemaUtils.convertToSchema(openResult.getSelectedColumns)
 
-  protected val asyncThread: Thread = new Thread {
-    override def run {
+  private[this] val asyncThread: Thread = new Thread {
+    override def run(): Unit = {
       val nextBatchParams = new TScanNextBatchParams
       nextBatchParams.setContextId(contextId)
       while (!eos.get) {
@@ -149,17 +151,17 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
         if (!eos.get) {
           val rowBatch = new RowBatch(nextResult, schema)
           offset += rowBatch.getReadRowCount
-          rowBatch.close
+          rowBatch.close()
           rowBatchBlockingQueue.put(rowBatch)
         }
       }
     }
   }
 
-  protected val asyncThreadStarted: Boolean = {
+  private val asyncThreadStarted: Boolean = {
     var started = false
     if (deserializeArrowToRowBatchAsync) {
-      asyncThread.start
+      asyncThread.start()
       started = true
     }
     started
@@ -197,7 +199,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
       if (!eos.get && (rowBatch == null || !rowBatch.hasNext)) {
         if (rowBatch != null) {
           offset += rowBatch.getReadRowCount
-          rowBatch.close
+          rowBatch.close()
         }
         val nextBatchParams = new TScanNextBatchParams
         nextBatchParams.setContextId(contextId)

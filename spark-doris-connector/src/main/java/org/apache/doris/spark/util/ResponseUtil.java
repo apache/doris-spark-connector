@@ -17,26 +17,17 @@
 
 package org.apache.doris.spark.util;
 
-import org.junit.Assert;
-import org.junit.Test;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.regex.Pattern;
 
-public class TestListUtils {
+public class ResponseUtil {
+    public static final Pattern LABEL_EXIST_PATTERN =
+            Pattern.compile("errCode = 2, detailMessage = Label \\[(.*)\\] " +
+                    "has already been used, relate to txn \\[(\\d+)\\]");
+    public static final Pattern COMMITTED_PATTERN =
+            Pattern.compile("errCode = 2, detailMessage = transaction \\[(\\d+)\\] " +
+                    "is already \\b(COMMITTED|committed|VISIBLE|visible)\\b, not pre-committed.");
 
-    @Test
-    public void testGetSerializedList() throws Exception {
-        int size = 15000;
-        List<Map<Object, Object>> batch = new ArrayList<>();
-        for (int i = 0; i < size; i++) {
-            Map<Object, Object> entity = new HashMap<>();
-            batch.add(entity);
-        }
-        Assert.assertEquals(ListUtils.getSerializedList(batch, "\n").size(), 1);
-
-        Assert.assertEquals(ListUtils.getSerializedList(new ArrayList<>(), "\n").size(), 1);
-
+    public static boolean isCommitted(String msg) {
+       return COMMITTED_PATTERN.matcher(msg).matches();
     }
 }

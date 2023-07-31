@@ -120,7 +120,11 @@ public class BackendClient {
      * @throws ConnectedFailedException throw if cannot connect to Doris BE
      */
     public TScanOpenResult openScanner(TScanOpenParams openParams) throws ConnectedFailedException {
-        logger.debug("OpenScanner to '{}', parameter is '{}'.", routing, openParams);
+        if (logger.isDebugEnabled()) {
+            TScanOpenParams logParams = new TScanOpenParams(openParams);
+            logParams.setPasswd("********");
+            logger.debug("OpenScanner to '{}', parameter is '{}'.", routing, logParams);
+        }
         if (!isConnected) {
             open();
         }
