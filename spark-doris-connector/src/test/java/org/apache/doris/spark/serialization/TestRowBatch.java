@@ -23,9 +23,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Date;
+import java.text.DateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -261,7 +264,7 @@ public class TestRowBatch {
                 1L,
                 (float) 1.1,
                 (double) 1.1,
-                "2008-08-08",
+                Date.valueOf("2008-08-08"),
                 "2008-08-08 00:00:00",
                 Decimal.apply(1234L, 4, 2),
                 "char1"
@@ -275,7 +278,7 @@ public class TestRowBatch {
                 2L,
                 (float) 2.2,
                 (double) 2.2,
-                "1900-08-08",
+                Date.valueOf("1900-08-08"),
                 "1900-08-08 00:00:00",
                 Decimal.apply(8888L, 4, 2),
                 "char2"
@@ -289,7 +292,7 @@ public class TestRowBatch {
                 3L,
                 (float) 3.3,
                 (double) 3.3,
-                "2100-08-08",
+                Date.valueOf("2100-08-08"),
                 "2100-08-08 00:00:00",
                 Decimal.apply(10L, 2, 0),
                 "char3"
@@ -297,15 +300,15 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow1 = rowBatch.next();
-        Assert.assertEquals(expectedRow1, actualRow1);
+        Assert.assertArrayEquals(expectedRow1.toArray(), actualRow1.toArray());
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow2 = rowBatch.next();
-        Assert.assertEquals(expectedRow2, actualRow2);
+        Assert.assertArrayEquals(expectedRow2.toArray(), actualRow2.toArray());
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow3 = rowBatch.next();
-        Assert.assertEquals(expectedRow3, actualRow3);
+        Assert.assertArrayEquals(expectedRow3.toArray(), actualRow3.toArray());
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
@@ -511,8 +514,8 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertEquals(LocalDate.parse("2023-08-09"), actualRow0.get(0));
-        Assert.assertEquals(LocalDate.parse("2023-08-10"), actualRow0.get(1));
+        Assert.assertEquals(Date.valueOf("2023-08-09"), actualRow0.get(0));
+        Assert.assertEquals(Date.valueOf("2023-08-10"), actualRow0.get(1));
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
@@ -574,7 +577,6 @@ public class TestRowBatch {
         scanBatchResult.setEos(false);
         scanBatchResult.setRows(outputStream.toByteArray());
 
-
         String schemaStr = "{\"properties\":[" +
                 "{\"type\":\"LARGEINT\",\"name\":\"k1\",\"comment\":\"\"}, " +
                 "{\"type\":\"LARGEINT\",\"name\":\"k2\",\"comment\":\"\"}" +
@@ -586,8 +588,9 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertEquals(new BigInteger("9223372036854775808"), actualRow0.get(0));
-        Assert.assertEquals(new BigInteger("9223372036854775809"), actualRow0.get(1));
+
+        Assert.assertEquals(Decimal.apply(new BigInteger("9223372036854775808")), actualRow0.get(0));
+        Assert.assertEquals(Decimal.apply(new BigInteger("9223372036854775809")), actualRow0.get(1));
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
