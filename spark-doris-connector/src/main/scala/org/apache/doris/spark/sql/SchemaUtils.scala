@@ -102,14 +102,14 @@ private[spark] object SchemaUtils {
       case "BIGINT"          => DataTypes.LongType
       case "FLOAT"           => DataTypes.FloatType
       case "DOUBLE"          => DataTypes.DoubleType
-      case "DATE"            => DataTypes.StringType
-      case "DATEV2"          => DataTypes.StringType
+      case "DATE"            => DataTypes.DateType
+      case "DATEV2"          => DataTypes.DateType
       case "DATETIME"        => DataTypes.StringType
       case "DATETIMEV2"      => DataTypes.StringType
       case "BINARY"          => DataTypes.BinaryType
       case "DECIMAL"         => DecimalType(precision, scale)
       case "CHAR"            => DataTypes.StringType
-      case "LARGEINT"        => DataTypes.StringType
+      case "LARGEINT"        => DecimalType(38,0)
       case "VARCHAR"         => DataTypes.StringType
       case "JSONB"           => DataTypes.StringType
       case "DECIMALV2"       => DecimalType(precision, scale)
