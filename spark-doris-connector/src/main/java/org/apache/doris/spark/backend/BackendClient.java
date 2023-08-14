@@ -31,6 +31,8 @@ import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.DorisInternalException;
 import org.apache.doris.spark.cfg.Settings;
 import org.apache.doris.spark.serialization.Routing;
+import org.apache.doris.spark.util.ErrorMessages;
+
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;

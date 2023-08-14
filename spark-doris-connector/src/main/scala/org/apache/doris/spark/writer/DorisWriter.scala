@@ -21,6 +21,7 @@ import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.listener.DorisTransactionListener
 import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.doris.spark.sql.Utils
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.StructType
@@ -68,7 +69,6 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
     resultRdd
-      .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
       .foreachPartition(partition => {
         partition
           .grouped(batchSize)
@@ -79,8 +79,8 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
      * flush data to Doris and do retry when flush error
      *
      */
-    def flush(batch: Seq[util.List[Object]], dfColumns: Array[String]): Unit = {
-      Utils.retry[util.List[Integer], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+    def flush(batch: Seq[Row], dfColumns: Array[String]): Unit = {
+      Utils.retry[Integer, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
         dorisStreamLoader.loadV2(batch.asJava, dfColumns, enable2PC)
       } match {
         case Success(txnIds) => if (enable2PC) handleLoadSuccess(txnIds.asScala, preCommittedTxnAcc)

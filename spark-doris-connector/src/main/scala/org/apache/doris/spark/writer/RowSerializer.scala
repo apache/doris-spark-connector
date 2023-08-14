@@ -32,9 +32,10 @@ class RowSerializer(format: String,
   private def toJson(row: Row): Array[Byte] = {
     mapper.writeValueAsBytes((0 to columns.length).map(i => {
       val value = row.get(i)
-      value match {
-        case Timestamp => (columns(i), value.toString)
-        case _ => (columns(i), value)
+      if (value.isInstanceOf[Timestamp]) {
+        (columns(i), value.toString)
+      } else {
+        (columns(i), value)
       }
     }).toMap)
   }

@@ -44,8 +44,10 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
+import org.apache.spark.sql.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.collection.Seq;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -177,27 +179,8 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public List<Integer> loadV2(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC) throws StreamLoadException, JsonProcessingException {
-
-        List<String> loadData = parseLoadData(rows, dfColumns);
-        List<Integer> txnIds = new ArrayList<>(loadData.size());
-
-        try {
-            for (String data : loadData) {
-                txnIds.add(load(data, enable2PC));
-            }
-        } catch (StreamLoadException e) {
-            if (enable2PC && !txnIds.isEmpty()) {
-                LOG.error("load batch failed, abort previously pre-committed transactions");
-                for (Integer txnId : txnIds) {
-                    abort(txnId);
-                }
-            }
-            throw e;
-        }
-
-        return txnIds;
-
+    public int loadV2(List<Row> rows, String[] dfColumns, Boolean enable2PC) throws StreamLoadException, JsonProcessingException {
+        return load(parseLoadData(rows, dfColumns), enable2PC);
     }
 
     public List<Integer> loadStream(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC)
@@ -410,7 +393,7 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
-    private List<String> parseLoadData(List<List<Object>> rows, String[] dfColumns) throws StreamLoadException, JsonProcessingException {
+    private String parseLoadData(List<Row> rows, String[] dfColumns) throws StreamLoadException, JsonProcessingException {
 
         List<String> loadDataList;
 
@@ -428,7 +411,7 @@ public class DorisStreamLoad implements Serializable {
             case "JSON":
                 List<Map<Object, Object>> dataList = new ArrayList<>();
                 try {
-                    for (List<Object> row : rows) {
+                    for (Row row : rows) {
                         Map<Object, Object> dataMap = new HashMap<>();
                         if (dfColumns.length == row.size()) {
                             for (int i = 0; i < dfColumns.length; i++) {
@@ -447,8 +430,6 @@ public class DorisStreamLoad implements Serializable {
                 throw new StreamLoadException(String.format("Unsupported file format in stream load: %s.", fileType));
 
         }
-
-        return loadDataList;
 
     }
 
