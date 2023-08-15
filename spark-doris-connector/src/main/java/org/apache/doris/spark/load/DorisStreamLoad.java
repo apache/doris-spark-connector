@@ -22,6 +22,7 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
+import org.apache.doris.spark.util.DataUtil;
 import org.apache.doris.spark.util.ListUtils;
 import org.apache.doris.spark.util.ResponseUtil;
 
@@ -380,7 +381,13 @@ public class DorisStreamLoad implements Serializable {
         switch (fileType.toUpperCase()) {
 
             case "CSV":
-                loadDataList = Collections.singletonList(rows.stream().map(row -> row.stream().map(field -> field == null ? NULL_VALUE : field.toString()).collect(Collectors.joining(FIELD_DELIMITER))).collect(Collectors.joining(LINE_DELIMITER)));
+                loadDataList = Collections.singletonList(
+                        rows.stream()
+                                .map(row -> row.stream()
+                                        .map(DataUtil::handleColumnValue)
+                                        .map(Object::toString)
+                                        .collect(Collectors.joining(FIELD_DELIMITER))
+                                ).collect(Collectors.joining(LINE_DELIMITER)));
                 break;
             case "JSON":
                 List<Map<Object, Object>> dataList = new ArrayList<>();
@@ -389,12 +396,7 @@ public class DorisStreamLoad implements Serializable {
                         Map<Object, Object> dataMap = new HashMap<>();
                         if (dfColumns.length == row.size()) {
                             for (int i = 0; i < dfColumns.length; i++) {
-                                Object col = row.get(i);
-                                if (col instanceof Timestamp) {
-                                    dataMap.put(dfColumns[i], col.toString());
-                                    continue;
-                                }
-                                dataMap.put(dfColumns[i], col);
+                                dataMap.put(dfColumns[i], DataUtil.handleColumnValue(row.get(i)));
                             }
                         }
                         dataList.add(dataMap);
