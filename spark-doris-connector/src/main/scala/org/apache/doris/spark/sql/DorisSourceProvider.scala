@@ -17,7 +17,8 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.cfg.SparkSettings
+import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
+import org.apache.doris.spark.exception.IllegalArgumentException
 import org.apache.doris.spark.sql.DorisSourceProvider.SHORT_NAME
 import org.apache.doris.spark.writer.DorisWriter
 import org.apache.spark.SparkConf
@@ -54,6 +55,25 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
     val sparkSettings = new SparkSettings(sqlContext.sparkContext.getConf)
     sparkSettings.merge(Utils.params(parameters, logger).asJava)
+
+    if (mode == SaveMode.Overwrite) {
+      val tableIdentifier = sparkSettings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER)
+      val identifier = tableIdentifier.split("\\.")
+      if (identifier.length != 2) {
+        logger.error(s"argument 'table.identifier' is illegal, value is '${tableIdentifier}'.")
+        throw new IllegalArgumentException("table.identifier", tableIdentifier)
+      }
+
+      JdbcUtils.truncateAndCreateTableFromSchema(
+        sparkSettings.getProperty(ConfigurationOptions.DORIS_JDBC_DRIVER),
+        sparkSettings.getProperty(ConfigurationOptions.DORIS_JDBC_URL),
+        sparkSettings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER),
+        sparkSettings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD),
+        identifier(0), identifier(1),
+        data.schema
+      )
+    }
+
     // init stream loader
     val writer = new DorisWriter(sparkSettings)
     writer.write(data)

@@ -21,6 +21,9 @@ public interface ConfigurationOptions {
     // doris fe node address
     String DORIS_FENODES = "doris.fenodes";
 
+    String DORIS_JDBC_DRIVER = "doris.jdbc.driver";
+    String DORIS_JDBC_URL = "doris.jdbc.url";
+
     String DORIS_DEFAULT_CLUSTER = "default_cluster";
 
     String TABLE_IDENTIFIER = "table.identifier";
