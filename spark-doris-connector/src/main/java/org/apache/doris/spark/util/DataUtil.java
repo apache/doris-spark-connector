@@ -20,6 +20,7 @@ package org.apache.doris.spark.util;
 import scala.collection.JavaConversions;
 import scala.collection.mutable.WrappedArray;
 
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Arrays;
 
@@ -33,7 +34,7 @@ public class DataUtil {
             return NULL_VALUE;
         }
 
-        if (value instanceof Timestamp) {
+        if (value instanceof Date || value instanceof Timestamp) {
             return value.toString();
         }
 
