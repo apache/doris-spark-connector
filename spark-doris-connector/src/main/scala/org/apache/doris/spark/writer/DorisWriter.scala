@@ -30,7 +30,6 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import java.io.IOException
 import java.time.Duration
-import java.util
 import java.util.Objects
 import scala.collection.JavaConverters._
 import scala.collection.mutable

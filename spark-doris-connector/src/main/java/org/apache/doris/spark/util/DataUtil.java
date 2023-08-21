@@ -17,14 +17,27 @@
 
 package org.apache.doris.spark.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
+import org.apache.spark.sql.Row;
 import scala.collection.JavaConversions;
 import scala.collection.mutable.WrappedArray;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DataUtil {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static final String NULL_VALUE = "\\N";
 
@@ -46,6 +59,78 @@ public class DataUtil {
 
         return value;
 
+    }
+
+    public static String rowsToCsv(List<Row> rows, String sep, String lineDelimiter) {
+        StringBuilder builder = new StringBuilder();
+        return rows.stream().map(row -> {
+            if (builder.length() != 0) {
+                builder.delete(0, builder.length());
+            }
+            int n = row.size();
+            if (n > 0) {
+                builder.append(handleColumnValue(row.get(0)));
+                int i = 1;
+                while (i < n) {
+                    builder.append(sep);
+                    builder.append(handleColumnValue(row.get(i)));
+                    i++;
+                }
+            }
+            return builder.toString();
+        }).collect(Collectors.joining(lineDelimiter));
+    }
+
+    public static String rowsToJson(List<Row> rows, String[] dfColumns, String lineDelimiter)
+            throws JsonProcessingException {
+
+        List<Map<String, Object>> batch = new LinkedList<>();
+        for (Row row : rows) {
+            Map<String, Object> rowMap = new HashMap<>(row.size());
+            for (int i = 0; i < dfColumns.length; i++) {
+                rowMap.put(dfColumns[i], handleColumnValue(row.get(i)));
+            }
+            batch.add(rowMap);
+        }
+
+        // when lineDelimiter is null, use strip_outer_array mode, otherwise use json_by_line mode
+        if (lineDelimiter == null) {
+            return MAPPER.writeValueAsString(batch);
+        } else {
+            StringBuilder builder = new StringBuilder();
+            for (Map<String, Object> data : batch) {
+                builder.append(MAPPER.writeValueAsString(data)).append(lineDelimiter);
+            }
+            int lastIdx = builder.lastIndexOf(lineDelimiter);
+            if (lastIdx != -1) {
+                return builder.substring(0, lastIdx);
+            }
+            return builder.toString();
+        }
+    }
+
+    public static byte[] rowToCsvBytes(Row row, String sep) {
+        StringBuilder builder = new StringBuilder();
+        int n = row.size();
+        if (n > 0) {
+            builder.append(handleColumnValue(row.get(0)));
+            int i = 1;
+            while (i < n) {
+                builder.append(sep);
+                builder.append(handleColumnValue(row.get(i)));
+                i++;
+            }
+        }
+        return builder.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    public static byte[] rowToJsonBytes(Row row, String[] dfColumns)
+            throws JsonProcessingException {
+        Map<String, Object> rowMap = new HashMap<>(row.size());
+        for (int i = 0; i < dfColumns.length; i++) {
+            rowMap.put(dfColumns[i], handleColumnValue(row.get(i)));
+        }
+        return MAPPER.writeValueAsBytes(rowMap);
     }
 
 }

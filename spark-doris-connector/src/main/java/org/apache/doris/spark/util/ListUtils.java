@@ -21,10 +21,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.spark.sql.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -33,12 +33,11 @@ public class ListUtils {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public static String getSerializedList(List<Map<Object, Object>> batch,
+    public static List<String> getSerializedList(List<Map<Object, Object>> batch,
                                            String lineDelimiter) throws JsonProcessingException {
-        // List<String> result = new ArrayList<>();
-        // divideAndSerialize(batch, result, lineDelimiter);
-        // return result;
-        return generateSerializedResult(batch, lineDelimiter);
+        List<String> result = new ArrayList<>();
+        divideAndSerialize(batch, result, lineDelimiter);
+        return result;
     }
 
     /***
@@ -90,21 +89,6 @@ public class ListUtils {
             }
             return builder.toString();
         }
-    }
-
-    public static String mkString(Row row, String sep) {
-        StringBuilder builder = new StringBuilder();
-        int n = row.size();
-        if (n > 0) {
-            builder.append(row.get(0) == null ? "\\N" : row.get(0));
-            int i = 1;
-            while (i < n) {
-                builder.append(sep);
-                builder.append(row.get(0) == null ? "\\N" : row.get(0));
-                i++;
-            }
-        }
-        return builder.toString();
     }
 
 }
