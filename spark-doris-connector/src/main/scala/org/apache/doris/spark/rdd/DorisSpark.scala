@@ -18,7 +18,6 @@
 package org.apache.doris.spark.rdd
 
 import org.apache.doris.spark.cfg.ConfigurationOptions.{DORIS_FILTER_QUERY, DORIS_TABLE_IDENTIFIER}
-
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 

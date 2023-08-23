@@ -19,8 +19,7 @@ package org.apache.doris.spark.sql
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
-import org.junit.Ignore
-import org.junit.Test
+import org.junit.{Ignore, Test}
 
 // This test need real connect info to run.
 // Set the connect info before comment out this @Ignore

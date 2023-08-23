@@ -17,7 +17,6 @@
 
 package org.apache.doris.spark.sql
 
-import scala.collection.JavaConverters._
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.ShouldNeverHappenException
@@ -25,6 +24,8 @@ import org.apache.doris.spark.rdd.ScalaValueReader
 import org.apache.doris.spark.rest.PartitionDefinition
 import org.apache.doris.spark.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE
 import org.slf4j.{Logger, LoggerFactory}
+
+import scala.collection.JavaConverters._
 
 class ScalaDorisRowValueReader(
   partition: PartitionDefinition,

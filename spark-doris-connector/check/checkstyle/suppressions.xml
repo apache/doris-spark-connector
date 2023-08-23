@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+    <!-- Excludes test files from having Javadocs for classes and methods -->
+    <suppress files="[\\/]jmockit[\\/]" checks=".*" />
+    <suppress files="[\\/]test[\\/]" checks="MissingJavadocMethod" />
+    <suppress files="[\\/]test[\\/]" checks="MissingJavadocType" />
+    <suppress files="[\\/]test[\\/]" checks="LineLength" />
+
+    <!-- Suppress some rules except doris-flink-connector -->
+    <!-- Java doc -->
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="AtclauseOrder" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="JavadocMethod" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="JavadocParagraph" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="JavadocStyle" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="JavadocTagContinuationIndentation" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="InvalidJavadocPosition" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="MissingJavadocMethod" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="MissingJavadocType" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="NonEmptyAtclauseDescription" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="RequireEmptyLineBeforeBlockTagGroup" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="SummaryJavadoc" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[/].*" checks="SingleLineJavadoc" />
+
+    <!-- exclude rules for special files -->
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]Schema\.java" checks="ParameterName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]RespContent\.java" checks="MemberName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]QueryPlan\.java" checks="ParameterName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]QueryPlan\.java" checks="MemberName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]Field\.java" checks="ParameterName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]Field\.java" checks="MemberName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]BackendRow\.java" checks="MemberName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]BackendRow\.java" checks="ParameterName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]load[\\/]DorisStreamLoad\.java" checks="MemberName" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]load[\\/]DorisStreamLoad\.java" checks="AbbreviationAsWordInName" />
+
+    <!-- exclude rules for special files -->
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]util[\\/]ResponseUtil\.java" checks="NewlineAtEndOfFile" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]rest[\\/]models[\\/]BackendRow\.java" checks="NewlineAtEndOfFile" />
+    <suppress files="org[\\/]apache[\\/]doris[\\/]spark[\\/]util[\\/]DataUtilTest\.java" checks="NewlineAtEndOfFile" />
+</suppressions>

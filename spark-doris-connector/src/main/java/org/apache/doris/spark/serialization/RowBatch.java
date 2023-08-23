@@ -17,19 +17,11 @@
 
 package org.apache.doris.spark.serialization;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.sql.Date;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
+import org.apache.doris.sdk.thrift.TScanBatchResult;
+import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.rest.models.Schema;
 
+import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -47,17 +39,21 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
-
-import org.apache.doris.sdk.thrift.TScanBatchResult;
-import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.rest.models.Schema;
-
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * row batch data container.
@@ -94,17 +90,14 @@ public class RowBatch {
     public RowBatch(TScanBatchResult nextResult, Schema schema) throws DorisException {
         this.schema = schema;
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        this.arrowStreamReader = new ArrowStreamReader(
-                new ByteArrayInputStream(nextResult.getRows()),
-                rootAllocator
-        );
+        this.arrowStreamReader = new ArrowStreamReader(new ByteArrayInputStream(nextResult.getRows()), rootAllocator);
         try {
             VectorSchemaRoot root = arrowStreamReader.getVectorSchemaRoot();
             while (arrowStreamReader.loadNextBatch()) {
                 fieldVectors = root.getFieldVectors();
                 if (fieldVectors.size() != schema.size()) {
-                    logger.error("Schema size '{}' is not equal to arrow field size '{}'.",
-                            fieldVectors.size(), schema.size());
+                    logger.error("Schema size '{}' is not equal to arrow field size '{}'.", fieldVectors.size(),
+                            schema.size());
                     throw new DorisException("Load Doris data failed, schema size of fetch data is wrong.");
                 }
                 if (fieldVectors.isEmpty() || root.getRowCount() == 0) {
@@ -133,8 +126,7 @@ public class RowBatch {
 
     private void addValueToRow(int rowIndex, Object obj) {
         if (rowIndex > rowCountInOneBatch) {
-            String errMsg = "Get row offset: " + rowIndex + " larger than row size: " +
-                    rowCountInOneBatch;
+            String errMsg = "Get row offset: " + rowIndex + " larger than row size: " + rowCountInOneBatch;
             logger.error(errMsg);
             throw new NoSuchElementException(errMsg);
         }
@@ -200,8 +192,9 @@ public class RowBatch {
                         }
                         break;
                     case "LARGEINT":
-                        Preconditions.checkArgument(mt.equals(Types.MinorType.FIXEDSIZEBINARY) ||
-                                mt.equals(Types.MinorType.VARCHAR), typeMismatchMessage(currentType, mt));
+                        Preconditions.checkArgument(
+                                mt.equals(Types.MinorType.FIXEDSIZEBINARY) || mt.equals(Types.MinorType.VARCHAR),
+                                typeMismatchMessage(currentType, mt));
                         if (mt.equals(Types.MinorType.FIXEDSIZEBINARY)) {
                             FixedSizeBinaryVector largeIntVector = (FixedSizeBinaryVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {

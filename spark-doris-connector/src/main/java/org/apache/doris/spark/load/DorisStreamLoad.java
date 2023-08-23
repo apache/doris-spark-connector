@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 package org.apache.doris.spark.load;
 
 import org.apache.doris.spark.cfg.ConfigurationOptions;
@@ -50,7 +51,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -65,22 +65,23 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-
 /**
  * DorisStreamLoad
  **/
 public class DorisStreamLoad implements Serializable {
-    private String FIELD_DELIMITER;
-    private final String LINE_DELIMITER;
-    private static final String NULL_VALUE = "\\N";
-
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
 
-    private final static List<String> DORIS_SUCCESS_STATUS = new ArrayList<>(Arrays.asList("Success", "Publish Timeout"));
+    private static final String NULL_VALUE = "\\N";
+    private static final List<String> DORIS_SUCCESS_STATUS = new ArrayList<>(
+            Arrays.asList("Success", "Publish Timeout"));
+    private static final long cacheExpireTimeout = 4 * 60;
     private static String loadUrlPattern = "http://%s/api/%s/%s/_stream_load?";
 
     private static String abortUrlPattern = "http://%s/api/%s/%s/_stream_load_2pc?";
-
+    private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
+    private final String fileType;
+    private final String LINE_DELIMITER;
+    private String FIELD_DELIMITER;
     private String user;
     private String passwd;
     private String loadUrlStr;
@@ -90,10 +91,6 @@ public class DorisStreamLoad implements Serializable {
     private String columns;
     private String maxFilterRatio;
     private Map<String, String> streamLoadProp;
-    private static final long cacheExpireTimeout = 4 * 60;
-    private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
-    private final String fileType;
-
     private boolean readJsonByLine = false;
 
     public DorisStreamLoad(SparkSettings settings) {
@@ -106,7 +103,8 @@ public class DorisStreamLoad implements Serializable {
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
         this.streamLoadProp = getStreamLoadProp(settings);
-        cache = CacheBuilder.newBuilder().expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES).build(new BackendCacheLoader(settings));
+        cache = CacheBuilder.newBuilder().expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES)
+                .build(new BackendCacheLoader(settings));
         fileType = streamLoadProp.getOrDefault("format", "csv");
         if ("csv".equals(fileType)) {
             FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
@@ -114,7 +112,8 @@ public class DorisStreamLoad implements Serializable {
             readJsonByLine = Boolean.parseBoolean(streamLoadProp.getOrDefault("read_json_by_line", "false"));
             boolean stripOuterArray = Boolean.parseBoolean(streamLoadProp.getOrDefault("strip_outer_array", "false"));
             if (readJsonByLine && stripOuterArray) {
-                throw new IllegalArgumentException("Only one of options 'read_json_by_line' and 'strip_outer_array' can be set to true");
+                throw new IllegalArgumentException(
+                        "Only one of options 'read_json_by_line' and 'strip_outer_array' can be set to true");
             } else if (!readJsonByLine && !stripOuterArray) {
                 LOG.info("set default json mode: strip_outer_array");
                 streamLoadProp.put("strip_outer_array", "true");
@@ -173,7 +172,8 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public List<Integer> loadV2(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC) throws StreamLoadException, JsonProcessingException {
+    public List<Integer> loadV2(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC)
+            throws StreamLoadException, JsonProcessingException {
 
         List<String> loadData = parseLoadData(rows, dfColumns);
         List<Integer> txnIds = new ArrayList<>(loadData.size());
@@ -213,11 +213,13 @@ public class DorisStreamLoad implements Serializable {
             HttpResponse httpResponse = httpClient.execute(httpPut);
             responseHttpStatus = httpResponse.getStatusLine().getStatusCode();
             String respMsg = httpResponse.getStatusLine().getReasonPhrase();
-            String response = EntityUtils.toString(new BufferedHttpEntity(httpResponse.getEntity()), StandardCharsets.UTF_8);
+            String response = EntityUtils.toString(new BufferedHttpEntity(httpResponse.getEntity()),
+                    StandardCharsets.UTF_8);
             loadResponse = new LoadResponse(responseHttpStatus, respMsg, response);
         } catch (IOException e) {
             e.printStackTrace();
-            String err = "http request exception,load url : " + loadUrlStr + ",failed to execute spark stream load with label: " + label;
+            String err = "http request exception,load url : " + loadUrlStr
+                    + ",failed to execute spark stream load with label: " + label;
             LOG.warn(err, e);
             loadResponse = new LoadResponse(responseHttpStatus, e.getMessage(), err);
         }
@@ -314,7 +316,8 @@ public class DorisStreamLoad implements Serializable {
             });
             if (!"Success".equals(res.get("status"))) {
                 if (ResponseUtil.isCommitted(res.get("msg"))) {
-                    throw new StreamLoadException("try abort committed transaction, " + "do you recover from old savepoint?");
+                    throw new StreamLoadException(
+                            "try abort committed transaction, " + "do you recover from old savepoint?");
                 }
                 LOG.warn("Fail to abort transaction. txnId: {}, error: {}", txnId, res.get("msg"));
             }
@@ -359,7 +362,8 @@ public class DorisStreamLoad implements Serializable {
     /**
      * serializable be cache loader
      */
-    private static class BackendCacheLoader extends CacheLoader<String, List<BackendV2.BackendRowV2>> implements Serializable {
+    private static class BackendCacheLoader extends CacheLoader<String, List<BackendV2.BackendRowV2>>
+            implements Serializable {
 
         private final SparkSettings settings;
 
@@ -374,20 +378,18 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
-    private List<String> parseLoadData(List<List<Object>> rows, String[] dfColumns) throws StreamLoadException, JsonProcessingException {
+    private List<String> parseLoadData(List<List<Object>> rows, String[] dfColumns)
+            throws StreamLoadException, JsonProcessingException {
 
         List<String> loadDataList;
 
         switch (fileType.toUpperCase()) {
 
             case "CSV":
-                loadDataList = Collections.singletonList(
-                        rows.stream()
-                                .map(row -> row.stream()
-                                        .map(DataUtil::handleColumnValue)
-                                        .map(Object::toString)
-                                        .collect(Collectors.joining(FIELD_DELIMITER))
-                                ).collect(Collectors.joining(LINE_DELIMITER)));
+                loadDataList = Collections.singletonList(rows.stream()
+                        .map(row -> row.stream().map(DataUtil::handleColumnValue).map(Object::toString)
+                                .collect(Collectors.joining(FIELD_DELIMITER)))
+                        .collect(Collectors.joining(LINE_DELIMITER)));
                 break;
             case "JSON":
                 List<Map<Object, Object>> dataList = new ArrayList<>();
@@ -402,9 +404,11 @@ public class DorisStreamLoad implements Serializable {
                         dataList.add(dataMap);
                     }
                 } catch (Exception e) {
-                    throw new StreamLoadException("The number of configured columns does not match the number of data columns.");
+                    throw new StreamLoadException(
+                            "The number of configured columns does not match the number of data columns.");
                 }
-                // splits large collections to normal collection to avoid the "Requested array size exceeds VM limit" exception
+                // splits large collections to normal collection to avoid
+                // the "Requested array size exceeds VM limit" exception
                 loadDataList = ListUtils.getSerializedList(dataList, readJsonByLine ? LINE_DELIMITER : null);
                 break;
             default:
@@ -419,7 +423,10 @@ public class DorisStreamLoad implements Serializable {
     private String generateLoadLabel() {
 
         Calendar calendar = Calendar.getInstance();
-        return String.format("spark_streamload_%s%02d%02d_%02d%02d%02d_%s", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH), calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND), UUID.randomUUID().toString().replaceAll("-", ""));
+        return String.format("spark_streamload_%s%02d%02d_%02d%02d%02d_%s", calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH),
+                calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND),
+                UUID.randomUUID().toString().replaceAll("-", ""));
 
     }
 

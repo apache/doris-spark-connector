@@ -17,15 +17,13 @@
 
 package org.apache.doris.spark.cfg;
 
-import java.util.Properties;
-
-import org.apache.spark.SparkConf;
-
 import com.google.common.base.Preconditions;
-
+import org.apache.spark.SparkConf;
 import scala.Option;
 import scala.Serializable;
 import scala.Tuple2;
+
+import java.util.Properties;
 
 public class SparkSettings extends Settings implements Serializable {
 

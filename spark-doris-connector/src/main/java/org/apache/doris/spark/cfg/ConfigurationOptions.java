@@ -79,8 +79,11 @@ public interface ConfigurationOptions {
     String DORIS_SINK_TASK_PARTITION_SIZE = "doris.sink.task.partition.size";
 
     /**
-     * Set doris sink task partition size. If you set a small coalesce size and you don't have the action operations, this may result in the same parallelism in your computation.
-     * To avoid this, you can use repartition operations. This will add a shuffle step, but means the current upstream partitions will be executed in parallel.
+     * Set doris sink task partition size.
+     * If you set a small coalesce size and you don't have the action operations, this may result in the same
+     * parallelism in your computation.
+     * To avoid this, you can use repartition operations. This will add a shuffle step, but means the current
+     * upstream partitions will be executed in parallel.
      */
     String DORIS_SINK_TASK_USE_REPARTITION = "doris.sink.task.use.repartition";
 

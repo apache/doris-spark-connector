@@ -47,6 +47,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
+import static org.hamcrest.core.StringStartsWith.startsWith;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -63,10 +64,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import static org.hamcrest.core.StringStartsWith.startsWith;
-
 public class TestRowBatch {
-    private final static Logger logger = LoggerFactory.getLogger(TestRowBatch.class);
+    private static final Logger logger = LoggerFactory.getLogger(TestRowBatch.class);
 
     @Rule
     public ExpectedException thrown = ExpectedException.none();
@@ -80,8 +79,10 @@ public class TestRowBatch {
         childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Int(16, true)), null));
         childrenBuilder.add(new Field("k3", FieldType.nullable(new ArrowType.Int(32, true)), null));
         childrenBuilder.add(new Field("k4", FieldType.nullable(new ArrowType.Int(64, true)), null));
-        childrenBuilder.add(new Field("k9", FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null));
-        childrenBuilder.add(new Field("k8", FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null));
+        childrenBuilder.add(
+                new Field("k9", FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null));
+        childrenBuilder.add(
+                new Field("k8", FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null));
         childrenBuilder.add(new Field("k10", FieldType.nullable(new ArrowType.Utf8()), null));
         childrenBuilder.add(new Field("k11", FieldType.nullable(new ArrowType.Utf8()), null));
         childrenBuilder.add(new Field("k5", FieldType.nullable(new ArrowType.Utf8()), null));
@@ -91,16 +92,14 @@ public class TestRowBatch {
                 new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
                 new RootAllocator(Integer.MAX_VALUE));
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
-                root,
-                new DictionaryProvider.MapDictionaryProvider(),
-                outputStream);
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(root,
+                new DictionaryProvider.MapDictionaryProvider(), outputStream);
 
         arrowStreamWriter.start();
         root.setRowCount(3);
 
         FieldVector vector = root.getVector("k0");
-        BitVector bitVector = (BitVector)vector;
+        BitVector bitVector = (BitVector) vector;
         bitVector.setInitialCapacity(3);
         bitVector.allocateNew(3);
         bitVector.setSafe(0, 1);
@@ -109,7 +108,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k1");
-        TinyIntVector tinyIntVector = (TinyIntVector)vector;
+        TinyIntVector tinyIntVector = (TinyIntVector) vector;
         tinyIntVector.setInitialCapacity(3);
         tinyIntVector.allocateNew(3);
         tinyIntVector.setSafe(0, 1);
@@ -118,7 +117,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k2");
-        SmallIntVector smallIntVector = (SmallIntVector)vector;
+        SmallIntVector smallIntVector = (SmallIntVector) vector;
         smallIntVector.setInitialCapacity(3);
         smallIntVector.allocateNew(3);
         smallIntVector.setSafe(0, 1);
@@ -127,7 +126,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k3");
-        IntVector intVector = (IntVector)vector;
+        IntVector intVector = (IntVector) vector;
         intVector.setInitialCapacity(3);
         intVector.allocateNew(3);
         intVector.setSafe(0, 1);
@@ -136,7 +135,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k4");
-        BigIntVector bigIntVector = (BigIntVector)vector;
+        BigIntVector bigIntVector = (BigIntVector) vector;
         bigIntVector.setInitialCapacity(3);
         bigIntVector.allocateNew(3);
         bigIntVector.setSafe(0, 1);
@@ -145,7 +144,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k5");
-        VarCharVector varCharVector = (VarCharVector)vector;
+        VarCharVector varCharVector = (VarCharVector) vector;
         varCharVector.setInitialCapacity(3);
         varCharVector.allocateNew();
         varCharVector.setIndexDefined(0);
@@ -160,7 +159,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k6");
-        VarCharVector charVector = (VarCharVector)vector;
+        VarCharVector charVector = (VarCharVector) vector;
         charVector.setInitialCapacity(3);
         charVector.allocateNew();
         charVector.setIndexDefined(0);
@@ -175,7 +174,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k8");
-        Float8Vector float8Vector = (Float8Vector)vector;
+        Float8Vector float8Vector = (Float8Vector) vector;
         float8Vector.setInitialCapacity(3);
         float8Vector.allocateNew(3);
         float8Vector.setSafe(0, 1.1);
@@ -184,7 +183,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k9");
-        Float4Vector float4Vector = (Float4Vector)vector;
+        Float4Vector float4Vector = (Float4Vector) vector;
         float4Vector.setInitialCapacity(3);
         float4Vector.allocateNew(3);
         float4Vector.setSafe(0, 1.1f);
@@ -193,7 +192,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k10");
-        VarCharVector datecharVector = (VarCharVector)vector;
+        VarCharVector datecharVector = (VarCharVector) vector;
         datecharVector.setInitialCapacity(3);
         datecharVector.allocateNew();
         datecharVector.setIndexDefined(0);
@@ -208,7 +207,7 @@ public class TestRowBatch {
         vector.setValueCount(3);
 
         vector = root.getVector("k11");
-        VarCharVector timecharVector = (VarCharVector)vector;
+        VarCharVector timecharVector = (VarCharVector) vector;
         timecharVector.setInitialCapacity(3);
         timecharVector.allocateNew();
         timecharVector.setIndexDefined(0);
@@ -248,47 +247,14 @@ public class TestRowBatch {
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema);
 
-        List<Object> expectedRow1 = Arrays.asList(
-                Boolean.TRUE,
-                (byte) 1,
-                (short) 1,
-                1,
-                1L,
-                (float) 1.1,
-                (double) 1.1,
-                Date.valueOf("2008-08-08"),
-                "2008-08-08 00:00:00",
-                Decimal.apply(1234L, 4, 2),
-                "char1"
-        );
+        List<Object> expectedRow1 = Arrays.asList(Boolean.TRUE, (byte) 1, (short) 1, 1, 1L, (float) 1.1, (double) 1.1,
+                Date.valueOf("2008-08-08"), "2008-08-08 00:00:00", Decimal.apply(1234L, 4, 2), "char1");
 
-        List<Object> expectedRow2 = Arrays.asList(
-                Boolean.FALSE,
-                (byte) 2,
-                (short) 2,
-                null,
-                2L,
-                (float) 2.2,
-                (double) 2.2,
-                Date.valueOf("1900-08-08"),
-                "1900-08-08 00:00:00",
-                Decimal.apply(8888L, 4, 2),
-                "char2"
-        );
+        List<Object> expectedRow2 = Arrays.asList(Boolean.FALSE, (byte) 2, (short) 2, null, 2L, (float) 2.2,
+                (double) 2.2, Date.valueOf("1900-08-08"), "1900-08-08 00:00:00", Decimal.apply(8888L, 4, 2), "char2");
 
-        List<Object> expectedRow3 = Arrays.asList(
-                Boolean.TRUE,
-                (byte) 3,
-                (short) 3,
-                3,
-                3L,
-                (float) 3.3,
-                (double) 3.3,
-                Date.valueOf("2100-08-08"),
-                "2100-08-08 00:00:00",
-                Decimal.apply(10L, 2, 0),
-                "char3"
-        );
+        List<Object> expectedRow3 = Arrays.asList(Boolean.TRUE, (byte) 3, (short) 3, 3, 3L, (float) 3.3, (double) 3.3,
+                Date.valueOf("2100-08-08"), "2100-08-08 00:00:00", Decimal.apply(10L, 2, 0), "char3");
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow1 = rowBatch.next();
@@ -321,10 +287,8 @@ public class TestRowBatch {
                 new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
                 new RootAllocator(Integer.MAX_VALUE));
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
-                root,
-                new DictionaryProvider.MapDictionaryProvider(),
-                outputStream);
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(root,
+                new DictionaryProvider.MapDictionaryProvider(), outputStream);
 
         arrowStreamWriter.start();
         root.setRowCount(3);
@@ -364,15 +328,15 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertArrayEquals(binaryRow0, (byte[])actualRow0.get(0));
+        Assert.assertArrayEquals(binaryRow0, (byte[]) actualRow0.get(0));
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow1 = rowBatch.next();
-        Assert.assertArrayEquals(binaryRow1, (byte[])actualRow1.get(0));
+        Assert.assertArrayEquals(binaryRow1, (byte[]) actualRow1.get(0));
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow2 = rowBatch.next();
-        Assert.assertArrayEquals(binaryRow2, (byte[])actualRow2.get(0));
+        Assert.assertArrayEquals(binaryRow2, (byte[]) actualRow2.get(0));
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
@@ -389,10 +353,8 @@ public class TestRowBatch {
                 new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
                 new RootAllocator(Integer.MAX_VALUE));
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
-                root,
-                new DictionaryProvider.MapDictionaryProvider(),
-                outputStream);
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(root,
+                new DictionaryProvider.MapDictionaryProvider(), outputStream);
 
         arrowStreamWriter.start();
         root.setRowCount(3);
@@ -419,8 +381,7 @@ public class TestRowBatch {
         scanBatchResult.setRows(outputStream.toByteArray());
 
         String schemaStr = "{\"properties\":[{\"type\":\"DECIMALV2\",\"scale\": 0,"
-                + "\"precision\": 9, \"name\":\"k7\",\"comment\":\"\"}], "
-                + "\"status\":200}";
+                + "\"precision\": 9, \"name\":\"k7\",\"comment\":\"\"}], " + "\"status\":200}";
 
         Schema schema = RestService.parseSchema(schemaStr, logger);
 
@@ -428,15 +389,15 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertEquals(Decimal.apply(12340000000L, 11, 9), (Decimal)actualRow0.get(0));
+        Assert.assertEquals(Decimal.apply(12340000000L, 11, 9), (Decimal) actualRow0.get(0));
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow1 = rowBatch.next();
-        Assert.assertEquals(Decimal.apply(88880000000L, 11, 9), (Decimal)actualRow1.get(0));
+        Assert.assertEquals(Decimal.apply(88880000000L, 11, 9), (Decimal) actualRow1.get(0));
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow2 = rowBatch.next();
-        Assert.assertEquals(Decimal.apply(10000000000L, 11, 9), (Decimal)actualRow2.get(0));
+        Assert.assertEquals(Decimal.apply(10000000000L, 11, 9), (Decimal) actualRow2.get(0));
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
@@ -455,16 +416,14 @@ public class TestRowBatch {
                 new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
                 new RootAllocator(Integer.MAX_VALUE));
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
-                root,
-                new DictionaryProvider.MapDictionaryProvider(),
-                outputStream);
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(root,
+                new DictionaryProvider.MapDictionaryProvider(), outputStream);
 
         arrowStreamWriter.start();
         root.setRowCount(1);
 
         FieldVector vector = root.getVector("k1");
-        VarCharVector dateVector = (VarCharVector)vector;
+        VarCharVector dateVector = (VarCharVector) vector;
         dateVector.setInitialCapacity(1);
         dateVector.allocateNew();
         dateVector.setIndexDefined(0);
@@ -472,9 +431,8 @@ public class TestRowBatch {
         dateVector.setSafe(0, "2023-08-09".getBytes());
         vector.setValueCount(1);
 
-
         vector = root.getVector("k2");
-        VarCharVector dateV2Vector = (VarCharVector)vector;
+        VarCharVector dateV2Vector = (VarCharVector) vector;
         dateV2Vector.setInitialCapacity(1);
         dateV2Vector.allocateNew();
         dateV2Vector.setIndexDefined(0);
@@ -494,11 +452,8 @@ public class TestRowBatch {
         scanBatchResult.setEos(false);
         scanBatchResult.setRows(outputStream.toByteArray());
 
-
-        String schemaStr = "{\"properties\":[" +
-                "{\"type\":\"DATE\",\"name\":\"k1\",\"comment\":\"\"}, " +
-                "{\"type\":\"DATEV2\",\"name\":\"k2\",\"comment\":\"\"}" +
-                "], \"status\":200}";
+        String schemaStr = "{\"properties\":[" + "{\"type\":\"DATE\",\"name\":\"k1\",\"comment\":\"\"}, "
+                + "{\"type\":\"DATEV2\",\"name\":\"k2\",\"comment\":\"\"}" + "], \"status\":200}";
 
         Schema schema = RestService.parseSchema(schemaStr, logger);
 
@@ -527,16 +482,14 @@ public class TestRowBatch {
                 new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
                 new RootAllocator(Integer.MAX_VALUE));
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
-                root,
-                new DictionaryProvider.MapDictionaryProvider(),
-                outputStream);
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(root,
+                new DictionaryProvider.MapDictionaryProvider(), outputStream);
 
         arrowStreamWriter.start();
         root.setRowCount(1);
 
         FieldVector vector = root.getVector("k1");
-        VarCharVector lageIntVector = (VarCharVector)vector;
+        VarCharVector lageIntVector = (VarCharVector) vector;
         lageIntVector.setInitialCapacity(1);
         lageIntVector.allocateNew();
         lageIntVector.setIndexDefined(0);
@@ -544,9 +497,8 @@ public class TestRowBatch {
         lageIntVector.setSafe(0, "9223372036854775808".getBytes());
         vector.setValueCount(1);
 
-
         vector = root.getVector("k2");
-        FixedSizeBinaryVector lageIntVector1 = (FixedSizeBinaryVector)vector;
+        FixedSizeBinaryVector lageIntVector1 = (FixedSizeBinaryVector) vector;
         lageIntVector1.setInitialCapacity(1);
         lageIntVector1.allocateNew();
         lageIntVector1.setIndexDefined(0);
@@ -569,10 +521,8 @@ public class TestRowBatch {
         scanBatchResult.setEos(false);
         scanBatchResult.setRows(outputStream.toByteArray());
 
-        String schemaStr = "{\"properties\":[" +
-                "{\"type\":\"LARGEINT\",\"name\":\"k1\",\"comment\":\"\"}, " +
-                "{\"type\":\"LARGEINT\",\"name\":\"k2\",\"comment\":\"\"}" +
-                "], \"status\":200}";
+        String schemaStr = "{\"properties\":[" + "{\"type\":\"LARGEINT\",\"name\":\"k1\",\"comment\":\"\"}, "
+                + "{\"type\":\"LARGEINT\",\"name\":\"k2\",\"comment\":\"\"}" + "], \"status\":200}";
 
         Schema schema = RestService.parseSchema(schemaStr, logger);
 

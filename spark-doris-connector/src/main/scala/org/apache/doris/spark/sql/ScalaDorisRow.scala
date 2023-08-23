@@ -17,9 +17,9 @@
 
 package org.apache.doris.spark.sql
 
-import scala.collection.mutable.ArrayBuffer
-
 import org.apache.spark.sql.Row
+
+import scala.collection.mutable.ArrayBuffer
 
 private[spark] class ScalaDorisRow(rowOrder: Seq[String]) extends Row {
    lazy val values: ArrayBuffer[Any] = ArrayBuffer.fill(rowOrder.size)(null)

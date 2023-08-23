@@ -17,10 +17,10 @@
 
 package org.apache.doris
 
-import scala.language.implicitConversions
-
 import org.apache.doris.spark.rdd.DorisSpark
 import org.apache.spark.SparkContext
+
+import scala.language.implicitConversions
 
 package object spark {
   implicit def sparkContextFunctions(sc: SparkContext) = new SparkContextFunctions(sc)
