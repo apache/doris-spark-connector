@@ -10,7 +10,6 @@ import org.apache.spark.sql.Row;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
@@ -25,64 +24,67 @@ public class RowInputStream extends InputStream {
 
     private final String seq;
 
-    private final String delim;
+    private final byte[] delim;
 
     private final String[] columns;
 
-    private CharBuffer current;
+    private boolean isFirst = true;
 
-    private ByteBuffer pending;
+    private ByteBuffer buffer = ByteBuffer.allocate(0);
 
     public RowInputStream(Iterator<Row> iterator, String format, String seq, String delim, String[] columns) {
         this.iterator = iterator;
         this.format = format;
         this.seq = seq;
-        this.delim = delim;
+        this.delim = delim.getBytes(DEFAULT_CHARSET);
         this.columns = columns;
     }
 
     @Override
     public int read() throws IOException {
-        for(;;) {
-            if(pending != null && pending.hasRemaining())
-                return pending.get() & 0xff;
-            if(!ensureCurrent()) return -1;
-            if(pending == null) pending = ByteBuffer.allocate(4096);
-            else pending.compact();
-            DEFAULT_CHARSET.encode(current);
-            pending.flip();
+        try {
+            if (buffer.remaining() == 0 && !readNext()) {
+                return -1; // End of stream
+            }
+        } catch (DorisException e) {
+            throw new IOException(e);
         }
-    }
-
-    private boolean ensureCurrent() {
-        while(current == null || !current.hasRemaining()) {
-            if(!iterator.hasNext()) return false;
-            current = CharBuffer.wrap(iterator.next().toString());
-        }
-        return true;
+        return buffer.get() & 0xFF;
     }
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-        int transferred = 0;
-        if(pending != null && pending.hasRemaining()) {
-            boolean serveByBuffer = pending.remaining() >= len;
-            pending.get(b, off, transferred = Math.min(pending.remaining(), len));
-            if(serveByBuffer) return transferred;
-            len -= transferred;
-            off += transferred;
-        }
-        ByteBuffer bb = ByteBuffer.wrap(b, off, len);
-        while(bb.hasRemaining() && ensureCurrent()) {
-            int r = bb.remaining();
-            try {
-                bb.put(rowToByte(iterator.next()));
-            } catch (DorisException e) {
-                throw new IOException(e);
+        try {
+            if (buffer.remaining() == 0 && !readNext()) {
+                return -1; // End of stream
             }
-            transferred += r - bb.remaining();
+        } catch (DorisException e) {
+            throw new IOException(e);
         }
-        return transferred == 0? -1: transferred;
+        int bytesRead = Math.min(len, buffer.remaining());
+        buffer.get(b, off, bytesRead);
+        return bytesRead;
+    }
+
+    public boolean readNext() throws DorisException {
+        if (!iterator.hasNext()) {
+            return false;
+        }
+        byte[] rowBytes = rowToByte(iterator.next());
+        if (isFirst) {
+            buffer = ByteBuffer.wrap(rowBytes);
+            isFirst = false;
+        } else {
+            if (delim.length + rowBytes.length <= buffer.capacity()) {
+                buffer.clear();
+            } else {
+                buffer = ByteBuffer.allocate(rowBytes.length + delim.length);
+            }
+            buffer.put(delim);
+            buffer.put(rowBytes);
+            buffer.flip();
+        }
+        return true;
     }
 
     private byte[] rowToByte(Row row) throws DorisException {

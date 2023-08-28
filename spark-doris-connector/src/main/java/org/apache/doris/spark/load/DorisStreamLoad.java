@@ -41,7 +41,6 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.BufferedHttpEntity;
 import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
@@ -193,7 +192,7 @@ public class DorisStreamLoad implements Serializable {
             this.loadUrlStr = loadUrlStr;
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
             httpPut.setEntity(new InputStreamEntity(new RowInputStream(rows.iterator(), fileType, FIELD_DELIMITER,
-                    LINE_DELIMITER, StandardCharsets.UTF_8)));
+                    LINE_DELIMITER, dfColumns)));
             // httpPut.setEntity(new StringEntity(data, StandardCharsets.UTF_8));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
