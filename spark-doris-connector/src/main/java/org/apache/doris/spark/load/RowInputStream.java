@@ -6,6 +6,8 @@ import org.apache.doris.spark.util.DataUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.spark.sql.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,13 +18,17 @@ import java.util.Iterator;
 
 public class RowInputStream extends InputStream {
 
+    public static final Logger LOG = LoggerFactory.getLogger(RowInputStream.class);
+
     private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+
+    private static final int DEFAULT_BUF_SIZE = 4096;
 
     private final Iterator<Row> iterator;
 
     private final String format;
 
-    private final String seq;
+    private final String sep;
 
     private final byte[] delim;
 
@@ -32,11 +38,11 @@ public class RowInputStream extends InputStream {
 
     private ByteBuffer buffer = ByteBuffer.allocate(0);
 
-    public RowInputStream(Iterator<Row> iterator, String format, String seq, String delim, String[] columns) {
+    private RowInputStream(Iterator<Row> iterator, String format, String sep, byte[] delim, String[] columns) {
         this.iterator = iterator;
         this.format = format;
-        this.seq = seq;
-        this.delim = delim.getBytes(DEFAULT_CHARSET);
+        this.sep = sep;
+        this.delim = delim;
         this.columns = columns;
     }
 
@@ -72,19 +78,46 @@ public class RowInputStream extends InputStream {
         }
         byte[] rowBytes = rowToByte(iterator.next());
         if (isFirst) {
-            buffer = ByteBuffer.wrap(rowBytes);
+            ensureCapacity(rowBytes.length);
+            buffer.put(rowBytes);
+            buffer.flip();
             isFirst = false;
         } else {
-            if (delim.length + rowBytes.length <= buffer.capacity()) {
-                buffer.clear();
-            } else {
-                buffer = ByteBuffer.allocate(rowBytes.length + delim.length);
-            }
+            ensureCapacity(delim.length + rowBytes.length);
             buffer.put(delim);
             buffer.put(rowBytes);
             buffer.flip();
         }
         return true;
+    }
+
+    private void ensureCapacity(int need) {
+
+        int capacity = buffer.capacity();
+
+        if (need <= capacity) {
+            buffer.clear();
+            return;
+        }
+
+        // need to extend
+        int newCapacity = calculateNewCapacity(capacity, need);
+        LOG.info("expand buffer, min cap: {}, now cap: {}, new cap: {}", need, capacity, newCapacity);
+        buffer = ByteBuffer.allocate(newCapacity);
+
+    }
+
+    private int calculateNewCapacity(int capacity, int minCapacity) {
+        int newCapacity;
+        if (capacity == 0) {
+            newCapacity = DEFAULT_BUF_SIZE;
+            while (newCapacity < minCapacity) {
+                newCapacity = newCapacity << 1;
+            }
+        } else {
+            newCapacity = capacity << 1;
+        }
+        return newCapacity;
     }
 
     private byte[] rowToByte(Row row) throws DorisException {
@@ -93,7 +126,7 @@ public class RowInputStream extends InputStream {
 
         switch (format.toLowerCase()) {
             case "csv":
-                bytes = DataUtil.rowToCsvBytes(row, seq);
+                bytes = DataUtil.rowToCsvBytes(row, sep);
                 break;
             case "json":
                 try {
@@ -109,5 +142,52 @@ public class RowInputStream extends InputStream {
         return bytes;
 
     }
+
+    public static Builder newBuilder(Iterator<Row> rows) {
+        return new Builder(rows);
+    }
+
+    public static class Builder {
+
+        private final Iterator<Row> rows;
+
+        private String format;
+
+        private String sep;
+
+        private byte[] delim;
+
+        private String[] columns;
+
+        private Builder(Iterator<Row> rows) {
+            this.rows = rows;
+        }
+
+        public Builder format(String format) {
+            this.format = format;
+            return this;
+        }
+
+        public Builder sep(String sep) {
+            this.sep = sep;
+            return this;
+        }
+
+        public Builder delim(String delim) {
+            this.delim = delim.getBytes(DEFAULT_CHARSET);
+            return this;
+        }
+
+        public Builder columns(String[] columns) {
+            this.columns = columns;
+            return this;
+        }
+
+        public RowInputStream build() {
+            return new RowInputStream(rows, format, sep, delim, columns);
+        }
+
+    }
+
 
 }

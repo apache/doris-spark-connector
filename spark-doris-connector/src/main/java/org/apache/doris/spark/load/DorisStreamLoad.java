@@ -111,14 +111,7 @@ public class DorisStreamLoad implements Serializable {
         if ("csv".equals(fileType)) {
             FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
         } else if ("json".equalsIgnoreCase(fileType)) {
-            readJsonByLine = Boolean.parseBoolean(streamLoadProp.getOrDefault("read_json_by_line", "false"));
-            boolean stripOuterArray = Boolean.parseBoolean(streamLoadProp.getOrDefault("strip_outer_array", "false"));
-            if (readJsonByLine && stripOuterArray) {
-                throw new IllegalArgumentException("Only one of options 'read_json_by_line' and 'strip_outer_array' can be set to true");
-            } else if (!readJsonByLine && !stripOuterArray) {
-                LOG.info("set default json mode: strip_outer_array");
-                streamLoadProp.put("strip_outer_array", "true");
-            }
+            streamLoadProp.put("read_json_by_line", "true");
         }
         LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
         this.streamingPassthrough = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,
@@ -151,7 +144,11 @@ public class DorisStreamLoad implements Serializable {
             httpPut.setHeader("two_phase_commit", "true");
         }
         if (MapUtils.isNotEmpty(streamLoadProp)) {
-            streamLoadProp.forEach(httpPut::setHeader);
+            streamLoadProp.forEach((k, v) -> {
+                if (!"strip_outer_array".equalsIgnoreCase(k)) {
+                    httpPut.setHeader(k, v);
+                }
+            });
         }
         return httpPut;
     }
@@ -191,9 +188,12 @@ public class DorisStreamLoad implements Serializable {
             // only to record the BE node in case of an exception
             this.loadUrlStr = loadUrlStr;
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
-            httpPut.setEntity(new InputStreamEntity(new RowInputStream(rows.iterator(), fileType, FIELD_DELIMITER,
-                    LINE_DELIMITER, dfColumns)));
-            // httpPut.setEntity(new StringEntity(data, StandardCharsets.UTF_8));
+            RowInputStream rowInputStream = RowInputStream.newBuilder(rows.iterator())
+                    .format(fileType)
+                    .sep(FIELD_DELIMITER)
+                    .delim(LINE_DELIMITER)
+                    .columns(dfColumns).build();
+            httpPut.setEntity(new InputStreamEntity(rowInputStream));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
         } catch (IOException e) {
