@@ -68,19 +68,18 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
     resultRdd
-      .foreachPartition(partition => {
-        partition
-          .grouped(batchSize)
-          .foreach(batch => flush(batch, dfColumns))
-      })
+      .foreachPartition(partition =>
+        while (partition.hasNext)
+          loadBatch(partition, dfColumns, batchSize)
+      )
 
     /**
      * flush data to Doris and do retry when flush error
      *
      */
-    def flush(batch: Seq[Row], dfColumns: Array[String]): Unit = {
+    def loadBatch(batch: Iterator[Row], dfColumns: Array[String], batchSize: Int): Unit = {
       Utils.retry[Integer, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
-        dorisStreamLoader.loadV2(batch.asJava, dfColumns, enable2PC)
+        dorisStreamLoader.load(batch.asJava, dfColumns, enable2PC, batchSize)
       } match {
         case Success(txnIds) => if (enable2PC) handleLoadSuccess(txnIds.asScala, preCommittedTxnAcc)
         case Failure(e) =>

@@ -2,6 +2,7 @@ package org.apache.doris.spark.load;
 
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.IllegalArgumentException;
+import org.apache.doris.spark.exception.ShouldNeverHappenException;
 import org.apache.doris.spark.util.DataUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -12,44 +13,45 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
-public class RowInputStream extends InputStream {
+/**
+ * InputStream for batch load
+ */
+public class RecordBatchInputStream extends InputStream {
 
-    public static final Logger LOG = LoggerFactory.getLogger(RowInputStream.class);
-
-    private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+    public static final Logger LOG = LoggerFactory.getLogger(RecordBatchInputStream.class);
 
     private static final int DEFAULT_BUF_SIZE = 4096;
 
-    private final Iterator<Row> iterator;
+    /**
+     * Load record batch
+     */
+    private final RecordBatch recordBatch;
 
-    private final String format;
-
-    private final String sep;
-
-    private final byte[] delim;
-
-    private final String[] columns;
-
+    /**
+     * first line flag
+     */
     private boolean isFirst = true;
 
+    /**
+     * record buffer
+     */
     private ByteBuffer buffer = ByteBuffer.allocate(0);
 
-    private RowInputStream(Iterator<Row> iterator, String format, String sep, byte[] delim, String[] columns) {
-        this.iterator = iterator;
-        this.format = format;
-        this.sep = sep;
-        this.delim = delim;
-        this.columns = columns;
+    /**
+     * record count has been read
+     */
+    private int readCount = 0;
+
+    public RecordBatchInputStream(RecordBatch recordBatch) {
+        this.recordBatch = recordBatch;
     }
 
     @Override
     public int read() throws IOException {
         try {
-            if (buffer.remaining() == 0 && !readNext()) {
+            if (buffer.remaining() == 0 && endOfBatch()) {
                 return -1; // End of stream
             }
         } catch (DorisException e) {
@@ -61,7 +63,7 @@ public class RowInputStream extends InputStream {
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
         try {
-            if (buffer.remaining() == 0 && !readNext()) {
+            if (buffer.remaining() == 0 && endOfBatch()) {
                 return -1; // End of stream
             }
         } catch (DorisException e) {
@@ -72,10 +74,34 @@ public class RowInputStream extends InputStream {
         return bytesRead;
     }
 
-    public boolean readNext() throws DorisException {
-        if (!iterator.hasNext()) {
-            return false;
+    /**
+     * Check if the current batch read is over.
+     * If the number of reads is greater than or equal to the batch size or there is no next record, return false,
+     * otherwise return true.
+     *
+     * @return Whether the current batch read is over
+     * @throws DorisException
+     */
+    public boolean endOfBatch() throws DorisException {
+        Iterator<Row> iterator = recordBatch.getIterator();
+        if (readCount >= recordBatch.getBatchSize() || !iterator.hasNext()) {
+            return true;
         }
+        readNext(iterator);
+        return false;
+    }
+
+    /**
+     * read next record into buffer
+     *
+     * @param iterator row iterator
+     * @throws DorisException
+     */
+    private void readNext(Iterator<Row> iterator) throws DorisException {
+        if (!iterator.hasNext()) {
+            throw new ShouldNeverHappenException();
+        }
+        byte[] delim = recordBatch.getDelim();
         byte[] rowBytes = rowToByte(iterator.next());
         if (isFirst) {
             ensureCapacity(rowBytes.length);
@@ -88,9 +114,14 @@ public class RowInputStream extends InputStream {
             buffer.put(rowBytes);
             buffer.flip();
         }
-        return true;
+        readCount++;
     }
 
+    /**
+     * Check if the buffer has enough capacity.
+     *
+     * @param need required buffer space
+     */
     private void ensureCapacity(int need) {
 
         int capacity = buffer.capacity();
@@ -107,6 +138,13 @@ public class RowInputStream extends InputStream {
 
     }
 
+    /**
+     * Calculate new capacity for buffer expansion.
+     *
+     * @param capacity current buffer capacity
+     * @param minCapacity required min buffer space
+     * @return new capacity
+     */
     private int calculateNewCapacity(int capacity, int minCapacity) {
         int newCapacity;
         if (capacity == 0) {
@@ -120,72 +158,33 @@ public class RowInputStream extends InputStream {
         return newCapacity;
     }
 
+    /**
+     * Convert Spark row data to byte array
+     *
+     * @param row row data
+     * @return byte array
+     * @throws DorisException
+     */
     private byte[] rowToByte(Row row) throws DorisException {
 
         byte[] bytes;
 
-        switch (format.toLowerCase()) {
+        switch (recordBatch.getFormat().toLowerCase()) {
             case "csv":
-                bytes = DataUtil.rowToCsvBytes(row, sep);
+                bytes = DataUtil.rowToCsvBytes(row, recordBatch.getSep());
                 break;
             case "json":
                 try {
-                    bytes = DataUtil.rowToJsonBytes(row, columns);
+                    bytes = DataUtil.rowToJsonBytes(row, recordBatch.getColumns());
                 } catch (JsonProcessingException e) {
                     throw new DorisException("parse row to json bytes failed", e);
                 }
                 break;
             default:
-                throw new IllegalArgumentException("format", format);
+                throw new IllegalArgumentException("format", recordBatch.getFormat());
         }
 
         return bytes;
-
-    }
-
-    public static Builder newBuilder(Iterator<Row> rows) {
-        return new Builder(rows);
-    }
-
-    public static class Builder {
-
-        private final Iterator<Row> rows;
-
-        private String format;
-
-        private String sep;
-
-        private byte[] delim;
-
-        private String[] columns;
-
-        private Builder(Iterator<Row> rows) {
-            this.rows = rows;
-        }
-
-        public Builder format(String format) {
-            this.format = format;
-            return this;
-        }
-
-        public Builder sep(String sep) {
-            this.sep = sep;
-            return this;
-        }
-
-        public Builder delim(String delim) {
-            this.delim = delim.getBytes(DEFAULT_CHARSET);
-            return this;
-        }
-
-        public Builder columns(String[] columns) {
-            this.columns = columns;
-            return this;
-        }
-
-        public RowInputStream build() {
-            return new RowInputStream(rows, format, sep, delim, columns);
-        }
 
     }
 

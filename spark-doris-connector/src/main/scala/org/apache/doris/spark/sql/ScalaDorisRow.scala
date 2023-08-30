@@ -27,7 +27,7 @@ private[spark] class ScalaDorisRow(rowOrder: Seq[String]) extends Row {
   /** No-arg constructor for Kryo serialization. */
   def this() = this(null)
 
-  def iterator = values.iterator
+  def iterator: Iterator[Any] = values.iterator
 
   override def length: Int = values.length
 
@@ -51,9 +51,9 @@ private[spark] class ScalaDorisRow(rowOrder: Seq[String]) extends Row {
 
   override def getByte(i: Int): Byte = getAs[Byte](i)
 
-  override def getString(i: Int): String = get(i).toString()
+  override def getString(i: Int): String = get(i).toString
 
   override def copy(): Row = this
 
-  override def toSeq = values.toSeq
+  override def toSeq: Seq[Any] = values
 }

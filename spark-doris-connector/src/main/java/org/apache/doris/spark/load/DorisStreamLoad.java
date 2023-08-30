@@ -22,7 +22,6 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
-import org.apache.doris.spark.util.DataUtil;
 import org.apache.doris.spark.util.ResponseUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -57,6 +56,7 @@ import java.util.Base64;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -92,7 +92,6 @@ public class DorisStreamLoad implements Serializable {
     private final String fileType;
     private String FIELD_DELIMITER;
     private final String LINE_DELIMITER;
-    private boolean readJsonByLine = false;
 
     private boolean streamingPassthrough = false;
 
@@ -164,36 +163,28 @@ public class DorisStreamLoad implements Serializable {
             this.respContent = EntityUtils.toString(new BufferedHttpEntity(response.getEntity()), StandardCharsets.UTF_8);
         }
 
-        public LoadResponse(int status, String respMsg, String respContent) {
-            this.status = status;
-            this.respMsg = respMsg;
-            this.respContent = respContent;
-        }
-
         @Override
         public String toString() {
             return "status: " + status + ", resp msg: " + respMsg + ", resp content: " + respContent;
         }
     }
 
-    public int loadV2(List<Row> rows, String[] dfColumns, Boolean enable2PC) throws StreamLoadException, JsonProcessingException {
-
-        String data = parseLoadData(rows, dfColumns);
+    public int load(Iterator<Row> rows, String[] dfColumns, Boolean enable2PC, int batchSize)
+            throws StreamLoadException, JsonProcessingException {
 
         String label = generateLoadLabel();
         LoadResponse loadResponse;
         try (CloseableHttpClient httpClient = getHttpClient()) {
             String loadUrlStr = String.format(loadUrlPattern, getBackend(), db, tbl);
-            LOG.debug("Stream load Request:{} ,Body:{}", loadUrlStr, data);
-            // only to record the BE node in case of an exception
             this.loadUrlStr = loadUrlStr;
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
-            RowInputStream rowInputStream = RowInputStream.newBuilder(rows.iterator())
+            RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
+                    .batchSize(batchSize)
                     .format(fileType)
                     .sep(FIELD_DELIMITER)
                     .delim(LINE_DELIMITER)
-                    .columns(dfColumns).build();
-            httpPut.setEntity(new InputStreamEntity(rowInputStream));
+                    .columns(dfColumns).build());
+            httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
         } catch (IOException e) {
@@ -202,7 +193,6 @@ public class DorisStreamLoad implements Serializable {
 
         if (loadResponse.status != HttpStatus.SC_OK) {
             LOG.info("Stream load Response HTTP Status Error:{}", loadResponse);
-            // throw new StreamLoadException("stream load error: " + loadResponse.respContent);
             throw new StreamLoadException("stream load error");
         } else {
             try {
@@ -373,23 +363,6 @@ public class DorisStreamLoad implements Serializable {
         @Override
         public List<BackendV2.BackendRowV2> load(String key) throws Exception {
             return RestService.getBackendRows(settings, LOG);
-        }
-
-    }
-
-    private String parseLoadData(List<Row> rows, String[] dfColumns) throws StreamLoadException, JsonProcessingException {
-
-        if (dfColumns.length != rows.get(0).size()) {
-            return "";
-        }
-
-        switch (fileType.toUpperCase()) {
-            case "CSV":
-                return DataUtil.rowsToCsv(rows, FIELD_DELIMITER, LINE_DELIMITER);
-            case "JSON":
-                return DataUtil.rowsToJson(rows, dfColumns, readJsonByLine ? LINE_DELIMITER : null);
-            default:
-                throw new StreamLoadException(String.format("Unsupported file format in stream load: %s.", fileType));
         }
 
     }
