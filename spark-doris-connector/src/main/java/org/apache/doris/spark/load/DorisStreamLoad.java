@@ -480,8 +480,11 @@ public class DorisStreamLoad implements Serializable {
 
     private void handleStreamPassThrough() {
 
-        LOG.info("handle stream pass through, force the format option to json");
-        streamLoadProp.put("format", "json");
+        if ("json".equalsIgnoreCase(fileType)) {
+            LOG.info("handle stream pass through, force set read_json_by_line is true for json format");
+            streamLoadProp.put("read_json_by_line", "true");
+            streamLoadProp.remove("strip_outer_array");
+        }
 
     }
 
