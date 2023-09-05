@@ -96,6 +96,8 @@ public class DorisStreamLoad implements Serializable {
 
     private boolean readJsonByLine = false;
 
+    private boolean streamingPassthrough = false;
+
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
@@ -121,6 +123,8 @@ public class DorisStreamLoad implements Serializable {
             }
         }
         LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
+        this.streamingPassthrough = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,
+                ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH_DEFAULT);
     }
 
     public String getLoadUrlStr() {
@@ -176,6 +180,38 @@ public class DorisStreamLoad implements Serializable {
     public List<Integer> loadV2(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC) throws StreamLoadException, JsonProcessingException {
 
         List<String> loadData = parseLoadData(rows, dfColumns);
+        List<Integer> txnIds = new ArrayList<>(loadData.size());
+
+        try {
+            for (String data : loadData) {
+                txnIds.add(load(data, enable2PC));
+            }
+        } catch (StreamLoadException e) {
+            if (enable2PC && !txnIds.isEmpty()) {
+                LOG.error("load batch failed, abort previously pre-committed transactions");
+                for (Integer txnId : txnIds) {
+                    abort(txnId);
+                }
+            }
+            throw e;
+        }
+
+        return txnIds;
+
+    }
+
+    public List<Integer> loadStream(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC)
+            throws StreamLoadException, JsonProcessingException {
+
+        List<String> loadData;
+
+        if (this.streamingPassthrough) {
+            handleStreamPassThrough();
+            loadData = passthrough(rows);
+        } else {
+            loadData = parseLoadData(rows, dfColumns);
+        }
+
         List<Integer> txnIds = new ArrayList<>(loadData.size());
 
         try {
@@ -440,6 +476,20 @@ public class DorisStreamLoad implements Serializable {
             }
         }
         return hexData;
+    }
+
+    private void handleStreamPassThrough() {
+
+        if ("json".equalsIgnoreCase(fileType)) {
+            LOG.info("handle stream pass through, force set read_json_by_line is true for json format");
+            streamLoadProp.put("read_json_by_line", "true");
+            streamLoadProp.remove("strip_outer_array");
+        }
+
+    }
+
+    private List<String> passthrough(List<List<Object>> values) {
+        return values.stream().map(list -> list.get(0).toString()).collect(Collectors.toList());
     }
 
 }

@@ -100,4 +100,10 @@ public interface ConfigurationOptions {
     String DORIS_SINK_ENABLE_2PC = "doris.sink.enable-2pc";
     boolean DORIS_SINK_ENABLE_2PC_DEFAULT = false;
 
+    /**
+     * pass through json data when sink to doris in streaming mode
+     */
+    String DORIS_SINK_STREAMING_PASSTHROUGH = "doris.sink.streaming.passthrough";
+    boolean DORIS_SINK_STREAMING_PASSTHROUGH_DEFAULT = false;
+
 }
