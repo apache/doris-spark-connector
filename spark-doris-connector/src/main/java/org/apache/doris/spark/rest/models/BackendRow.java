@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 package org.apache.doris.spark.rest.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -58,10 +59,10 @@ public class BackendRow {
 
     @Override
     public String toString() {
-        return "BackendRow{" +
-                "HttpPort='" + HttpPort + '\'' +
-                ", IP='" + IP + '\'' +
-                ", Alive=" + Alive +
-                '}';
+        return "BackendRow{"
+                + "HttpPort='" + HttpPort + '\''
+                + ", IP='" + IP + '\''
+                + ", Alive=" + Alive
+                + '}';
     }
 }

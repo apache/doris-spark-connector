@@ -17,27 +17,22 @@
 
 package org.apache.doris.spark.cfg;
 
+import org.apache.doris.spark.exception.IllegalArgumentException;
+import org.apache.doris.spark.util.ErrorMessages;
+import org.apache.doris.spark.util.IOUtils;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Properties;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.doris.spark.exception.IllegalArgumentException;
-import org.apache.doris.spark.util.ErrorMessages;
-import org.apache.doris.spark.util.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public abstract class Settings {
-    private final static Logger logger = LoggerFactory.getLogger(Settings.class);
+    private static final Logger logger = LoggerFactory.getLogger(Settings.class);
 
     public abstract String getProperty(String name);
-
-    public abstract void setProperty(String name, String value);
-
-    public abstract Properties asProperties();
-
-    public abstract Settings copy();
 
     public String getProperty(String name, String defaultValue) {
         String value = getProperty(name);
@@ -47,6 +42,12 @@ public abstract class Settings {
         return value;
     }
 
+    public abstract void setProperty(String name, String value);
+
+    public abstract Properties asProperties();
+
+    public abstract Settings copy();
+
     public Integer getIntegerProperty(String name) {
         return getIntegerProperty(name, null);
     }
@@ -54,7 +55,7 @@ public abstract class Settings {
     public Integer getIntegerProperty(String name, Integer defaultValue) {
         try {
             if (getProperty(name) != null) {
-                 return Integer.parseInt(getProperty(name));
+                return Integer.parseInt(getProperty(name));
             }
         } catch (NumberFormatException e) {
             logger.warn(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, name, getProperty(name));
@@ -80,7 +81,7 @@ public abstract class Settings {
 
         Enumeration<?> propertyNames = properties.propertyNames();
 
-        for (; propertyNames.hasMoreElements();) {
+        for (; propertyNames.hasMoreElements(); ) {
             Object prop = propertyNames.nextElement();
             if (prop instanceof String) {
                 Object value = properties.get(prop);

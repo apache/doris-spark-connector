@@ -17,9 +17,9 @@
 
 package org.apache.doris.spark.cfg;
 
-import java.util.Properties;
-
 import com.google.common.base.Preconditions;
+
+import java.util.Properties;
 
 public class PropertiesSettings extends Settings {
 

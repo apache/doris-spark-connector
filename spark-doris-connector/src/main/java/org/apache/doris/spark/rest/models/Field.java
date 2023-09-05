@@ -28,7 +28,8 @@ public class Field {
 
     private String aggregation_type;
 
-    public Field() { }
+    public Field() {
+    }
 
     public Field(String name, String type, String comment, int precision, int scale, String aggregation_type) {
         this.name = name;
@@ -96,11 +97,11 @@ public class Field {
             return false;
         }
         Field field = (Field) o;
-        return precision == field.precision &&
-                scale == field.scale &&
-                Objects.equals(name, field.name) &&
-                Objects.equals(type, field.type) &&
-                Objects.equals(comment, field.comment);
+        return precision == field.precision
+                && scale == field.scale
+                && Objects.equals(name, field.name)
+                && Objects.equals(type, field.type)
+                && Objects.equals(comment, field.comment);
     }
 
     @Override
@@ -110,12 +111,12 @@ public class Field {
 
     @Override
     public String toString() {
-        return "Field{" +
-                "name='" + name + '\'' +
-                ", type='" + type + '\'' +
-                ", comment='" + comment + '\'' +
-                ", precision=" + precision +
-                ", scale=" + scale +
-                '}';
+        return "Field{"
+                + "name='" + name + '\''
+                + ", type='" + type + '\''
+                + ", comment='" + comment + '\''
+                + ", precision=" + precision
+                + ", scale=" + scale
+                + '}';
     }
 }

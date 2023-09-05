@@ -17,9 +17,9 @@
 
 package org.apache.doris.spark.serialization;
 
-import static org.apache.doris.spark.util.ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE;
-
 import org.apache.doris.spark.exception.IllegalArgumentException;
+
+import static org.apache.doris.spark.util.ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * present an Doris BE address.
  */
 public class Routing {
-    private final static Logger logger = LoggerFactory.getLogger(Routing.class);
+    private static final Logger logger = LoggerFactory.getLogger(Routing.class);
 
     private String host;
     private int port;
@@ -62,9 +62,9 @@ public class Routing {
 
     @Override
     public String toString() {
-        return "Doris BE{" +
-                "host='" + host + '\'' +
-                ", port=" + port +
-                '}';
+        return "Doris BE{"
+                + "host='" + host + '\''
+                + ", port=" + port
+                + '}';
     }
 }

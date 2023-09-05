@@ -17,14 +17,13 @@
 
 package org.apache.doris.spark.serialization;
 
-import static org.hamcrest.core.StringStartsWith.startsWith;
-
 import org.apache.doris.spark.exception.IllegalArgumentException;
+
+import static org.hamcrest.core.StringStartsWith.startsWith;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-
 
 public class TestRouting {
     @Rule

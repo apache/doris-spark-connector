@@ -17,13 +17,12 @@
 
 package org.apache.doris.spark.rdd
 
-import scala.reflect.ClassTag
-
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_VALUE_READER_CLASS
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.rest.PartitionDefinition
-
 import org.apache.spark.{Partition, SparkContext, TaskContext}
+
+import scala.reflect.ClassTag
 
 private[spark] class ScalaDorisRDD[T: ClassTag](
     sc: SparkContext,

@@ -21,10 +21,9 @@ import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_VALUE_READER_CLASS
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.rdd.{AbstractDorisRDD, AbstractDorisRDDIterator, DorisPartition}
 import org.apache.doris.spark.rest.PartitionDefinition
-
-import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 private[spark] class ScalaDorisRowRDD(
   sc: SparkContext,

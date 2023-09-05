@@ -17,10 +17,12 @@
 
 package org.apache.doris.spark.load;
 
+import org.apache.doris.spark.cfg.SparkSettings;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import org.apache.doris.spark.cfg.SparkSettings;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 

@@ -17,12 +17,12 @@
 
 package org.apache.doris.spark.util;
 
+import org.apache.doris.spark.exception.IllegalArgumentException;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Properties;
-
-import org.apache.doris.spark.exception.IllegalArgumentException;
 
 public class IOUtils {
     public static String propsToString(Properties props) throws IllegalArgumentException {

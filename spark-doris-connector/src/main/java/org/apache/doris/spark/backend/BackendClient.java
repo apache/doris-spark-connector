@@ -26,12 +26,13 @@ import org.apache.doris.sdk.thrift.TScanOpenParams;
 import org.apache.doris.sdk.thrift.TScanOpenResult;
 import org.apache.doris.sdk.thrift.TStatusCode;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
+import org.apache.doris.spark.cfg.Settings;
 import org.apache.doris.spark.exception.ConnectedFailedException;
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.DorisInternalException;
-import org.apache.doris.spark.util.ErrorMessages;
-import org.apache.doris.spark.cfg.Settings;
 import org.apache.doris.spark.serialization.Routing;
+import org.apache.doris.spark.util.ErrorMessages;
+
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -46,7 +47,7 @@ import org.slf4j.LoggerFactory;
  * Client to request Doris BE
  */
 public class BackendClient {
-    private final static Logger logger = LoggerFactory.getLogger(BackendClient.class);
+    private static final Logger logger = LoggerFactory.getLogger(BackendClient.class);
 
     private Routing routing;
 
@@ -78,7 +79,8 @@ public class BackendClient {
             logger.debug("Attempt {} to connect {}.", attempt, routing);
             try {
                 TBinaryProtocol.Factory factory = new TBinaryProtocol.Factory();
-                transport = new TSocket(new TConfiguration(), routing.getHost(), routing.getPort(), socketTimeout, connectTimeout);
+                transport = new TSocket(new TConfiguration(), routing.getHost(), routing.getPort(), socketTimeout,
+                        connectTimeout);
                 TProtocol protocol = factory.getProtocol(transport);
                 client = new TDorisExternalService.Client(protocol);
                 logger.trace("Connect status before open transport to {} is '{}'.", routing, isConnected);
@@ -115,6 +117,7 @@ public class BackendClient {
 
     /**
      * Open a scanner for reading Doris data.
+     *
      * @param openParams thrift struct to required by request
      * @return scan open result
      * @throws ConnectedFailedException throw if cannot connect to Doris BE
@@ -154,6 +157,7 @@ public class BackendClient {
 
     /**
      * get next row batch from Doris BE
+     *
      * @param nextBatchParams thrift struct to required by request
      * @return scan batch result
      * @throws ConnectedFailedException throw if cannot connect to Doris BE
@@ -168,7 +172,7 @@ public class BackendClient {
         for (int attempt = 0; attempt < retries; ++attempt) {
             logger.debug("Attempt {} to getNext {}.", attempt, routing);
             try {
-                result  = client.getNext(nextBatchParams);
+                result = client.getNext(nextBatchParams);
                 if (result == null) {
                     logger.warn("GetNext result from {} is null.", routing);
                     continue;
@@ -196,6 +200,7 @@ public class BackendClient {
 
     /**
      * close an scanner.
+     *
      * @param closeParams thrift struct to required by request
      */
     public void closeScanner(TScanCloseParams closeParams) {

@@ -17,15 +17,15 @@
 
 package org.apache.doris.spark.rest;
 
+import org.apache.doris.spark.cfg.PropertiesSettings;
+import org.apache.doris.spark.cfg.Settings;
+import org.apache.doris.spark.exception.IllegalArgumentException;
+
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-
-import org.apache.doris.spark.cfg.PropertiesSettings;
-import org.apache.doris.spark.cfg.Settings;
-import org.apache.doris.spark.exception.IllegalArgumentException;
 
 /**
  * Doris RDD partition info.
@@ -108,7 +108,7 @@ public class PartitionDefinition implements Serializable, Comparable<PartitionDe
         similar.retainAll(o.tabletIds);
         diffSelf.removeAll(similar);
         diffOther.removeAll(similar);
-        if  (diffSelf.size() == 0) {
+        if (diffSelf.size() == 0) {
             return 0;
         }
         long diff = Collections.min(diffSelf) - Collections.min(diffOther);
@@ -124,12 +124,12 @@ public class PartitionDefinition implements Serializable, Comparable<PartitionDe
             return false;
         }
         PartitionDefinition that = (PartitionDefinition) o;
-        return Objects.equals(database, that.database) &&
-                Objects.equals(table, that.table) &&
-                Objects.equals(beAddress, that.beAddress) &&
-                Objects.equals(tabletIds, that.tabletIds) &&
-                Objects.equals(queryPlan, that.queryPlan) &&
-                Objects.equals(serializedSettings, that.serializedSettings);
+        return Objects.equals(database, that.database)
+                && Objects.equals(table, that.table)
+                && Objects.equals(beAddress, that.beAddress)
+                && Objects.equals(tabletIds, that.tabletIds)
+                && Objects.equals(queryPlan, that.queryPlan)
+                && Objects.equals(serializedSettings, that.serializedSettings);
     }
 
     @Override
@@ -144,12 +144,12 @@ public class PartitionDefinition implements Serializable, Comparable<PartitionDe
 
     @Override
     public String toString() {
-        return "PartitionDefinition{" +
-                ", database='" + database + '\'' +
-                ", table='" + table + '\'' +
-                ", beAddress='" + beAddress + '\'' +
-                ", tabletIds=" + tabletIds +
-                ", queryPlan='" + queryPlan + '\'' +
-                '}';
+        return "PartitionDefinition{"
+                + ", database='" + database + '\''
+                + ", table='" + table + '\''
+                + ", beAddress='" + beAddress + '\''
+                + ", tabletIds=" + tabletIds
+                + ", queryPlan='" + queryPlan + '\''
+                + '}';
     }
 }

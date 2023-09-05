@@ -18,13 +18,6 @@
 package org.apache.doris.spark.rdd
 
 import org.apache.doris.sdk.thrift.{TScanCloseParams, TScanNextBatchParams, TScanOpenParams, TScanOpenResult}
-
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent._
-import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
-import scala.collection.JavaConversions._
-import scala.util.Try
-
 import org.apache.doris.spark.backend.BackendClient
 import org.apache.doris.spark.cfg.ConfigurationOptions._
 import org.apache.doris.spark.cfg.Settings
@@ -37,6 +30,11 @@ import org.apache.doris.spark.util.ErrorMessages
 import org.apache.doris.spark.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE
 import org.apache.spark.internal.Logging
 
+import java.util.concurrent._
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
+import scala.collection.JavaConversions._
+import scala.util.Try
 import scala.util.control.Breaks
 
 /**

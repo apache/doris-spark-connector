@@ -17,14 +17,13 @@
 
 package org.apache.doris.spark.rdd
 
-import scala.collection.JavaConversions._
-import scala.reflect.ClassTag
-
 import org.apache.doris.spark.cfg.SparkSettings
 import org.apache.doris.spark.rest.{PartitionDefinition, RestService}
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{Partition, SparkContext}
+
+import scala.collection.JavaConversions._
+import scala.reflect.ClassTag
 
 private[spark] abstract class AbstractDorisRDD[T: ClassTag](
     @transient private var sc: SparkContext,
