@@ -121,6 +121,7 @@ public class DorisStreamLoad implements Serializable {
                 LOG.info("set default json mode: strip_outer_array");
                 streamLoadProp.put("strip_outer_array", "true");
             }
+            streamLoadProp.putIfAbsent("num_as_string", "true");
         }
         LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
         this.streamingPassthrough = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,
