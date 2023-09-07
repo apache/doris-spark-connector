@@ -16,6 +16,14 @@
 // under the License.
 package org.apache.doris.spark.load;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
 import org.apache.doris.spark.exception.StreamLoadException;
@@ -25,15 +33,6 @@ import org.apache.doris.spark.rest.models.RespContent;
 import org.apache.doris.spark.util.DataUtil;
 import org.apache.doris.spark.util.ListUtils;
 import org.apache.doris.spark.util.ResponseUtil;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -50,7 +49,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -184,7 +182,7 @@ public class DorisStreamLoad implements Serializable {
 
         try {
             for (String data : loadData) {
-                txnIds.add(load(data, enable2PC));
+                txnIds.add(load(data, enable2PC, dfColumns));
             }
         } catch (StreamLoadException e) {
             if (enable2PC && !txnIds.isEmpty()) {
@@ -216,7 +214,7 @@ public class DorisStreamLoad implements Serializable {
 
         try {
             for (String data : loadData) {
-                txnIds.add(load(data, enable2PC));
+                txnIds.add(load(data, enable2PC, dfColumns));
             }
         } catch (StreamLoadException e) {
             if (enable2PC && !txnIds.isEmpty()) {
@@ -232,7 +230,7 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
-    public int load(String value, Boolean enable2PC) throws StreamLoadException {
+    public int load(String value, Boolean enable2PC, String[] dfColumns) throws StreamLoadException {
 
         String label = generateLoadLabel();
 
@@ -246,6 +244,10 @@ public class DorisStreamLoad implements Serializable {
 
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
             httpPut.setEntity(new StringEntity(value, StandardCharsets.UTF_8));
+            if (StringUtils.isBlank(columns)) {
+                String dfcColumnsWithComma = Arrays.stream(dfColumns).collect(Collectors.joining(","));
+                httpPut.setHeader("columns", dfcColumnsWithComma);
+            }
             HttpResponse httpResponse = httpClient.execute(httpPut);
             responseHttpStatus = httpResponse.getStatusLine().getStatusCode();
             String respMsg = httpResponse.getStatusLine().getReasonPhrase();
