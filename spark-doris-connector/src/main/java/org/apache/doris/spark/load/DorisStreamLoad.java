@@ -23,6 +23,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
@@ -244,7 +245,7 @@ public class DorisStreamLoad implements Serializable {
 
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
             httpPut.setEntity(new StringEntity(value, StandardCharsets.UTF_8));
-            if (StringUtils.isBlank(columns)) {
+            if (StringUtils.isBlank(columns)&& ArrayUtils.isNotEmpty(dfColumns)) {
                 String dfcColumnsWithComma = Arrays.stream(dfColumns).collect(Collectors.joining(","));
                 httpPut.setHeader("columns", dfcColumnsWithComma);
             }
