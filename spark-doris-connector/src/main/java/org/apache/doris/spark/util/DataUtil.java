@@ -67,11 +67,11 @@ public class DataUtil {
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    public static byte[] rowToJsonBytes(Row row, String[] dfColumns)
+    public static byte[] rowToJsonBytes(Row row, String[] columns)
             throws JsonProcessingException {
         Map<String, Object> rowMap = new HashMap<>(row.size());
-        for (int i = 0; i < dfColumns.length; i++) {
-            rowMap.put(dfColumns[i], handleColumnValue(row.get(i)));
+        for (int i = 0; i < columns.length; i++) {
+            rowMap.put(columns[i], handleColumnValue(row.get(i)));
         }
         return MAPPER.writeValueAsBytes(rowMap);
     }

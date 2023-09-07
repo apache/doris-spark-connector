@@ -35,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -44,6 +45,9 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder.Deserializer;
+import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,8 +96,9 @@ public class DorisStreamLoad implements Serializable {
     private final String fileType;
     private String FIELD_DELIMITER;
     private final String LINE_DELIMITER;
-
     private boolean streamingPassthrough = false;
+    private final Integer batchSize;
+    private boolean enable2PC;
 
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
@@ -115,6 +120,10 @@ public class DorisStreamLoad implements Serializable {
         LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
         this.streamingPassthrough = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,
                 ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH_DEFAULT);
+        this.batchSize = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE,
+                ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT);
+        this.enable2PC = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
+                ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT);
     }
 
     public String getLoadUrlStr() {
@@ -169,7 +178,7 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public int load(Iterator<Row> rows, String[] dfColumns, Boolean enable2PC, int batchSize)
+    public int load(Iterator<InternalRow> rows, StructType schema, Deserializer<Row> deserializer)
             throws StreamLoadException, JsonProcessingException {
 
         String label = generateLoadLabel();
@@ -183,7 +192,7 @@ public class DorisStreamLoad implements Serializable {
                     .format(fileType)
                     .sep(FIELD_DELIMITER)
                     .delim(LINE_DELIMITER)
-                    .columns(dfColumns).build());
+                    .schema(schema).build(), deserializer, streamingPassthrough);
             httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
@@ -210,36 +219,12 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
-    public List<Integer> loadStream(List<List<Object>> rows, String[] dfColumns, Boolean enable2PC)
+    public Integer loadStream(Iterator<InternalRow> rows, StructType schema, Deserializer<Row> deserializer)
             throws StreamLoadException, JsonProcessingException {
-
-        List<String> loadData;
-
         if (this.streamingPassthrough) {
             handleStreamPassThrough();
-            loadData = passthrough(rows);
-        } else {
-            loadData = parseLoadData(rows, dfColumns);
         }
-
-        List<Integer> txnIds = new ArrayList<>(loadData.size());
-
-        try {
-            for (String data : loadData) {
-                txnIds.add(load(data, enable2PC));
-            }
-        } catch (StreamLoadException e) {
-            if (enable2PC && !txnIds.isEmpty()) {
-                LOG.error("load batch failed, abort previously pre-committed transactions");
-                for (Integer txnId : txnIds) {
-                    abort(txnId);
-                }
-            }
-            throw e;
-        }
-
-        return txnIds;
-
+        return load(rows, schema, deserializer);
     }
 
     public void commit(int txnId) throws StreamLoadException {
@@ -410,10 +395,6 @@ public class DorisStreamLoad implements Serializable {
             streamLoadProp.remove("strip_outer_array");
         }
 
-    }
-
-    private List<String> passthrough(List<List<Object>> values) {
-        return values.stream().map(list -> list.get(0).toString()).collect(Collectors.toList());
     }
 
 }

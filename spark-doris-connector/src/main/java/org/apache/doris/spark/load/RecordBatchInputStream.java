@@ -7,12 +7,15 @@ import org.apache.doris.spark.util.DataUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 /**
@@ -44,8 +47,20 @@ public class RecordBatchInputStream extends InputStream {
      */
     private int readCount = 0;
 
-    public RecordBatchInputStream(RecordBatch recordBatch) {
+    /**
+     * streaming mode pass through data without process
+     */
+    private final boolean passThrough;
+
+    /**
+     * deserializer for converting InternalRow to Row
+     */
+    private final ExpressionEncoder.Deserializer<Row> deserializer;
+
+    public RecordBatchInputStream(RecordBatch recordBatch, ExpressionEncoder.Deserializer<Row> deserializer, boolean passThrough) {
         this.recordBatch = recordBatch;
+        this.deserializer = deserializer;
+        this.passThrough = passThrough;
     }
 
     @Override
@@ -83,7 +98,7 @@ public class RecordBatchInputStream extends InputStream {
      * @throws DorisException
      */
     public boolean endOfBatch() throws DorisException {
-        Iterator<Row> iterator = recordBatch.getIterator();
+        Iterator<InternalRow> iterator = recordBatch.getIterator();
         if (readCount >= recordBatch.getBatchSize() || !iterator.hasNext()) {
             return true;
         }
@@ -97,7 +112,7 @@ public class RecordBatchInputStream extends InputStream {
      * @param iterator row iterator
      * @throws DorisException
      */
-    private void readNext(Iterator<Row> iterator) throws DorisException {
+    private void readNext(Iterator<InternalRow> iterator) throws DorisException {
         if (!iterator.hasNext()) {
             throw new ShouldNeverHappenException();
         }
@@ -161,13 +176,20 @@ public class RecordBatchInputStream extends InputStream {
     /**
      * Convert Spark row data to byte array
      *
-     * @param row row data
+     * @param internalRow row data
      * @return byte array
      * @throws DorisException
      */
-    private byte[] rowToByte(Row row) throws DorisException {
+    private byte[] rowToByte(InternalRow internalRow) throws DorisException {
 
         byte[] bytes;
+
+        Row row = deserializer.apply(internalRow.copy());
+
+        if (passThrough) {
+            bytes = row.getString(0).getBytes(StandardCharsets.UTF_8);
+            return bytes;
+        }
 
         switch (recordBatch.getFormat().toLowerCase()) {
             case "csv":
@@ -175,7 +197,7 @@ public class RecordBatchInputStream extends InputStream {
                 break;
             case "json":
                 try {
-                    bytes = DataUtil.rowToJsonBytes(row, recordBatch.getColumns());
+                    bytes = DataUtil.rowToJsonBytes(row, recordBatch.getSchema().fieldNames());
                 } catch (JsonProcessingException e) {
                     throw new DorisException("parse row to json bytes failed", e);
                 }

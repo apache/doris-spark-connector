@@ -1,6 +1,7 @@
 package org.apache.doris.spark.load;
 
-import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.types.StructType;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +17,7 @@ public class RecordBatch {
     /**
      * Spark row data iterator
      */
-    private final Iterator<Row> iterator;
+    private final Iterator<InternalRow> iterator;
 
     /**
      * batch size for single load
@@ -39,20 +40,21 @@ public class RecordBatch {
     private final byte[] delim;
 
     /**
-     * column name array, only used when the format is json
+     * schema of row
      */
-    private final String[] columns;
+    private final StructType schema;
 
-    private RecordBatch(Iterator<Row> iterator, int batchSize, String format, String sep, byte[] delim, String[] columns) {
+    private RecordBatch(Iterator<InternalRow> iterator, int batchSize, String format, String sep, byte[] delim,
+                        StructType schema) {
         this.iterator = iterator;
         this.batchSize = batchSize;
         this.format = format;
         this.sep = sep;
         this.delim = delim;
-        this.columns = columns;
+        this.schema = schema;
     }
 
-    public Iterator<Row> getIterator() {
+    public Iterator<InternalRow> getIterator() {
         return iterator;
     }
 
@@ -72,11 +74,10 @@ public class RecordBatch {
         return delim;
     }
 
-    public String[] getColumns() {
-        return columns;
+    public StructType getSchema() {
+        return schema;
     }
-
-    public static Builder newBuilder(Iterator<Row> iterator) {
+    public static Builder newBuilder(Iterator<InternalRow> iterator) {
         return new Builder(iterator);
     }
 
@@ -85,7 +86,7 @@ public class RecordBatch {
      */
     public static class Builder {
 
-        private final Iterator<Row> iterator;
+        private final Iterator<InternalRow> iterator;
 
         private int batchSize;
 
@@ -95,9 +96,9 @@ public class RecordBatch {
 
         private byte[] delim;
 
-        private String[] columns;
+        private StructType schema;
 
-        public Builder(Iterator<Row> iterator) {
+        public Builder(Iterator<InternalRow> iterator) {
             this.iterator = iterator;
         }
 
@@ -121,13 +122,13 @@ public class RecordBatch {
             return this;
         }
 
-        public Builder columns(String[] columns) {
-            this.columns = columns;
+        public Builder schema(StructType schema) {
+            this.schema = schema;
             return this;
         }
 
         public RecordBatch build() {
-            return new RecordBatch(iterator, batchSize, format, sep, delim, columns);
+            return new RecordBatch(iterator, batchSize, format, sep, delim, schema);
         }
 
     }
