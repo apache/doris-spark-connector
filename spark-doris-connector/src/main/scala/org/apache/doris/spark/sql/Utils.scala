@@ -182,7 +182,7 @@ private[spark] object Utils {
     }
 
     def shouldBlock(exception: String): Boolean = {
-      blockTriggerKeysArray.exists(exception.contains)
+      blockTriggerKeysArray.nonEmpty && blockTriggerKeysArray.exists(exception.contains)
     }
 
     val result = Try(f)

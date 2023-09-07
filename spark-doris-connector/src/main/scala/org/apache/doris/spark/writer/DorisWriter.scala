@@ -79,6 +79,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
     var resultRdd = dataFrame.queryExecution.toRdd
     val schema = dataFrame.schema
+    val dfColumns = dataFrame.columns
     if (Objects.nonNull(sinkTaskPartitionSize)) {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
