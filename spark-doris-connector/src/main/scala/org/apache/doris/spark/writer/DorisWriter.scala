@@ -21,10 +21,8 @@ import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.listener.DorisTransactionListener
 import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.doris.spark.sql.Utils
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder.Deserializer
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.CollectionAccumulator
 import org.slf4j.{Logger, LoggerFactory}
@@ -62,7 +60,9 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     doWrite(dataFrame, dorisStreamLoader.loadStream)
   }
 
-  private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType, Deserializer[Row]) => Int): Unit = {
+  private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Int): Unit = {
+
+
 
     val sc = dataFrame.sqlContext.sparkContext
     val preCommittedTxnAcc = sc.collectionAccumulator[Int]("preCommittedTxnAcc")
@@ -72,7 +72,6 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
     var resultRdd = dataFrame.queryExecution.toRdd
     val schema = dataFrame.schema
-    val deserializer = RowEncoder(schema).resolveAndBind().createDeserializer()
     if (Objects.nonNull(sinkTaskPartitionSize)) {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
@@ -80,7 +79,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       while (iterator.hasNext) {
         // do load batch with retries
         Utils.retry[Int, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
-          loadFunc(iterator.asJava, schema, deserializer)
+          loadFunc(iterator.asJava, schema)
         } match {
           case Success(txnId) => if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
           case Failure(e) =>

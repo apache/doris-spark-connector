@@ -17,14 +17,15 @@
 
 package org.apache.doris.spark.util;
 
+import org.apache.doris.spark.sql.SchemaUtils;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.spark.sql.Row;
-import scala.collection.mutable.WrappedArray;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.types.StructField;
+import org.apache.spark.sql.types.StructType;
 
 import java.nio.charset.StandardCharsets;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,44 +35,28 @@ public class DataUtil {
 
     public static final String NULL_VALUE = "\\N";
 
-    public static Object handleColumnValue(Object value) {
-
-        if (value == null) {
-            return NULL_VALUE;
-        }
-
-        if (value instanceof Date || value instanceof Timestamp) {
-            return value.toString();
-        }
-
-        if (value instanceof WrappedArray) {
-            return String.format("[%s]", ((WrappedArray<?>) value).mkString(","));
-        }
-
-        return value;
-
-    }
-
-    public static byte[] rowToCsvBytes(Row row, String sep) {
+    public static byte[] rowToCsvBytes(InternalRow row, StructType schema, String sep) {
         StringBuilder builder = new StringBuilder();
-        int n = row.size();
+        StructField[] fields = schema.fields();
+        int n = row.numFields();
         if (n > 0) {
-            builder.append(handleColumnValue(row.get(0)));
+            builder.append(SchemaUtils.rowColumnValue(row, 0, fields[0].dataType()));
             int i = 1;
             while (i < n) {
                 builder.append(sep);
-                builder.append(handleColumnValue(row.get(i)));
+                builder.append(SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
                 i++;
             }
         }
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    public static byte[] rowToJsonBytes(Row row, String[] columns)
+    public static byte[] rowToJsonBytes(InternalRow row, StructType schema)
             throws JsonProcessingException {
-        Map<String, Object> rowMap = new HashMap<>(row.size());
-        for (int i = 0; i < columns.length; i++) {
-            rowMap.put(columns[i], handleColumnValue(row.get(i)));
+        StructField[] fields = schema.fields();
+        Map<String, Object> rowMap = new HashMap<>(row.numFields());
+        for (int i = 0; i < fields.length; i++) {
+            rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
         }
         return MAPPER.writeValueAsBytes(rowMap);
     }

@@ -6,9 +6,7 @@ import org.apache.doris.spark.exception.ShouldNeverHappenException;
 import org.apache.doris.spark.util.DataUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,14 +50,8 @@ public class RecordBatchInputStream extends InputStream {
      */
     private final boolean passThrough;
 
-    /**
-     * deserializer for converting InternalRow to Row
-     */
-    private final ExpressionEncoder.Deserializer<Row> deserializer;
-
-    public RecordBatchInputStream(RecordBatch recordBatch, ExpressionEncoder.Deserializer<Row> deserializer, boolean passThrough) {
+    public RecordBatchInputStream(RecordBatch recordBatch, boolean passThrough) {
         this.recordBatch = recordBatch;
-        this.deserializer = deserializer;
         this.passThrough = passThrough;
     }
 
@@ -176,15 +168,13 @@ public class RecordBatchInputStream extends InputStream {
     /**
      * Convert Spark row data to byte array
      *
-     * @param internalRow row data
+     * @param row row data
      * @return byte array
      * @throws DorisException
      */
-    private byte[] rowToByte(InternalRow internalRow) throws DorisException {
+    private byte[] rowToByte(InternalRow row) throws DorisException {
 
         byte[] bytes;
-
-        Row row = deserializer.apply(internalRow.copy());
 
         if (passThrough) {
             bytes = row.getString(0).getBytes(StandardCharsets.UTF_8);
@@ -193,11 +183,11 @@ public class RecordBatchInputStream extends InputStream {
 
         switch (recordBatch.getFormat().toLowerCase()) {
             case "csv":
-                bytes = DataUtil.rowToCsvBytes(row, recordBatch.getSep());
+                bytes = DataUtil.rowToCsvBytes(row, recordBatch.getSchema(), recordBatch.getSep());
                 break;
             case "json":
                 try {
-                    bytes = DataUtil.rowToJsonBytes(row, recordBatch.getSchema().fieldNames());
+                    bytes = DataUtil.rowToJsonBytes(row, recordBatch.getSchema());
                 } catch (JsonProcessingException e) {
                     throw new DorisException("parse row to json bytes failed", e);
                 }

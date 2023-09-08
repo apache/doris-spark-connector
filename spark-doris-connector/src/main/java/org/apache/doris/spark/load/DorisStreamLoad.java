@@ -43,9 +43,7 @@ import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
-import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder.Deserializer;
 import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -177,7 +175,7 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public int load(Iterator<InternalRow> rows, StructType schema, Deserializer<Row> deserializer)
+    public int load(Iterator<InternalRow> rows, StructType schema)
             throws StreamLoadException, JsonProcessingException {
 
         String label = generateLoadLabel();
@@ -191,7 +189,7 @@ public class DorisStreamLoad implements Serializable {
                     .format(fileType)
                     .sep(FIELD_DELIMITER)
                     .delim(LINE_DELIMITER)
-                    .schema(schema).build(), deserializer, streamingPassthrough);
+                    .schema(schema).build(), streamingPassthrough);
             httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
@@ -218,12 +216,12 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
-    public Integer loadStream(Iterator<InternalRow> rows, StructType schema, Deserializer<Row> deserializer)
+    public Integer loadStream(Iterator<InternalRow> rows, StructType schema)
             throws StreamLoadException, JsonProcessingException {
         if (this.streamingPassthrough) {
             handleStreamPassThrough();
         }
-        return load(rows, schema, deserializer);
+        return load(rows, schema);
     }
 
     public void commit(int txnId) throws StreamLoadException {
