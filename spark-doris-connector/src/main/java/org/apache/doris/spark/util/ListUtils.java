@@ -34,7 +34,7 @@ public class ListUtils {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static List<String> getSerializedList(List<Map<Object, Object>> batch,
-                                                 String lineDelimiter) throws JsonProcessingException {
+                                           String lineDelimiter) throws JsonProcessingException {
         List<String> result = new ArrayList<>();
         divideAndSerialize(batch, result, lineDelimiter);
         return result;

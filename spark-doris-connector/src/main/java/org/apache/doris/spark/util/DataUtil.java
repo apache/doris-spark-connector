@@ -17,35 +17,48 @@
 
 package org.apache.doris.spark.util;
 
-import scala.collection.JavaConversions;
-import scala.collection.mutable.WrappedArray;
+import org.apache.doris.spark.sql.SchemaUtils;
 
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.util.Arrays;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.types.StructField;
+import org.apache.spark.sql.types.StructType;
+
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DataUtil {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     public static final String NULL_VALUE = "\\N";
 
-    public static Object handleColumnValue(Object value) {
-
-        if (value == null) {
-            return NULL_VALUE;
+    public static byte[] rowToCsvBytes(InternalRow row, StructType schema, String sep) {
+        StringBuilder builder = new StringBuilder();
+        StructField[] fields = schema.fields();
+        int n = row.numFields();
+        if (n > 0) {
+            builder.append(SchemaUtils.rowColumnValue(row, 0, fields[0].dataType()));
+            int i = 1;
+            while (i < n) {
+                builder.append(sep);
+                builder.append(SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
+                i++;
+            }
         }
+        return builder.toString().getBytes(StandardCharsets.UTF_8);
+    }
 
-        if (value instanceof Date || value instanceof Timestamp) {
-            return value.toString();
+    public static byte[] rowToJsonBytes(InternalRow row, StructType schema)
+            throws JsonProcessingException {
+        StructField[] fields = schema.fields();
+        Map<String, Object> rowMap = new HashMap<>(row.numFields());
+        for (int i = 0; i < fields.length; i++) {
+            rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
         }
-
-        if (value instanceof WrappedArray) {
-
-            Object[] arr = JavaConversions.seqAsJavaList((WrappedArray) value).toArray();
-            return Arrays.toString(arr);
-        }
-
-        return value;
-
+        return MAPPER.writeValueAsBytes(rowMap);
     }
 
 }

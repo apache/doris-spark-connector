@@ -39,8 +39,6 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
-  val batchSize: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE,
-    ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
   private val maxRetryTimes: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES,
     ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
   private val sinkTaskPartitionSize: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
@@ -55,45 +53,16 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
   private val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
 
   def write(dataFrame: DataFrame): Unit = {
-
-    val sc = dataFrame.sqlContext.sparkContext
-    val preCommittedTxnAcc = sc.collectionAccumulator[Int]("preCommittedTxnAcc")
-    if (enable2PC) {
-      sc.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, dorisStreamLoader))
-    }
-
-    var resultRdd = dataFrame.rdd
-    val dfColumns = dataFrame.columns
-    if (Objects.nonNull(sinkTaskPartitionSize)) {
-      resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
-    }
-    resultRdd
-      .map(_.toSeq.map(_.asInstanceOf[AnyRef]).toList.asJava)
-      .foreachPartition(partition => {
-        partition
-          .grouped(batchSize)
-          .foreach(batch => flush(batch, dfColumns))
-      })
-
-    /**
-     * flush data to Doris and do retry when flush error
-     *
-     */
-    def flush(batch: Seq[util.List[Object]], dfColumns: Array[String]): Unit = {
-      Utils.retry[util.List[Integer], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
-        dorisStreamLoader.loadV2(batch.asJava, dfColumns, enable2PC)
-      } match {
-        case Success(txnIds) => if (enable2PC) handleLoadSuccess(txnIds.asScala, preCommittedTxnAcc)
-        case Failure(e) =>
-          if (enable2PC) handleLoadFailure(preCommittedTxnAcc)
-          throw new IOException(
-            s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
-      }
-    }
-
+    doWrite(dataFrame, dorisStreamLoader.load)
   }
 
   def writeStream(dataFrame: DataFrame): Unit = {
+    doWrite(dataFrame, dorisStreamLoader.loadStream)
+  }
+
+  private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Int): Unit = {
+
+
 
     val sc = dataFrame.sqlContext.sparkContext
     val preCommittedTxnAcc = sc.collectionAccumulator[Int]("preCommittedTxnAcc")
@@ -103,47 +72,31 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
     var resultRdd = dataFrame.queryExecution.toRdd
     val schema = dataFrame.schema
-    val dfColumns = dataFrame.columns
     if (Objects.nonNull(sinkTaskPartitionSize)) {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
-    resultRdd
-      .foreachPartition(partition => {
-        partition
-          .grouped(batchSize)
-          .foreach(batch =>
-            flush(batch, dfColumns))
-      })
-
-    /**
-     * flush data to Doris and do retry when flush error
-     *
-     */
-    def flush(batch: Seq[InternalRow], dfColumns: Array[String]): Unit = {
-      Utils.retry[util.List[Integer], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
-        dorisStreamLoader.loadStream(convertToObjectList(batch, schema), dfColumns, enable2PC)
-      } match {
-        case Success(txnIds) => if (enable2PC) handleLoadSuccess(txnIds.asScala, preCommittedTxnAcc)
-        case Failure(e) =>
-          if (enable2PC) handleLoadFailure(preCommittedTxnAcc)
-          throw new IOException(
-            s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
+    resultRdd.foreachPartition(iterator => {
+      while (iterator.hasNext) {
+        // do load batch with retries
+        Utils.retry[Int, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+          loadFunc(iterator.asJava, schema)
+        } match {
+          case Success(txnId) => if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
+          case Failure(e) =>
+            if (enable2PC) handleLoadFailure(preCommittedTxnAcc)
+            throw new IOException(
+              s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
+        }
       }
-    }
-
-    def convertToObjectList(rows: Seq[InternalRow], schema: StructType): util.List[util.List[Object]] = {
-      rows.map(row => {
-        row.toSeq(schema).map(_.asInstanceOf[AnyRef]).toList.asJava
-      }).asJava
-    }
+    })
 
   }
 
-  private def handleLoadSuccess(txnIds: mutable.Buffer[Integer], acc: CollectionAccumulator[Int]): Unit = {
-    txnIds.foreach(txnId => acc.add(txnId))
+  private def handleLoadSuccess(txnId: Int, acc: CollectionAccumulator[Int]): Unit = {
+    acc.add(txnId)
   }
 
-  def handleLoadFailure(acc: CollectionAccumulator[Int]): Unit = {
+  private def handleLoadFailure(acc: CollectionAccumulator[Int]): Unit = {
     // if task run failed, acc value will not be returned to driver,
     // should abort all pre committed transactions inside the task
     logger.info("load task failed, start aborting previously pre-committed transactions")
