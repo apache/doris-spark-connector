@@ -170,14 +170,13 @@ public class RecordBatchInputStream extends InputStream {
      * @return new capacity
      */
     private int calculateNewCapacity(int capacity, int minCapacity) {
-        int newCapacity;
+        int newCapacity = 0;
         if (capacity == 0) {
             newCapacity = DEFAULT_BUF_SIZE;
-            while (newCapacity < minCapacity) {
-                newCapacity = newCapacity << 1;
-            }
-        } else {
-            newCapacity = capacity << 1;
+
+        }
+        while (newCapacity < minCapacity) {
+            newCapacity = newCapacity << 1;
         }
         return newCapacity;
     }
