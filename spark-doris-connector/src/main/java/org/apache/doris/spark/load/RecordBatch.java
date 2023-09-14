@@ -61,14 +61,17 @@ public class RecordBatch {
      */
     private final StructType schema;
 
+    private final boolean addDoubleQuotes;
+
     private RecordBatch(Iterator<InternalRow> iterator, int batchSize, String format, String sep, byte[] delim,
-                        StructType schema) {
+                        StructType schema, boolean addDoubleQuotes) {
         this.iterator = iterator;
         this.batchSize = batchSize;
         this.format = format;
         this.sep = sep;
         this.delim = delim;
         this.schema = schema;
+        this.addDoubleQuotes = addDoubleQuotes;
     }
 
     public Iterator<InternalRow> getIterator() {
@@ -94,6 +97,10 @@ public class RecordBatch {
     public StructType getSchema() {
         return schema;
     }
+
+    public boolean getAddDoubleQuotes(){
+        return addDoubleQuotes;
+    }
     public static Builder newBuilder(Iterator<InternalRow> iterator) {
         return new Builder(iterator);
     }
@@ -114,6 +121,8 @@ public class RecordBatch {
         private byte[] delim;
 
         private StructType schema;
+
+        private boolean addDoubleQuotes;
 
         public Builder(Iterator<InternalRow> iterator) {
             this.iterator = iterator;
@@ -144,8 +153,13 @@ public class RecordBatch {
             return this;
         }
 
+        public Builder addDoubleQuotes(boolean addDoubleQuotes) {
+            this.addDoubleQuotes = addDoubleQuotes;
+            return this;
+        }
+
         public RecordBatch build() {
-            return new RecordBatch(iterator, batchSize, format, sep, delim, schema);
+            return new RecordBatch(iterator, batchSize, format, sep, delim, schema, addDoubleQuotes);
         }
 
     }

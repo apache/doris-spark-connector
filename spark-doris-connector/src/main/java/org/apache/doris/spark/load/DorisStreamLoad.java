@@ -70,6 +70,7 @@ import java.util.concurrent.TimeUnit;
  * DorisStreamLoad
  **/
 public class DorisStreamLoad implements Serializable {
+    private static final String NULL_VALUE = "\\N";
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
 
@@ -88,6 +89,7 @@ public class DorisStreamLoad implements Serializable {
     private final String columns;
     private final String maxFilterRatio;
     private final Map<String, String> streamLoadProp;
+    private boolean addDoubleQuotes;
     private static final long cacheExpireTimeout = 4 * 60;
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private final String fileType;
@@ -111,6 +113,11 @@ public class DorisStreamLoad implements Serializable {
         fileType = streamLoadProp.getOrDefault("format", "csv");
         if ("csv".equals(fileType)) {
             FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
+            this.addDoubleQuotes = Boolean.parseBoolean(streamLoadProp.getOrDefault("add_double_quotes", "false"));
+            if (addDoubleQuotes) {
+                LOG.info("set add_double_quotes for csv mode, add trim_double_quotes to true for prop.");
+                streamLoadProp.put("trim_double_quotes", "true");
+            }
         } else if ("json".equalsIgnoreCase(fileType)) {
             streamLoadProp.put("read_json_by_line", "true");
         }
@@ -189,7 +196,8 @@ public class DorisStreamLoad implements Serializable {
                     .format(fileType)
                     .sep(FIELD_DELIMITER)
                     .delim(LINE_DELIMITER)
-                    .schema(schema).build(), streamingPassthrough);
+                    .schema(schema)
+                    .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
             httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);

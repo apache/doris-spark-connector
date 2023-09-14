@@ -51,6 +51,22 @@ public class DataUtil {
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
+    public static byte[] rowAddDoubleQuotesToCsvBytes(InternalRow row, StructType schema, String sep) {
+        StringBuilder builder = new StringBuilder();
+        StructField[] fields = schema.fields();
+        int n = row.numFields();
+        if (n > 0) {
+            builder.append("\"").append(SchemaUtils.rowColumnValue(row, 0, fields[0].dataType())).append("\"");
+            int i = 1;
+            while (i < n) {
+                builder.append(sep);
+                builder.append("\"").append(SchemaUtils.rowColumnValue(row, i, fields[i].dataType())).append("\"");
+                i++;
+            }
+        }
+        return builder.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
     public static byte[] rowToJsonBytes(InternalRow row, StructType schema)
             throws JsonProcessingException {
         StructField[] fields = schema.fields();
