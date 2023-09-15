@@ -90,6 +90,10 @@ public interface ConfigurationOptions {
 
     int DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT = 50;
 
+    String DORIS_SINK_RETRY_INTERVAL_MS = "doris.sink.retry.interval.ms";
+
+    int DORIS_SINK_RETRY_INTERVAL_MS_DEFAULT = 50;
+
     /**
      * set types to ignore, split by comma
      * e.g.
