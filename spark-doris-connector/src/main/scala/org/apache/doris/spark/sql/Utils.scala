@@ -176,7 +176,6 @@ private[spark] object Utils {
     val result = Try(f)
     result match {
       case Success(result) =>
-        LockSupport.parkNanos(interval.toNanos)
         Success(result)
       case Failure(exception: T) if retryTimes > 0 =>
         logger.warn(s"Execution failed caused by: ", exception)
