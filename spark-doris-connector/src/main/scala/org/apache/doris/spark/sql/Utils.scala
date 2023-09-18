@@ -171,6 +171,43 @@ private[spark] object Utils {
   }
 
   @tailrec
+  def retry[R, T <: Throwable : ClassTag](retryTimes: Int, maxBlockTimes: Int, batchInterval: Duration, maxBlockInterval: Duration,
+                                          blockTriggerKeysArray: Array[String], logger: Logger)(f: => R): Try[R] = {
+    assert(retryTimes >= 0)
+    assert(maxBlockTimes >= 0)
+    var currentBlockInterval = batchInterval
+
+    def increaseBackoffTime(): Unit = {
+      currentBlockInterval = Duration.ofNanos(Math.min(batchInterval.toNanos * 2, maxBlockInterval.toNanos))
+    }
+
+    def shouldBlock(exception: String): Boolean = {
+      blockTriggerKeysArray.nonEmpty && blockTriggerKeysArray.exists(exception.contains)
+    }
+
+    val result = Try(f)
+    result match {
+      case Success(result) =>
+        LockSupport.parkNanos(currentBlockInterval.toNanos)
+        Success(result)
+      case Failure(exception: T) if retryTimes > 0 && !shouldBlock(exception.getMessage) =>
+        logger.warn(s"Execution failed caused by: ", exception)
+        logger.warn(s"$retryTimes times retry remaining, the next will be in ${batchInterval.toMillis}ms")
+        LockSupport.parkNanos(batchInterval.toNanos)
+        retry(retryTimes - 1, maxBlockTimes, currentBlockInterval, maxBlockInterval, blockTriggerKeysArray, logger)(f)
+      case Failure(exception: T) if maxBlockTimes > 0 && shouldBlock(exception.getMessage) =>
+        logger.warn(s"Execution failed caused by: ", exception)
+        increaseBackoffTime()
+        logger.warn(s"$maxBlockTimes times write blocking retry remaining, the next will be in ${currentBlockInterval.toMillis}ms")
+        LockSupport.parkNanos(currentBlockInterval.toNanos)
+        retry(retryTimes, maxBlockTimes - 1, currentBlockInterval, maxBlockInterval, blockTriggerKeysArray, logger)(f)
+      case Failure(exception) =>
+        logger.warn(s"Execution failed caused by: ", exception)
+        Failure(exception)
+    }
+  }
+
+  @tailrec
   def retry[R, T <: Throwable : ClassTag](retryTimes: Int, interval: Duration, logger: Logger)(f: => R): Try[R] = {
     assert(retryTimes >= 0)
     val result = Try(f)
