@@ -28,7 +28,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
-class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Int], dorisStreamLoad: DorisStreamLoad)
+class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Int], dorisStreamLoad: DorisStreamLoad, sinkTnxIntervalMs: Int, sinkTxnRetries: Int)
   extends SparkListener {
 
   val logger: Logger = LoggerFactory.getLogger(classOf[DorisTransactionListener])
@@ -45,7 +45,7 @@ class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Int], d
         }
         logger.info("job run succeed, start committing transactions")
         txnIds.foreach(txnId =>
-          Utils.retry(3, Duration.ofSeconds(1), logger) {
+          Utils.retry(sinkTxnRetries, Duration.ofMillis(sinkTnxIntervalMs), logger) {
             dorisStreamLoad.commit(txnId)
           } match {
             case Success(_) =>
@@ -66,7 +66,7 @@ class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Int], d
         }
         logger.info("job run failed, start aborting transactions")
         txnIds.foreach(txnId =>
-          Utils.retry(3, Duration.ofSeconds(1), logger) {
+          Utils.retry(sinkTxnRetries, Duration.ofMillis(sinkTnxIntervalMs), logger) {
             dorisStreamLoad.abort(txnId)
           } match {
             case Success(_) =>

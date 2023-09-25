@@ -59,6 +59,12 @@ private[spark] object Utils {
         } else {
           s"${quote(attribute)} in (${compileValue(values)})"
         }
+      case Not(In(attribute, values)) =>
+        if (values.isEmpty || values.length >= inValueLengthLimit) {
+          null
+        } else {
+          s"${quote(attribute)} not in (${compileValue(values)})"
+        }
       case IsNull(attribute) => s"${quote(attribute)} is null"
       case IsNotNull(attribute) => s"${quote(attribute)} is not null"
       case And(left, right) =>

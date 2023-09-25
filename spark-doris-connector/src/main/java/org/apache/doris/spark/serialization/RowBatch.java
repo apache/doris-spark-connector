@@ -17,19 +17,17 @@
 
 package org.apache.doris.spark.serialization;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
+import org.apache.doris.sdk.thrift.TScanBatchResult;
+import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.rest.models.Schema;
 
+import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -41,14 +39,21 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
-import org.apache.doris.sdk.thrift.TScanBatchResult;
-import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.rest.models.Schema;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * row batch data container.
@@ -98,7 +103,7 @@ public class RowBatch {
                             fieldVectors.size(), schema.size());
                     throw new DorisException("Load Doris data failed, schema size of fetch data is wrong.");
                 }
-                if (fieldVectors.size() == 0 || root.getRowCount() == 0) {
+                if (fieldVectors.isEmpty() || root.getRowCount() == 0) {
                     logger.debug("One batch in arrow has no data.");
                     continue;
                 }
@@ -119,7 +124,11 @@ public class RowBatch {
     }
 
     public boolean hasNext() {
-        return offsetInRowBatch < readRowCount;
+        if (offsetInRowBatch >= readRowCount) {
+            rowBatch.clear();
+            return false;
+        }
+        return true;
     }
 
     private void addValueToRow(int rowIndex, Object obj) {
@@ -190,6 +199,34 @@ public class RowBatch {
                             addValueToRow(rowIndex, fieldValue);
                         }
                         break;
+                    case "LARGEINT":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.FIXEDSIZEBINARY) ||
+                                mt.equals(Types.MinorType.VARCHAR), typeMismatchMessage(currentType, mt));
+                        if (mt.equals(Types.MinorType.FIXEDSIZEBINARY)) {
+                            FixedSizeBinaryVector largeIntVector = (FixedSizeBinaryVector) curFieldVector;
+                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                                if (largeIntVector.isNull(rowIndex)) {
+                                    addValueToRow(rowIndex, null);
+                                    continue;
+                                }
+                                byte[] bytes = largeIntVector.get(rowIndex);
+                                ArrayUtils.reverse(bytes);
+                                BigInteger largeInt = new BigInteger(bytes);
+                                addValueToRow(rowIndex, Decimal.apply(largeInt));
+                            }
+                        } else {
+                            VarCharVector largeIntVector = (VarCharVector) curFieldVector;
+                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                                if (largeIntVector.isNull(rowIndex)) {
+                                    addValueToRow(rowIndex, null);
+                                    continue;
+                                }
+                                String stringValue = new String(largeIntVector.get(rowIndex));
+                                BigInteger largeInt = new BigInteger(stringValue);
+                                addValueToRow(rowIndex, Decimal.apply(largeInt));
+                            }
+                        }
+                        break;
                     case "FLOAT":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.FLOAT4),
                                 typeMismatchMessage(currentType, mt));
@@ -257,9 +294,21 @@ public class RowBatch {
                         break;
                     case "DATE":
                     case "DATEV2":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR),
+                                typeMismatchMessage(currentType, mt));
+                        VarCharVector date = (VarCharVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (date.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                continue;
+                            }
+                            String stringValue = new String(date.get(rowIndex));
+                            LocalDate localDate = LocalDate.parse(stringValue);
+                            addValueToRow(rowIndex, Date.valueOf(localDate));
+                        }
+                        break;
                     case "DATETIME":
                     case "DATETIMEV2":
-                    case "LARGEINT":
                     case "CHAR":
                     case "VARCHAR":
                     case "STRING":

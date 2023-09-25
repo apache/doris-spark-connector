@@ -17,18 +17,17 @@
 
 package org.apache.doris.spark.sql
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable
-import scala.math.min
-
 import org.apache.doris.spark.cfg.ConfigurationOptions._
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+
+import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.math.min
 
 
 private[sql] class DorisRelation(
@@ -81,8 +80,7 @@ private[sql] class DorisRelation(
     }
 
     if (filters != null && filters.length > 0) {
-      val dorisFilterQuery = cfg.getProperty(ConfigurationOptions.DORIS_FILTER_QUERY, "1=1")
-      paramWithScan += (ConfigurationOptions.DORIS_FILTER_QUERY -> (dorisFilterQuery + " and " + filterWhereClause))
+      paramWithScan += (ConfigurationOptions.DORIS_FILTER_QUERY -> filterWhereClause)
     }
 
     new ScalaDorisRowRDD(sqlContext.sparkContext, paramWithScan.toMap, lazySchema)
