@@ -17,11 +17,11 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Row, SparkSession}
 import org.junit.{Assert, Ignore, Test}
 
 import java.sql.{Date, Timestamp}
-import scala.collection.JavaConverters._
 
 @Ignore
 class SchemaUtilsTest {
@@ -31,9 +31,16 @@ class SchemaUtilsTest {
 
     val spark = SparkSession.builder().master("local").getOrCreate()
 
-    val df = spark.createDataFrame(Seq(
-      (1, Date.valueOf("2023-09-08"), Timestamp.valueOf("2023-09-08 17:00:00"), Array(1, 2, 3), Map[String, String]("a" -> "1"))
-    )).toDF("c1", "c2", "c3", "c4", "c5")
+    val rdd = spark.sparkContext.parallelize(Seq(
+      Row(1, Date.valueOf("2023-09-08"), Timestamp.valueOf("2023-09-08 17:00:00"), Array(1, 2, 3),
+        Map[String, String]("a" -> "1"), Row("a", 1))
+    ))
+    val df = spark.createDataFrame(rdd, new StructType().add("c1", IntegerType)
+      .add("c2", DateType)
+      .add("c3", TimestampType)
+      .add("c4", ArrayType.apply(IntegerType))
+      .add("c5", MapType.apply(StringType, StringType))
+      .add("c6", StructType.apply(Seq(StructField("a", StringType), StructField("b", IntegerType)))))
 
     val schema = df.schema
 
@@ -44,8 +51,8 @@ class SchemaUtilsTest {
       Assert.assertEquals("2023-09-08", SchemaUtils.rowColumnValue(row, 1, fields(1).dataType))
       Assert.assertEquals("2023-09-08 17:00:00.0", SchemaUtils.rowColumnValue(row, 2, fields(2).dataType))
       Assert.assertEquals("[1,2,3]", SchemaUtils.rowColumnValue(row, 3, fields(3).dataType))
-      println(SchemaUtils.rowColumnValue(row, 4, fields(4).dataType))
-      Assert.assertEquals(Map("a" -> "1").asJava, SchemaUtils.rowColumnValue(row, 4, fields(4).dataType))
+      Assert.assertEquals("{\"a\":\"1\"}", SchemaUtils.rowColumnValue(row, 4, fields(4).dataType))
+      Assert.assertEquals("{\"a\":\"a\",\"b\":1}", SchemaUtils.rowColumnValue(row, 5, fields(5).dataType))
 
     })
 
