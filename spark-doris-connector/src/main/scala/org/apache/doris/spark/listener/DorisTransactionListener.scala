@@ -67,7 +67,7 @@ class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Int], d
         logger.info("job run failed, start aborting transactions")
         txnIds.foreach(txnId =>
           Utils.retry(sinkTxnRetries, Duration.ofMillis(sinkTnxIntervalMs), logger) {
-            dorisStreamLoad.abort(txnId)
+            dorisStreamLoad.abortById(txnId)
           } match {
             case Success(_) =>
             case Failure(_) => failedTxnIds += txnId
