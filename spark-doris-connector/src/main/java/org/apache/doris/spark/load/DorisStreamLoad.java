@@ -51,6 +51,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -64,13 +65,14 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.Consumer;
 
 
 /**
  * DorisStreamLoad
  **/
 public class DorisStreamLoad implements Serializable {
-    private static final String NULL_VALUE = "\\N";
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
 
@@ -97,7 +99,9 @@ public class DorisStreamLoad implements Serializable {
     private final String LINE_DELIMITER;
     private boolean streamingPassthrough = false;
     private final Integer batchSize;
-    private boolean enable2PC;
+    private final boolean enable2PC;
+    private final Integer txnRetries;
+    private final Integer txnIntervalMs;
 
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
@@ -128,6 +132,10 @@ public class DorisStreamLoad implements Serializable {
                 ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT);
         this.enable2PC = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
                 ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT);
+        this.txnRetries = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_RETRIES,
+                ConfigurationOptions.DORIS_SINK_TXN_RETRIES_DEFAULT);
+        this.txnIntervalMs = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS,
+                ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS_DEFAULT);
     }
 
     public String getLoadUrlStr() {
@@ -202,7 +210,19 @@ public class DorisStreamLoad implements Serializable {
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            if (enable2PC) {
+                int retries = txnRetries;
+                while (retries > 0) {
+                    try {
+                        abortByLabel(label);
+                        retries = 0;
+                    } catch (StreamLoadException ex) {
+                        LockSupport.parkNanos(Duration.ofMillis(txnIntervalMs).toNanos());
+                        retries--;
+                    }
+                }
+            }
+            throw new StreamLoadException("load execute failed", e);
         }
 
         if (loadResponse.status != HttpStatus.SC_OK) {
@@ -274,22 +294,68 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
-    public void abort(int txnId) throws StreamLoadException {
+    /**
+     * abort transaction by id
+     *
+     * @param txnId transaction id
+     * @throws StreamLoadException
+     */
+    public void abortById(int txnId) throws StreamLoadException {
 
         LOG.info("start abort transaction {}.", txnId);
+
+        try {
+            doAbort(httpPut -> httpPut.setHeader("txn_id", String.valueOf(txnId)));
+        } catch (StreamLoadException e) {
+            LOG.error("abort transaction by id: {} failed.", txnId);
+            throw e;
+        }
+
+        LOG.info("abort transaction {} succeed.", txnId);
+
+    }
+
+    /**
+     * abort transaction by label
+     *
+     * @param label label
+     * @throws StreamLoadException
+     */
+    public void abortByLabel(String label) throws StreamLoadException {
+
+        LOG.info("start abort transaction by label: {}.", label);
+
+        try {
+            doAbort(httpPut -> httpPut.setHeader("label", label));
+        } catch (StreamLoadException e) {
+            LOG.error("abort transaction by label: {} failed.", label);
+            throw e;
+        }
+
+        LOG.info("abort transaction by label {} succeed.", label);
+
+    }
+
+    /**
+     * execute abort
+     *
+     * @param putConsumer http put process function
+     * @throws StreamLoadException
+     */
+    private void doAbort(Consumer<HttpPut> putConsumer) throws StreamLoadException {
 
         try (CloseableHttpClient client = getHttpClient()) {
             String abortUrl = String.format(abortUrlPattern, getBackend(), db, tbl);
             HttpPut httpPut = new HttpPut(abortUrl);
             addCommonHeader(httpPut);
             httpPut.setHeader("txn_operation", "abort");
-            httpPut.setHeader("txn_id", String.valueOf(txnId));
+            putConsumer.accept(httpPut);
 
             CloseableHttpResponse response = client.execute(httpPut);
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode != 200 || response.getEntity() == null) {
-                LOG.warn("abort transaction response: " + response.getStatusLine().toString());
-                throw new StreamLoadException("Fail to abort transaction " + txnId + " with url " + abortUrl);
+                LOG.error("abort transaction response: " + response.getStatusLine().toString());
+                throw new IOException("Fail to abort transaction with url " + abortUrl);
             }
 
             String loadResult = EntityUtils.toString(response.getEntity());
@@ -297,16 +363,15 @@ public class DorisStreamLoad implements Serializable {
             });
             if (!"Success".equals(res.get("status"))) {
                 if (ResponseUtil.isCommitted(res.get("msg"))) {
-                    throw new StreamLoadException("try abort committed transaction, " + "do you recover from old savepoint?");
+                    throw new IOException("try abort committed transaction");
                 }
-                LOG.warn("Fail to abort transaction. txnId: {}, error: {}", txnId, res.get("msg"));
+                LOG.error("Fail to abort transaction. error: {}", res.get("msg"));
+                throw new IOException(String.format("Fail to abort transaction. error: %s", res.get("msg")));
             }
 
         } catch (IOException e) {
             throw new StreamLoadException(e);
         }
-
-        LOG.info("abort transaction {} succeed.", txnId);
 
     }
 
@@ -386,12 +451,21 @@ public class DorisStreamLoad implements Serializable {
         return hexData;
     }
 
+    /**
+     * add common header to http request
+     *
+     * @param httpReq http request
+     */
     private void addCommonHeader(HttpRequestBase httpReq) {
         httpReq.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + authEncoded);
         httpReq.setHeader(HttpHeaders.EXPECT, "100-continue");
         httpReq.setHeader(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8");
     }
 
+    /**
+     * handle stream sink data pass through
+     * if load format is json, set read_json_by_line to true and remove strip_outer_array parameter
+     */
     private void handleStreamPassThrough() {
 
         if ("json".equalsIgnoreCase(fileType)) {
