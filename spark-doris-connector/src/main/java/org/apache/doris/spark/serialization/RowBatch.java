@@ -377,6 +377,16 @@ public class RowBatch {
                             addValueToRow(rowIndex, value);
                         }
                         break;
+                    case "HLL":
+                    case "BITMAP":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR),
+                                typeMismatchMessage(currentType, mt));
+                        VarCharVector varcharVector = (VarCharVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            Object fieldValue = varcharVector.isNull(rowIndex) ? null : varcharVector.get(rowIndex);
+                            addValueToRow(rowIndex, fieldValue);
+                        }
+                        break;
                     default:
                         String errMsg = "Unsupported type " + schema.get(col).getType();
                         logger.error(errMsg);
