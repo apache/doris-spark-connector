@@ -21,6 +21,7 @@ import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.listener.DorisTransactionListener
 import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.doris.spark.sql.Utils
+import org.apache.spark.TaskContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.StructType
@@ -31,18 +32,15 @@ import java.io.IOException
 import java.time.Duration
 import java.util
 import java.util.Objects
+import java.util.concurrent.locks.LockSupport
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class DorisWriter(settings: SparkSettings) extends Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
-  val batchSize: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE,
-    ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
-  private val maxRetryTimes: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES,
-    ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
   private val sinkTaskPartitionSize: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
   private val sinkTaskUseRepartition: Boolean = settings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION,
     ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
@@ -50,7 +48,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
 
   private val enable2PC: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
-    ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT);
+    ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT)
   private val sinkTxnIntervalMs: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS,
     ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS_DEFAULT)
   private val sinkTxnRetries: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_RETRIES,
@@ -58,19 +56,28 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
   private val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
 
+  /**
+   * write data in batch mode
+   *
+   * @param dataFrame source dataframe
+   */
   def write(dataFrame: DataFrame): Unit = {
     doWrite(dataFrame, dorisStreamLoader.load)
   }
 
+  /**
+   * write data in stream mode
+   *
+   * @param dataFrame source dataframe
+   */
   def writeStream(dataFrame: DataFrame): Unit = {
     doWrite(dataFrame, dorisStreamLoader.loadStream)
   }
 
   private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Int): Unit = {
 
-
-
     val sc = dataFrame.sqlContext.sparkContext
+    logger.info(s"applicationAttemptId: ${sc.applicationAttemptId.getOrElse(-1)}")
     val preCommittedTxnAcc = sc.collectionAccumulator[Int]("preCommittedTxnAcc")
     if (enable2PC) {
       sc.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, dorisStreamLoader, sinkTxnIntervalMs, sinkTxnRetries))
@@ -82,17 +89,18 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
     resultRdd.foreachPartition(iterator => {
+      val intervalNanos = Duration.ofMillis(batchInterValMs.toLong).toNanos
       while (iterator.hasNext) {
-        // do load batch with retries
-        Utils.retry[Int, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) {
+        Try {
           loadFunc(iterator.asJava, schema)
         } match {
           case Success(txnId) => if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
           case Failure(e) =>
             if (enable2PC) handleLoadFailure(preCommittedTxnAcc)
             throw new IOException(
-              s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node and exceeded the max ${maxRetryTimes} retry times.", e)
+              s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node.", e)
         }
+        LockSupport.parkNanos(intervalNanos)
       }
     })
 
@@ -113,7 +121,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     val abortFailedTxnIds = mutable.Buffer[Int]()
     acc.value.asScala.foreach(txnId => {
       Utils.retry[Unit, Exception](sinkTxnRetries, Duration.ofMillis(sinkTxnIntervalMs), logger) {
-        dorisStreamLoader.abort(txnId)
+        dorisStreamLoader.abortById(txnId)
       } match {
         case Success(_) =>
         case Failure(_) => abortFailedTxnIds += txnId

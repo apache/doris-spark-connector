@@ -176,17 +176,42 @@ private[spark] object SchemaUtils {
         val mapData = row.getMap(ordinal)
         val keys = mapData.keyArray()
         val values = mapData.valueArray()
+        val sb = StringBuilder.newBuilder
+        sb.append("{")
         var i = 0
-        val map = mutable.Map[Any, Any]()
         while (i < keys.numElements()) {
-          map += rowColumnValue(keys, i, mt.keyType) -> rowColumnValue(values, i, mt.valueType)
+          rowColumnValue(keys, i, mt.keyType) -> rowColumnValue(values, i, mt.valueType)
+          sb.append(quoteData(rowColumnValue(keys, i, mt.keyType), mt.keyType))
+            .append(":").append(quoteData(rowColumnValue(values, i, mt.valueType), mt.valueType))
+            .append(",")
           i += 1
         }
-        map.toMap.asJava
-      case st: StructType => row.getStruct(ordinal, st.length)
+        if (i > 0) sb.dropRight(1)
+        sb.append("}").toString
+      case st: StructType =>
+        val structData = row.getStruct(ordinal, st.length)
+        val sb = StringBuilder.newBuilder
+        sb.append("{")
+        var i = 0
+        while (i < structData.numFields) {
+          val field = st.get(i)
+          sb.append(s""""${field.name}":""")
+            .append(quoteData(rowColumnValue(structData, i, field.dataType), field.dataType))
+            .append(",")
+          i += 1
+        }
+        if (i > 0) sb.dropRight(1)
+        sb.append("}").toString
       case _ => throw new DorisException(s"Unsupported spark type: ${dataType.typeName}")
     }
 
+  }
+
+  private def quoteData(value: Any, dataType: DataType): Any = {
+    dataType match {
+      case StringType | TimestampType | DateType => s""""$value""""
+      case _ => value
+    }
   }
 
 }
