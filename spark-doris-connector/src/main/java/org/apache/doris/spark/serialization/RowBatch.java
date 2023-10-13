@@ -39,12 +39,14 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.collection.JavaConverters;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -54,7 +56,9 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
@@ -344,13 +348,18 @@ public class RowBatch {
                         Preconditions.checkArgument(mt.equals(Types.MinorType.MAP),
                                 typeMismatchMessage(currentType, mt));
                         MapVector mapVector = (MapVector) curFieldVector;
+                        UnionMapReader reader = mapVector.getReader();
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (mapVector.isNull(rowIndex)) {
                                 addValueToRow(rowIndex, null);
                                 continue;
                             }
-                            String value = mapVector.getObject(rowIndex).toString();
-                            addValueToRow(rowIndex, value);
+                            reader.setPosition(rowIndex);
+                            Map<String, String> value = new HashMap<>();
+                            while (reader.next()) {
+                                value.put(reader.key().readObject().toString(), reader.value().readObject().toString());
+                            }
+                            addValueToRow(rowIndex, JavaConverters.mapAsScalaMap(value));
                         }
                         break;
                     case "STRUCT":
