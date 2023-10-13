@@ -453,6 +453,78 @@ public class TestRowBatch {
     }
 
     @Test
+    public void testDate() throws DorisException, IOException {
+
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        childrenBuilder.add(new Field("k1", FieldType.nullable(new ArrowType.Utf8()), null));
+        childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Utf8()), null));
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        FieldVector vector = root.getVector("k1");
+        VarCharVector dateVector = (VarCharVector)vector;
+        dateVector.setInitialCapacity(1);
+        dateVector.allocateNew();
+        dateVector.setIndexDefined(0);
+        dateVector.setValueLengthSafe(0, 10);
+        dateVector.setSafe(0, "2023-08-09".getBytes());
+        vector.setValueCount(1);
+
+
+        vector = root.getVector("k2");
+        VarCharVector dateV2Vector = (VarCharVector)vector;
+        dateV2Vector.setInitialCapacity(1);
+        dateV2Vector.allocateNew();
+        dateV2Vector.setIndexDefined(0);
+        dateV2Vector.setValueLengthSafe(0, 10);
+        dateV2Vector.setSafe(0, "2023-08-10".getBytes());
+        vector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"DATE\",\"name\":\"k1\",\"comment\":\"\"}, " +
+                "{\"type\":\"DATEV2\",\"name\":\"k2\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = RestService.parseSchema(schemaStr, logger);
+
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> actualRow0 = rowBatch.next();
+        Assert.assertEquals(Date.valueOf("2023-08-09"), actualRow0.get(0));
+        Assert.assertEquals(Date.valueOf("2023-08-10"), actualRow0.get(1));
+
+        Assert.assertFalse(rowBatch.hasNext());
+        thrown.expect(NoSuchElementException.class);
+        thrown.expectMessage(startsWith("Get row offset:"));
+        rowBatch.next();
+
+    }
+
+    @Test
     public void testLargeInt() throws DorisException, IOException {
 
         ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
