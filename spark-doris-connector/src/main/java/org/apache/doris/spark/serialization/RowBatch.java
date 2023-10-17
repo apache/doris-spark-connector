@@ -359,7 +359,7 @@ public class RowBatch {
                             while (reader.next()) {
                                 value.put(reader.key().readObject().toString(), reader.value().readObject().toString());
                             }
-                            addValueToRow(rowIndex, JavaConverters.mapAsScalaMap(value));
+                            addValueToRow(rowIndex, JavaConverters.mapAsScalaMapConverter(value).asScala());
                         }
                         break;
                     case "STRUCT":

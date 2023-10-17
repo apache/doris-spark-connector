@@ -667,11 +667,14 @@ public class TestRowBatch {
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema);
         Assert.assertTrue(rowBatch.hasNext());
-        Assert.assertEquals(JavaConverters.mapAsScalaMap(ImmutableMap.of("k1", "0")), rowBatch.next().get(0));
+        Assert.assertEquals(JavaConverters.mapAsScalaMapConverter(ImmutableMap.of("k1", "0")).asScala(),
+                rowBatch.next().get(0));
         Assert.assertTrue(rowBatch.hasNext());
-        Assert.assertEquals(JavaConverters.mapAsScalaMap(ImmutableMap.of("k2", "1")), rowBatch.next().get(0));
+        Assert.assertEquals(JavaConverters.mapAsScalaMapConverter(ImmutableMap.of("k2", "1")).asScala(),
+                rowBatch.next().get(0));
         Assert.assertTrue(rowBatch.hasNext());
-        Assert.assertEquals(JavaConverters.mapAsScalaMap(ImmutableMap.of("k3", "2")), rowBatch.next().get(0));
+        Assert.assertEquals(JavaConverters.mapAsScalaMapConverter(ImmutableMap.of("k3", "2")).asScala(),
+                rowBatch.next().get(0));
         Assert.assertFalse(rowBatch.hasNext());
 
     }
