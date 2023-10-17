@@ -37,12 +37,16 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.collection.JavaConverters;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -52,7 +56,9 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
@@ -335,6 +341,37 @@ public class RowBatch {
                                 continue;
                             }
                             String value = listVector.getObject(rowIndex).toString();
+                            addValueToRow(rowIndex, value);
+                        }
+                        break;
+                    case "MAP":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.MAP),
+                                typeMismatchMessage(currentType, mt));
+                        MapVector mapVector = (MapVector) curFieldVector;
+                        UnionMapReader reader = mapVector.getReader();
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (mapVector.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                continue;
+                            }
+                            reader.setPosition(rowIndex);
+                            Map<String, String> value = new HashMap<>();
+                            while (reader.next()) {
+                                value.put(reader.key().readObject().toString(), reader.value().readObject().toString());
+                            }
+                            addValueToRow(rowIndex, JavaConverters.mapAsScalaMapConverter(value).asScala());
+                        }
+                        break;
+                    case "STRUCT":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.STRUCT),
+                                typeMismatchMessage(currentType, mt));
+                        StructVector structVector = (StructVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (structVector.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                continue;
+                            }
+                            String value = structVector.getObject(rowIndex).toString();
                             addValueToRow(rowIndex, value);
                         }
                         break;

@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory
 import java.sql.Timestamp
 import java.time.{LocalDateTime, ZoneOffset}
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 private[spark] object SchemaUtils {
@@ -126,6 +125,8 @@ private[spark] object SchemaUtils {
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
       case "ARRAY"           => DataTypes.StringType
+      case "MAP"             => MapType(DataTypes.StringType, DataTypes.StringType)
+      case "STRUCT"          => DataTypes.StringType
       case "HLL"             =>
         throw new DorisException("Unsupported type " + dorisType)
       case _                 =>
