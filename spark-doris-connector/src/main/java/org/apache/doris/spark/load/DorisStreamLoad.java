@@ -16,14 +16,6 @@
 // under the License.
 package org.apache.doris.spark.load;
 
-import org.apache.doris.spark.cfg.ConfigurationOptions;
-import org.apache.doris.spark.cfg.SparkSettings;
-import org.apache.doris.spark.exception.StreamLoadException;
-import org.apache.doris.spark.rest.RestService;
-import org.apache.doris.spark.rest.models.BackendV2;
-import org.apache.doris.spark.rest.models.RespContent;
-import org.apache.doris.spark.util.ResponseUtil;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +23,15 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.doris.spark.cfg.ConfigurationOptions;
+import org.apache.doris.spark.cfg.SparkSettings;
+import org.apache.doris.spark.exception.StreamLoadException;
+import org.apache.doris.spark.rest.RestService;
+import org.apache.doris.spark.rest.models.BackendV2;
+import org.apache.doris.spark.rest.models.RespContent;
+import org.apache.doris.spark.util.ResponseUtil;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -67,6 +67,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 
 /**
@@ -150,12 +151,17 @@ public class DorisStreamLoad implements Serializable {
         return httpClientBuilder.build();
     }
 
-    private HttpPut getHttpPut(String label, String loadUrlStr, Boolean enable2PC) {
+    private HttpPut getHttpPut(String label, String loadUrlStr, Boolean enable2PC, StructType schema) {
         HttpPut httpPut = new HttpPut(loadUrlStr);
         addCommonHeader(httpPut);
         httpPut.setHeader("label", label);
         if (StringUtils.isNotBlank(columns)) {
             httpPut.setHeader("columns", columns);
+        } else {
+            if (ObjectUtils.isNotEmpty(schema)) {
+                String dfColumns = Arrays.stream(schema.fieldNames()).collect(Collectors.joining(","));
+                httpPut.setHeader("columns", dfColumns);
+            }
         }
         if (StringUtils.isNotBlank(maxFilterRatio)) {
             httpPut.setHeader("max_filter_ratio", maxFilterRatio);
@@ -198,7 +204,7 @@ public class DorisStreamLoad implements Serializable {
         try (CloseableHttpClient httpClient = getHttpClient()) {
             String loadUrlStr = String.format(loadUrlPattern, getBackend(), db, tbl);
             this.loadUrlStr = loadUrlStr;
-            HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
+            HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC, schema);
             RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
                     .batchSize(batchSize)
                     .format(fileType)
@@ -206,6 +212,7 @@ public class DorisStreamLoad implements Serializable {
                     .delim(LINE_DELIMITER)
                     .schema(schema)
                     .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
+            Arrays.stream(schema.fieldNames()).collect(Collectors.joining(","));
             httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
