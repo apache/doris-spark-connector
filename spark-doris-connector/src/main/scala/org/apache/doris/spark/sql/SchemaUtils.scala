@@ -166,13 +166,16 @@ private[spark] object SchemaUtils {
       case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale)
       case at: ArrayType =>
         val arrayData = row.getArray(ordinal)
-        var i = 0
-        val buffer = mutable.Buffer[Any]()
-        while (i < arrayData.numElements()) {
-          if (arrayData.isNullAt(i)) buffer += null else buffer += rowColumnValue(arrayData, i, at.elementType)
-          i += 1
-        }
-        s"[${buffer.mkString(",")}]"
+        val result: String = Option(arrayData)
+          .filter(_.numElements() > 0)
+          .map { data =>
+            (0 until data.numElements()).map { i =>
+              if (data.isNullAt(i)) null else rowColumnValue(data, i, at.elementType)
+            }.mkString(",")
+          }
+          .map(str => s"[$str]")
+          .getOrElse(DataUtil.NULL_VALUE)
+        result
       case mt: MapType =>
         val mapData = row.getMap(ordinal)
         val keys = mapData.keyArray()
