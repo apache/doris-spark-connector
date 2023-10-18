@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory
 import java.sql.Timestamp
 import java.time.{LocalDateTime, ZoneOffset}
 import scala.collection.JavaConversions._
-import scala.collection.mutable
 
 private[spark] object SchemaUtils {
   private val logger = LoggerFactory.getLogger(SchemaUtils.getClass.getSimpleName.stripSuffix("$"))
@@ -166,16 +165,14 @@ private[spark] object SchemaUtils {
       case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale)
       case at: ArrayType =>
         val arrayData = row.getArray(ordinal)
-        val result: String = Option(arrayData)
-          .filter(_.numElements() > 0)
-          .map { data =>
-            (0 until data.numElements()).map { i =>
-              if (data.isNullAt(i)) null else rowColumnValue(data, i, at.elementType)
-            }.mkString(",")
-          }
-          .map(str => s"[$str]")
-          .getOrElse(DataUtil.NULL_VALUE)
-        result
+        if (arrayData == null) DataUtil.NULL_VALUE
+        else if(arrayData.numElements() == 0) "[]"
+        else {
+          (0 until arrayData.numElements()).map(i => {
+            if (arrayData.isNullAt(i)) null else rowColumnValue(arrayData, i, at.elementType)
+          }).mkString("[", ",", "]")
+        }
+
       case mt: MapType =>
         val mapData = row.getMap(ordinal)
         val keys = mapData.keyArray()
