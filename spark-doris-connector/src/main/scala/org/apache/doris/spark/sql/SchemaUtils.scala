@@ -18,15 +18,21 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.sdk.thrift.TScanColumnDesc
-
-import scala.collection.JavaConversions._
+import org.apache.doris.spark.cfg.ConfigurationOptions.{DORIS_IGNORE_TYPE, DORIS_READ_FIELD}
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.{Field, Schema}
-import org.apache.doris.spark.cfg.ConfigurationOptions.{DORIS_IGNORE_TYPE, DORIS_READ_FIELD}
+import org.apache.doris.spark.util.DataUtil
+import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
+
+import java.sql.Timestamp
+import java.time.{LocalDateTime, ZoneOffset}
+import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 private[spark] object SchemaUtils {
   private val logger = LoggerFactory.getLogger(SchemaUtils.getClass.getSimpleName.stripSuffix("$"))
@@ -119,6 +125,8 @@ private[spark] object SchemaUtils {
       case "TIME"            => DataTypes.DoubleType
       case "STRING"          => DataTypes.StringType
       case "ARRAY"           => DataTypes.StringType
+      case "MAP"             => MapType(DataTypes.StringType, DataTypes.StringType)
+      case "STRUCT"          => DataTypes.StringType
       case "HLL"             =>
         throw new DorisException("Unsupported type " + dorisType)
       case _                 =>
@@ -137,4 +145,74 @@ private[spark] object SchemaUtils {
     tscanColumnDescs.foreach(desc => schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, "")))
     schema
   }
+
+  def rowColumnValue(row: SpecializedGetters, ordinal: Int, dataType: DataType): Any = {
+
+    dataType match {
+      case NullType => DataUtil.NULL_VALUE
+      case BooleanType => row.getBoolean(ordinal)
+      case ByteType => row.getByte(ordinal)
+      case ShortType => row.getShort(ordinal)
+      case IntegerType => row.getInt(ordinal)
+      case LongType => row.getLong(ordinal)
+      case FloatType => row.getFloat(ordinal)
+      case DoubleType => row.getDouble(ordinal)
+      case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(DataUtil.NULL_VALUE)
+      case TimestampType =>
+        LocalDateTime.ofEpochSecond(row.getLong(ordinal) / 100000, (row.getLong(ordinal) % 1000).toInt, ZoneOffset.UTC)
+        new Timestamp(row.getLong(ordinal) / 1000).toString
+      case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
+      case BinaryType => row.getBinary(ordinal)
+      case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale)
+      case at: ArrayType =>
+        val arrayData = row.getArray(ordinal)
+        var i = 0
+        val buffer = mutable.Buffer[Any]()
+        while (i < arrayData.numElements()) {
+          if (arrayData.isNullAt(i)) buffer += null else buffer += rowColumnValue(arrayData, i, at.elementType)
+          i += 1
+        }
+        s"[${buffer.mkString(",")}]"
+      case mt: MapType =>
+        val mapData = row.getMap(ordinal)
+        val keys = mapData.keyArray()
+        val values = mapData.valueArray()
+        val sb = StringBuilder.newBuilder
+        sb.append("{")
+        var i = 0
+        while (i < keys.numElements()) {
+          rowColumnValue(keys, i, mt.keyType) -> rowColumnValue(values, i, mt.valueType)
+          sb.append(quoteData(rowColumnValue(keys, i, mt.keyType), mt.keyType))
+            .append(":").append(quoteData(rowColumnValue(values, i, mt.valueType), mt.valueType))
+            .append(",")
+          i += 1
+        }
+        if (i > 0) sb.dropRight(1)
+        sb.append("}").toString
+      case st: StructType =>
+        val structData = row.getStruct(ordinal, st.length)
+        val sb = StringBuilder.newBuilder
+        sb.append("{")
+        var i = 0
+        while (i < structData.numFields) {
+          val field = st.get(i)
+          sb.append(s""""${field.name}":""")
+            .append(quoteData(rowColumnValue(structData, i, field.dataType), field.dataType))
+            .append(",")
+          i += 1
+        }
+        if (i > 0) sb.dropRight(1)
+        sb.append("}").toString
+      case _ => throw new DorisException(s"Unsupported spark type: ${dataType.typeName}")
+    }
+
+  }
+
+  private def quoteData(value: Any, dataType: DataType): Any = {
+    dataType match {
+      case StringType | TimestampType | DateType => s""""$value""""
+      case _ => value
+    }
+  }
+
 }

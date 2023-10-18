@@ -115,5 +115,6 @@ class TestSparkConnector {
       .start().awaitTermination()
     spark.stop()
   }
+
 }
 

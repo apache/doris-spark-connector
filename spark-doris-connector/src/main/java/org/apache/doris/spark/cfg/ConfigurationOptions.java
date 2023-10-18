@@ -106,4 +106,16 @@ public interface ConfigurationOptions {
     String DORIS_SINK_STREAMING_PASSTHROUGH = "doris.sink.streaming.passthrough";
     boolean DORIS_SINK_STREAMING_PASSTHROUGH_DEFAULT = false;
 
+    /**
+     * txnId commit or abort interval
+     */
+    String DORIS_SINK_TXN_INTERVAL_MS = "doris.sink.txn.interval.ms";
+    int DORIS_SINK_TXN_INTERVAL_MS_DEFAULT = 50;
+
+    /**
+     * txnId commit or abort retry times
+     */
+    String DORIS_SINK_TXN_RETRIES = "doris.sink.txn.retries";
+    int DORIS_SINK_TXN_RETRIES_DEFAULT = 3;
+
 }

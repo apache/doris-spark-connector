@@ -18,18 +18,18 @@
 package org.apache.doris
 
 import scala.language.implicitConversions
-
 import org.apache.doris.spark.rdd.DorisSpark
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 package object spark {
-  implicit def sparkContextFunctions(sc: SparkContext) = new SparkContextFunctions(sc)
+  implicit def sparkContextFunctions(sc: SparkContext): SparkContextFunctions = new SparkContextFunctions(sc)
 
   class SparkContextFunctions(sc: SparkContext) extends Serializable {
     def dorisRDD(
         tableIdentifier: Option[String] = None,
         query: Option[String] = None,
-        cfg: Option[Map[String, String]] = None) =
+        cfg: Option[Map[String, String]] = None): RDD[AnyRef] =
       DorisSpark.dorisRDD(sc, tableIdentifier, query, cfg)
   }
 }
