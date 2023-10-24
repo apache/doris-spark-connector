@@ -61,11 +61,6 @@ public class RecordBatchInputStream extends InputStream {
     private final byte[] delim;
 
     /**
-     * record count has been read
-     */
-    private int readCount = 0;
-
-    /**
      * streaming mode pass through data without process
      */
     private final boolean passThrough;
@@ -122,12 +117,12 @@ public class RecordBatchInputStream extends InputStream {
      */
     public boolean endOfBatch() throws DorisException {
         Iterator<InternalRow> iterator = recordBatch.getIterator();
-        if (readCount >= recordBatch.getBatchSize() || !iterator.hasNext()) {
-            delimBuf = null;
-            return true;
+        if (iterator.hasNext()) {
+            readNext(iterator);
+            return false;
         }
-        readNext(iterator);
-        return false;
+        delimBuf = null;
+        return true;
     }
 
     /**
@@ -149,7 +144,6 @@ public class RecordBatchInputStream extends InputStream {
             delimBuf =  ByteBuffer.wrap(delim);
             lineBuf = ByteBuffer.wrap(rowBytes);
         }
-        readCount++;
     }
 
     /**
