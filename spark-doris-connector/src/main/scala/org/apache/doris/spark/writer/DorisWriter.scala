@@ -99,7 +99,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
       while (iterator.hasNext) {
         val batchIterator = new BatchIterator[InternalRow](iterator, batchSize, maxRetryTimes > 0)
-        val retry = Utils.retry[Int, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
+        val retry = Utils.retry[Long, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
         retry(loadFunc(batchIterator.asJava, schema))(batchIterator.reset()) match {
           case Success(txnId) =>
             if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
