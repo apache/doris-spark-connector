@@ -20,6 +20,7 @@ package org.apache.doris.spark.cfg;
 public interface ConfigurationOptions {
     // doris fe node address
     String DORIS_FENODES = "doris.fenodes";
+    String DORIS_QUERY_PORT = "doris.query.port";
 
     String DORIS_DEFAULT_CLUSTER = "default_cluster";
 
