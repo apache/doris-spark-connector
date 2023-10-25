@@ -20,6 +20,7 @@ package org.apache.doris.spark.cfg;
 public interface ConfigurationOptions {
     // doris fe node address
     String DORIS_FENODES = "doris.fenodes";
+    String DORIS_QUERY_PORT = "doris.query.port";
 
     String DORIS_DEFAULT_CLUSTER = "default_cluster";
 
@@ -70,7 +71,7 @@ public interface ConfigurationOptions {
     int SINK_BATCH_SIZE_DEFAULT = 100000;
 
     String DORIS_SINK_MAX_RETRIES = "doris.sink.max-retries";
-    int SINK_MAX_RETRIES_DEFAULT = 1;
+    int SINK_MAX_RETRIES_DEFAULT = 0;
 
     String DORIS_MAX_FILTER_RATIO = "doris.max.filter.ratio";
 

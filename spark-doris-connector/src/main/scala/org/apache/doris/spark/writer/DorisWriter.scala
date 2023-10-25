@@ -21,7 +21,6 @@ import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.listener.DorisTransactionListener
 import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.doris.spark.sql.Utils
-import org.apache.spark.TaskContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.StructType
@@ -32,10 +31,10 @@ import java.io.IOException
 import java.time.Duration
 import java.util
 import java.util.Objects
-import java.util.concurrent.locks.LockSupport
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
+import scala.collection.mutable.ArrayBuffer
+import scala.util.{Failure, Success}
 
 class DorisWriter(settings: SparkSettings) extends Serializable {
 
@@ -44,8 +43,17 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
   private val sinkTaskPartitionSize: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
   private val sinkTaskUseRepartition: Boolean = settings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION,
     ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
+
+  private val maxRetryTimes: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_MAX_RETRIES,
+    ConfigurationOptions.SINK_MAX_RETRIES_DEFAULT)
+  private val batchSize: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE,
+    ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT)
   private val batchInterValMs: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS,
     ConfigurationOptions.DORIS_SINK_BATCH_INTERVAL_MS_DEFAULT)
+
+  if (maxRetryTimes > 0) {
+    logger.info(s"batch retry enabled, size is $batchSize, interval is $batchInterValMs")
+  }
 
   private val enable2PC: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
     ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT)
@@ -77,7 +85,6 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
   private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Long): Unit = {
 
     val sc = dataFrame.sqlContext.sparkContext
-    logger.info(s"applicationAttemptId: ${sc.applicationAttemptId.getOrElse(-1)}")
     val preCommittedTxnAcc = sc.collectionAccumulator[Long]("preCommittedTxnAcc")
     if (enable2PC) {
       sc.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, dorisStreamLoader, sinkTxnIntervalMs, sinkTxnRetries))
@@ -89,19 +96,22 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
     }
     resultRdd.foreachPartition(iterator => {
-      val intervalNanos = Duration.ofMillis(batchInterValMs.toLong).toNanos
+
       while (iterator.hasNext) {
-        Try {
-          loadFunc(iterator.asJava, schema)
-        } match {
-          case Success(txnId) => if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
+        val batchIterator = new BatchIterator[InternalRow](iterator, batchSize, maxRetryTimes > 0)
+        val retry = Utils.retry[Int, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
+        retry(loadFunc(batchIterator.asJava, schema))(batchIterator.reset()) match {
+          case Success(txnId) =>
+            if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
+            batchIterator.close()
           case Failure(e) =>
             if (enable2PC) handleLoadFailure(preCommittedTxnAcc)
+            batchIterator.close()
             throw new IOException(
               s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node.", e)
         }
-        LockSupport.parkNanos(intervalNanos)
       }
+
     })
 
   }
@@ -120,15 +130,70 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     }
     val abortFailedTxnIds = mutable.Buffer[Long]()
     acc.value.asScala.foreach(txnId => {
-      Utils.retry[Unit, Exception](sinkTxnRetries, Duration.ofMillis(sinkTxnIntervalMs), logger) {
+      Utils.retry[Unit, Exception](3, Duration.ofSeconds(1), logger) {
         dorisStreamLoader.abortById(txnId)
-      } match {
-        case Success(_) =>
+      }() match {
+        case Success(_) => // do nothing
         case Failure(_) => abortFailedTxnIds += txnId
       }
     })
     if (abortFailedTxnIds.nonEmpty) logger.warn("not aborted txn ids: {}", abortFailedTxnIds.mkString(","))
     acc.reset()
+  }
+
+  /**
+   * iterator for batch load
+   * if retry time is greater than zero, enable batch retry and put batch data into buffer
+   *
+   * @param iterator         parent iterator
+   * @param batchSize        batch size
+   * @param batchRetryEnable whether enable batch retry
+   * @tparam T data type
+   */
+  private class BatchIterator[T](iterator: Iterator[T], batchSize: Int, batchRetryEnable: Boolean) extends Iterator[T] {
+
+    private val buffer: ArrayBuffer[T] = if (batchRetryEnable) new ArrayBuffer[T](batchSize) else ArrayBuffer.empty[T]
+
+    private var recordCount = 0
+
+    private var isReset = false
+
+    override def hasNext: Boolean = recordCount < batchSize && iterator.hasNext
+
+    override def next(): T = {
+      recordCount += 1
+      if (batchRetryEnable) {
+        if (isReset && buffer.nonEmpty) {
+          buffer(recordCount)
+        } else {
+          val elem = iterator.next
+          buffer += elem
+          elem
+        }
+      } else {
+        iterator.next
+      }
+    }
+
+    /**
+     * reset record count for re-read
+     */
+    def reset(): Unit = {
+      recordCount = 0
+      isReset = true
+      logger.info("batch iterator is reset")
+    }
+
+    /**
+     * clear buffer when buffer is not empty
+     */
+    def close(): Unit = {
+      if (buffer.nonEmpty) {
+        buffer.clear()
+        logger.info("buffer is cleared and batch iterator is closed")
+      }
+    }
+
   }
 
 

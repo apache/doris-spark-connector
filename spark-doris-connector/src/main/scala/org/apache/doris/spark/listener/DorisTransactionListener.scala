@@ -47,8 +47,8 @@ class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Long], 
         txnIds.foreach(txnId =>
           Utils.retry(sinkTxnRetries, Duration.ofMillis(sinkTnxIntervalMs), logger) {
             dorisStreamLoad.commit(txnId)
-          } match {
-            case Success(_) =>
+          } () match {
+            case Success(_) => // do nothing
             case Failure(_) => failedTxnIds += txnId
           }
         )
@@ -68,8 +68,8 @@ class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Long], 
         txnIds.foreach(txnId =>
           Utils.retry(sinkTxnRetries, Duration.ofMillis(sinkTnxIntervalMs), logger) {
             dorisStreamLoad.abortById(txnId)
-          } match {
-            case Success(_) =>
+          } () match {
+            case Success(_) => // do nothing
             case Failure(_) => failedTxnIds += txnId
           })
         if (failedTxnIds.nonEmpty) {

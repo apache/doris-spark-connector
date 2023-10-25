@@ -34,6 +34,7 @@ import scala.util.{Failure, Success, Try}
 private[spark] object Utils {
   /**
    * quote column name
+   *
    * @param colName column name
    * @return quoted column name
    */
@@ -41,8 +42,9 @@ private[spark] object Utils {
 
   /**
    * compile a filter to Doris FE filter format.
-   * @param filter filter to be compile
-   * @param dialect jdbc dialect to translate value to sql format
+   *
+   * @param filter             filter to be compile
+   * @param dialect            jdbc dialect to translate value to sql format
    * @param inValueLengthLimit max length of in value array
    * @return if Doris FE can handle this filter, return None if Doris FE can not handled it.
    */
@@ -87,6 +89,7 @@ private[spark] object Utils {
 
   /**
    * Escape special characters in SQL string literals.
+   *
    * @param value The string to be escaped.
    * @return Escaped string.
    */
@@ -95,6 +98,7 @@ private[spark] object Utils {
 
   /**
    * Converts value to SQL expression.
+   *
    * @param value The value to be converted.
    * @return Converted value.
    */
@@ -108,16 +112,17 @@ private[spark] object Utils {
 
   /**
    * check parameters validation and process it.
+   *
    * @param parameters parameters from rdd and spark conf
-   * @param logger slf4j logger
+   * @param logger     slf4j logger
    * @return processed parameters
    */
   def params(parameters: Map[String, String], logger: Logger) = {
     // '.' seems to be problematic when specifying the options
     val dottedParams = parameters.map { case (k, v) =>
-      if (k.startsWith("sink.properties.") || k.startsWith("doris.sink.properties.")){
-        (k,v)
-      }else {
+      if (k.startsWith("sink.properties.") || k.startsWith("doris.sink.properties.")) {
+        (k, v)
+      } else {
         (k.replace('_', '.'), v)
       }
     }
@@ -141,7 +146,7 @@ private[spark] object Utils {
       case (k, v) =>
         if (k.startsWith("doris.")) (k, v)
         else ("doris." + k, v)
-    }.map{
+    }.map {
       case (ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD, _) =>
         logger.error(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource.")
         throw new DorisException(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in" +
@@ -165,13 +170,14 @@ private[spark] object Utils {
 
     // validate path is available
     finalParams.getOrElse(ConfigurationOptions.DORIS_TABLE_IDENTIFIER,
-        throw new DorisException("table identifier must be specified for doris table identifier."))
+      throw new DorisException("table identifier must be specified for doris table identifier."))
 
     finalParams
   }
 
   @tailrec
-  def retry[R, T <: Throwable : ClassTag](retryTimes: Int, interval: Duration, logger: Logger)(f: => R): Try[R] = {
+  def retry[R, T <: Throwable : ClassTag](retryTimes: Int, interval: Duration, logger: Logger)
+                                         (f: => R)(h: => Unit): Try[R] = {
     assert(retryTimes >= 0)
     val result = Try(f)
     result match {
@@ -182,7 +188,8 @@ private[spark] object Utils {
         logger.warn(s"Execution failed caused by: ", exception)
         logger.warn(s"$retryTimes times retry remaining, the next attempt will be in ${interval.toMillis} ms")
         LockSupport.parkNanos(interval.toNanos)
-        retry(retryTimes - 1, interval, logger)(f)
+        h
+        retry(retryTimes - 1, interval, logger)(f)(h)
       case Failure(exception) => Failure(exception)
     }
   }
