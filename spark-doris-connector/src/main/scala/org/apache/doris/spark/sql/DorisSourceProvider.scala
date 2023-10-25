@@ -17,7 +17,10 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.cfg.SparkSettings
+import org.apache.commons.lang3.exception.ExceptionUtils
+import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
+import org.apache.doris.spark.exception.DorisException
+import org.apache.doris.spark.jdbc.JdbcUtils
 import org.apache.doris.spark.sql.DorisSourceProvider.SHORT_NAME
 import org.apache.doris.spark.writer.DorisWriter
 import org.apache.spark.SparkConf
@@ -28,7 +31,10 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.util.Properties
 import scala.collection.JavaConverters.mapAsJavaMapConverter
+import scala.util.control.Breaks
+import scala.util.{Failure, Success, Try}
 
 private[sql] class DorisSourceProvider extends DataSourceRegister
   with RelationProvider
@@ -54,6 +60,13 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
 
     val sparkSettings = new SparkSettings(sqlContext.sparkContext.getConf)
     sparkSettings.merge(Utils.params(parameters, logger).asJava)
+
+    mode match {
+      case SaveMode.Overwrite =>
+        truncateTable(sparkSettings)
+      case _: SaveMode => // do nothing
+    }
+
     // init stream loader
     val writer = new DorisWriter(sparkSettings)
     writer.write(data)
@@ -79,6 +92,50 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     sparkSettings.merge(Utils.params(parameters, logger).asJava)
     new DorisStreamLoadSink(sqlContext, sparkSettings)
   }
+
+  private def truncateTable(sparkSettings: SparkSettings): Unit = {
+
+    val feNodes = sparkSettings.getProperty(ConfigurationOptions.DORIS_FENODES)
+    val port = sparkSettings.getIntegerProperty(ConfigurationOptions.DORIS_QUERY_PORT)
+    require(feNodes != null && feNodes.nonEmpty, "doris.fenodes cannot be null or empty")
+    require(port != null, "doris.query.port cannot be null")
+    val feNodesArr = feNodes.split(",")
+    val breaks = new Breaks
+
+    var success = false
+    var exOption: Option[Exception] = None
+
+    breaks.breakable {
+      feNodesArr.foreach(feNode => {
+        Try {
+          val host = feNode.split(":")(0)
+          val url = JdbcUtils.getJdbcUrl(host, port)
+          val props = new Properties()
+          props.setProperty("user", sparkSettings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER))
+          props.setProperty("password", sparkSettings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD))
+          val conn = JdbcUtils.getConnection(url, props)
+          val statement = conn.createStatement()
+          val tableIdentifier = sparkSettings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER)
+          val query = JdbcUtils.getTruncateQuery(tableIdentifier)
+          statement.execute(query)
+          success = true
+          logger.info(s"truncate table $tableIdentifier success")
+        } match {
+          case Success(_) => breaks.break()
+          case Failure(e: Exception) =>
+            exOption = Some(e)
+            logger.warn(s"truncate table failed on $feNode, error: {}", ExceptionUtils.getStackTrace(e))
+        }
+      })
+
+    }
+
+    if (!success) {
+      throw new DorisException("truncate table failed", exOption.get)
+    }
+
+  }
+
 }
 
 object DorisSourceProvider {
