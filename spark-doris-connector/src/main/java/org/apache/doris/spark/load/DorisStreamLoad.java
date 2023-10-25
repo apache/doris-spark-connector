@@ -23,7 +23,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
@@ -155,7 +154,7 @@ public class DorisStreamLoad implements Serializable {
         if (StringUtils.isNotBlank(columns)) {
             httpPut.setHeader("columns", columns);
         } else {
-            if (ObjectUtils.isNotEmpty(schema)) {
+            if (schema != null && !schema.isEmpty()) {
                 String dfColumns = Arrays.stream(schema.fieldNames()).collect(Collectors.joining(","));
                 httpPut.setHeader("columns", dfColumns);
             }
