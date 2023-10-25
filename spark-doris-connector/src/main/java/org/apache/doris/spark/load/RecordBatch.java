@@ -37,11 +37,6 @@ public class RecordBatch {
     private final Iterator<InternalRow> iterator;
 
     /**
-     * batch size for single load
-     */
-    private final int batchSize;
-
-    /**
      * stream load format
      */
     private final String format;
@@ -63,10 +58,9 @@ public class RecordBatch {
 
     private final boolean addDoubleQuotes;
 
-    private RecordBatch(Iterator<InternalRow> iterator, int batchSize, String format, String sep, byte[] delim,
+    private RecordBatch(Iterator<InternalRow> iterator, String format, String sep, byte[] delim,
                         StructType schema, boolean addDoubleQuotes) {
         this.iterator = iterator;
-        this.batchSize = batchSize;
         this.format = format;
         this.sep = sep;
         this.delim = delim;
@@ -76,10 +70,6 @@ public class RecordBatch {
 
     public Iterator<InternalRow> getIterator() {
         return iterator;
-    }
-
-    public int getBatchSize() {
-        return batchSize;
     }
 
     public String getFormat() {
@@ -112,8 +102,6 @@ public class RecordBatch {
 
         private final Iterator<InternalRow> iterator;
 
-        private int batchSize;
-
         private String format;
 
         private String sep;
@@ -126,11 +114,6 @@ public class RecordBatch {
 
         public Builder(Iterator<InternalRow> iterator) {
             this.iterator = iterator;
-        }
-
-        public Builder batchSize(int batchSize) {
-            this.batchSize = batchSize;
-            return this;
         }
 
         public Builder format(String format) {
@@ -159,7 +142,7 @@ public class RecordBatch {
         }
 
         public RecordBatch build() {
-            return new RecordBatch(iterator, batchSize, format, sep, delim, schema, addDoubleQuotes);
+            return new RecordBatch(iterator, format, sep, delim, schema, addDoubleQuotes);
         }
 
     }

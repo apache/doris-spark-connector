@@ -23,7 +23,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -98,6 +98,7 @@ private[sql] class DorisRelation(
     }
     data.write.format(DorisSourceProvider.SHORT_NAME)
       .options(insertCfg)
+      .mode(if (overwrite) SaveMode.Overwrite else SaveMode.Append)
       .save()
   }
 }
