@@ -70,7 +70,7 @@ public interface ConfigurationOptions {
     int SINK_BATCH_SIZE_DEFAULT = 100000;
 
     String DORIS_SINK_MAX_RETRIES = "doris.sink.max-retries";
-    int SINK_MAX_RETRIES_DEFAULT = 1;
+    int SINK_MAX_RETRIES_DEFAULT = 0;
 
     String DORIS_MAX_FILTER_RATIO = "doris.max.filter.ratio";
 

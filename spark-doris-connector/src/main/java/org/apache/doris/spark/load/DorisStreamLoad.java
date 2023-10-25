@@ -98,7 +98,6 @@ public class DorisStreamLoad implements Serializable {
     private String FIELD_DELIMITER;
     private final String LINE_DELIMITER;
     private boolean streamingPassthrough = false;
-    private final Integer batchSize;
     private final boolean enable2PC;
     private final Integer txnRetries;
     private final Integer txnIntervalMs;
@@ -128,8 +127,6 @@ public class DorisStreamLoad implements Serializable {
         LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
         this.streamingPassthrough = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,
                 ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH_DEFAULT);
-        this.batchSize = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_BATCH_SIZE,
-                ConfigurationOptions.SINK_BATCH_SIZE_DEFAULT);
         this.enable2PC = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
                 ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT);
         this.txnRetries = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_RETRIES,
@@ -200,7 +197,6 @@ public class DorisStreamLoad implements Serializable {
             this.loadUrlStr = loadUrlStr;
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
             RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
-                    .batchSize(batchSize)
                     .format(fileType)
                     .sep(FIELD_DELIMITER)
                     .delim(LINE_DELIMITER)
