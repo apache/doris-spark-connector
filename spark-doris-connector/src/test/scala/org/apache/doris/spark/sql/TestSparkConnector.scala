@@ -65,6 +65,7 @@ class TestSparkConnector {
       .option("doris.table.identifier", dorisTable)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+//      .option("sink.auto-redirect", "true")
       //specify your field
       .option("doris.write.fields", "name,gender")
       .option("sink.batch.size",2)

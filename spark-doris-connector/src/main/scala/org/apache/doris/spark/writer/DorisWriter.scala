@@ -74,11 +74,11 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
     doWrite(dataFrame, dorisStreamLoader.loadStream)
   }
 
-  private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Int): Unit = {
+  private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Long): Unit = {
 
     val sc = dataFrame.sqlContext.sparkContext
     logger.info(s"applicationAttemptId: ${sc.applicationAttemptId.getOrElse(-1)}")
-    val preCommittedTxnAcc = sc.collectionAccumulator[Int]("preCommittedTxnAcc")
+    val preCommittedTxnAcc = sc.collectionAccumulator[Long]("preCommittedTxnAcc")
     if (enable2PC) {
       sc.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, dorisStreamLoader, sinkTxnIntervalMs, sinkTxnRetries))
     }
@@ -106,11 +106,11 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
   }
 
-  private def handleLoadSuccess(txnId: Int, acc: CollectionAccumulator[Int]): Unit = {
+  private def handleLoadSuccess(txnId: Long, acc: CollectionAccumulator[Long]): Unit = {
     acc.add(txnId)
   }
 
-  private def handleLoadFailure(acc: CollectionAccumulator[Int]): Unit = {
+  private def handleLoadFailure(acc: CollectionAccumulator[Long]): Unit = {
     // if task run failed, acc value will not be returned to driver,
     // should abort all pre committed transactions inside the task
     logger.info("load task failed, start aborting previously pre-committed transactions")
@@ -118,7 +118,7 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       logger.info("no pre-committed transactions, skip abort")
       return
     }
-    val abortFailedTxnIds = mutable.Buffer[Int]()
+    val abortFailedTxnIds = mutable.Buffer[Long]()
     acc.value.asScala.foreach(txnId => {
       Utils.retry[Unit, Exception](sinkTxnRetries, Duration.ofMillis(sinkTxnIntervalMs), logger) {
         dorisStreamLoader.abortById(txnId)

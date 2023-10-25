@@ -28,14 +28,14 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
-class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Int], dorisStreamLoad: DorisStreamLoad, sinkTnxIntervalMs: Int, sinkTxnRetries: Int)
+class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Long], dorisStreamLoad: DorisStreamLoad, sinkTnxIntervalMs: Int, sinkTxnRetries: Int)
   extends SparkListener {
 
   val logger: Logger = LoggerFactory.getLogger(classOf[DorisTransactionListener])
 
   override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
-    val txnIds: mutable.Buffer[Int] = preCommittedTxnAcc.value.asScala
-    val failedTxnIds = mutable.Buffer[Int]()
+    val txnIds: mutable.Buffer[Long] = preCommittedTxnAcc.value.asScala
+    val failedTxnIds = mutable.Buffer[Long]()
     jobEnd.jobResult match {
       // if job succeed, commit all transactions
       case JobSucceeded =>
