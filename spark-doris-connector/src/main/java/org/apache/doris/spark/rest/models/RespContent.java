@@ -25,7 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class RespContent {
 
     @JsonProperty(value = "TxnId")
-    private int TxnId;
+    private long TxnId;
 
     @JsonProperty(value = "Label")
     private String Label;
@@ -75,7 +75,7 @@ public class RespContent {
     @JsonProperty(value = "ErrorURL")
     private String ErrorURL;
 
-    public int getTxnId() {
+    public long getTxnId() {
         return TxnId;
     }
 

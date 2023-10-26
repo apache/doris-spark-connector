@@ -26,6 +26,7 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.SparkSettings;
+import org.apache.doris.spark.exception.IllegalArgumentException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
@@ -40,7 +41,9 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.BufferedHttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.StructType;
@@ -94,6 +97,7 @@ public class DorisStreamLoad implements Serializable {
     private boolean addDoubleQuotes;
     private static final long cacheExpireTimeout = 4 * 60;
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
+    private final String fenodes;
     private final String fileType;
     private String FIELD_DELIMITER;
     private final String LINE_DELIMITER;
@@ -101,11 +105,13 @@ public class DorisStreamLoad implements Serializable {
     private final boolean enable2PC;
     private final Integer txnRetries;
     private final Integer txnIntervalMs;
+    private final boolean autoRedirect;
 
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
         this.db = dbTable[0];
         this.tbl = dbTable[1];
+        this.fenodes = settings.getProperty(ConfigurationOptions.DORIS_FENODES);
         String user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         String passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
         this.authEncoded = getAuthEncoded(user, passwd);
@@ -133,6 +139,9 @@ public class DorisStreamLoad implements Serializable {
                 ConfigurationOptions.DORIS_SINK_TXN_RETRIES_DEFAULT);
         this.txnIntervalMs = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS,
                 ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS_DEFAULT);
+
+        this.autoRedirect = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT,
+                ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT_DEFAULT);
     }
 
     public String getLoadUrlStr() {
@@ -143,7 +152,14 @@ public class DorisStreamLoad implements Serializable {
     }
 
     private CloseableHttpClient getHttpClient() {
-        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create().disableRedirectHandling();
+        HttpClientBuilder httpClientBuilder = HttpClients
+                .custom()
+                .setRedirectStrategy(new DefaultRedirectStrategy() {
+                    @Override
+                    protected boolean isRedirectable(String method) {
+                        return true;
+                    }
+                });
         return httpClientBuilder.build();
     }
 
@@ -192,7 +208,7 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    public int load(Iterator<InternalRow> rows, StructType schema)
+    public long load(Iterator<InternalRow> rows, StructType schema)
             throws StreamLoadException, JsonProcessingException {
 
         String label = generateLoadLabel();
@@ -207,7 +223,6 @@ public class DorisStreamLoad implements Serializable {
                     .delim(LINE_DELIMITER)
                     .schema(schema)
                     .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
-            Arrays.stream(schema.fieldNames()).collect(Collectors.joining(","));
             httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
@@ -246,7 +261,7 @@ public class DorisStreamLoad implements Serializable {
 
     }
 
-    public Integer loadStream(Iterator<InternalRow> rows, StructType schema)
+    public Long loadStream(Iterator<InternalRow> rows, StructType schema)
             throws StreamLoadException, JsonProcessingException {
         if (this.streamingPassthrough) {
             handleStreamPassThrough();
@@ -254,7 +269,7 @@ public class DorisStreamLoad implements Serializable {
         return load(rows, schema);
     }
 
-    public void commit(int txnId) throws StreamLoadException {
+    public void commit(long txnId) throws StreamLoadException {
 
         try (CloseableHttpClient client = getHttpClient()) {
 
@@ -302,7 +317,7 @@ public class DorisStreamLoad implements Serializable {
      * @param txnId transaction id
      * @throws StreamLoadException
      */
-    public void abortById(int txnId) throws StreamLoadException {
+    public void abortById(long txnId) throws StreamLoadException {
 
         LOG.info("start abort transaction {}.", txnId);
 
@@ -391,6 +406,9 @@ public class DorisStreamLoad implements Serializable {
 
     private String getBackend() {
         try {
+            if (autoRedirect) {
+                return RestService.randomEndpoint(fenodes, LOG);
+            }
             // get backends from cache
             List<BackendV2.BackendRowV2> backends = cache.get("backends");
             Collections.shuffle(backends);
@@ -398,6 +416,8 @@ public class DorisStreamLoad implements Serializable {
             return backend.getIp() + ":" + backend.getHttpPort();
         } catch (ExecutionException e) {
             throw new RuntimeException("get backends info fail", e);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("get frontend info fail", e);
         }
     }
 
