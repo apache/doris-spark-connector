@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 /**
  * row batch data container.
@@ -357,7 +358,8 @@ public class RowBatch {
                             reader.setPosition(rowIndex);
                             Map<String, String> value = new HashMap<>();
                             while (reader.next()) {
-                                value.put(reader.key().readObject().toString(), reader.value().readObject().toString());
+                                value.put(Objects.toString(reader.key().readObject(), null),
+                                        Objects.toString(reader.value().readObject(), null));
                             }
                             addValueToRow(rowIndex, JavaConverters.mapAsScalaMapConverter(value).asScala());
                         }
