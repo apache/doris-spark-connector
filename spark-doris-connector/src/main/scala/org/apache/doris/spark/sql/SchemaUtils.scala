@@ -29,7 +29,6 @@ import org.apache.doris.spark.util.DataUtil
 import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.types._
-import org.codehaus.jackson.map.ObjectMapper
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
@@ -209,13 +208,6 @@ private[spark] object SchemaUtils {
       }
     }
 
-  }
-
-  private def quoteData(value: Any, dataType: DataType): Any = {
-    dataType match {
-      case StringType | TimestampType | DateType => s""""$value""""
-      case _ => value
-    }
   }
 
 }
