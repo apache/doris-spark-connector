@@ -179,7 +179,7 @@ private[spark] object SchemaUtils {
           }
         case mt: MapType =>
           val mapData = row.getMap(ordinal)
-          if (mapData == null) "{}"
+          if (mapData.numElements() == 0) "{}"
           else {
             val keys = mapData.keyArray()
             val values = mapData.valueArray()
@@ -193,17 +193,14 @@ private[spark] object SchemaUtils {
           }
         case st: StructType =>
           val structData = row.getStruct(ordinal, st.length)
-          if (structData == null) "{}"
-          else {
-            val map = mutable.HashMap[String, Any]()
-            var i = 0
-            while (i < structData.numFields) {
-              val field = st.get(i)
-              map += field.name -> rowColumnValue(structData, i, field.dataType)
-              i += 1
-            }
-            MAPPER.writeValueAsString(map)
+          val map = mutable.HashMap[String, Any]()
+          var i = 0
+          while (i < structData.numFields) {
+            val field = st.get(i)
+            map += field.name -> rowColumnValue(structData, i, field.dataType)
+            i += 1
           }
+          MAPPER.writeValueAsString(map)
         case _ => throw new DorisException(s"Unsupported spark type: ${dataType.typeName}")
       }
     }
