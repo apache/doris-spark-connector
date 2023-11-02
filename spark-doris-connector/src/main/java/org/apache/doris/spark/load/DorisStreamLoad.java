@@ -237,14 +237,16 @@ public class DorisStreamLoad implements Serializable {
         }
 
         if (loadResponse.status != HttpStatus.SC_OK) {
-            LOG.info("Stream load Response HTTP Status Error:{}", loadResponse);
-            throw new StreamLoadException("stream load error");
+            LOG.error("Stream load http status is not OK, status: {}, response: {}", loadResponse.status, loadResponse);
+            throw new StreamLoadException(
+                    String.format("stream load error, http status:%d, response:%s", loadResponse.status, loadResponse));
         } else {
             try {
                 RespContent respContent = MAPPER.readValue(loadResponse.respContent, RespContent.class);
                 if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
-                    LOG.error("Stream load Response RES STATUS Error:{}", loadResponse);
-                    throw new StreamLoadException("stream load error");
+                    LOG.error("Stream load status is not success, status:{}, response:{}", respContent.getStatus(), loadResponse);
+                    throw new StreamLoadException(
+                            String.format("stream load error, load status:%s, response:%s", respContent.getStatus(), loadResponse));
                 }
                 LOG.info("Stream load Response:{}", loadResponse);
                 return respContent.getTxnId();
