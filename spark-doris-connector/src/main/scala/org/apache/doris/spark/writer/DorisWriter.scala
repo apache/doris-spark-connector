@@ -18,9 +18,10 @@
 package org.apache.doris.spark.writer
 
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.listener.DorisTransactionListener
 import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
 import org.apache.doris.spark.sql.Utils
+import org.apache.doris.spark.txn.TransactionHandler
+import org.apache.doris.spark.txn.listener.DorisTransactionListener
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.StructType
@@ -32,11 +33,10 @@ import java.time.Duration
 import java.util
 import java.util.Objects
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success}
 
-class DorisWriter(settings: SparkSettings) extends Serializable {
+class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumulator[Long]) extends Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
@@ -57,12 +57,10 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
 
   private val enable2PC: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
     ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT)
-  private val sinkTxnIntervalMs: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS,
-    ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS_DEFAULT)
-  private val sinkTxnRetries: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_RETRIES,
-    ConfigurationOptions.DORIS_SINK_TXN_RETRIES_DEFAULT)
 
   private val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
+
+  private var isStreaming = false;
 
   /**
    * write data in batch mode
@@ -79,19 +77,14 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
    * @param dataFrame source dataframe
    */
   def writeStream(dataFrame: DataFrame): Unit = {
-    if (enable2PC) {
-      val errMsg = "two phrase commit is not supported in stream mode, please set doris.sink.enable-2pc to false."
-      throw new UnsupportedOperationException(errMsg)
-    }
+    isStreaming = true
     doWrite(dataFrame, dorisStreamLoader.loadStream)
   }
 
   private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Long): Unit = {
-
-    val sc = dataFrame.sqlContext.sparkContext
-    val preCommittedTxnAcc = sc.collectionAccumulator[Long]("preCommittedTxnAcc")
-    if (enable2PC) {
-      sc.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, dorisStreamLoader, sinkTxnIntervalMs, sinkTxnRetries))
+    // do not add spark listener when job is streaming mode
+    if (enable2PC && !isStreaming) {
+      dataFrame.sparkSession.sparkContext.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, settings))
     }
 
     var resultRdd = dataFrame.queryExecution.toRdd
@@ -132,17 +125,12 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
       logger.info("no pre-committed transactions, skip abort")
       return
     }
-    val abortFailedTxnIds = mutable.Buffer[Long]()
-    acc.value.asScala.foreach(txnId => {
-      Utils.retry[Unit, Exception](3, Duration.ofSeconds(1), logger) {
-        dorisStreamLoader.abortById(txnId)
-      }() match {
-        case Success(_) => // do nothing
-        case Failure(_) => abortFailedTxnIds += txnId
-      }
-    })
-    if (abortFailedTxnIds.nonEmpty) logger.warn("not aborted txn ids: {}", abortFailedTxnIds.mkString(","))
-    acc.reset()
+
+    try TransactionHandler(settings).abortTransactions(acc.value.asScala.toList)
+    catch {
+      case e: Exception => throw e
+    }
+    finally acc.reset()
   }
 
   /**
