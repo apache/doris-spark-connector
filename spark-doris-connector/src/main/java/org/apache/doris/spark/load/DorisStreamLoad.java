@@ -82,9 +82,9 @@ public class DorisStreamLoad implements Serializable {
 
     private final static List<String> DORIS_SUCCESS_STATUS = new ArrayList<>(Arrays.asList("Success", "Publish Timeout"));
 
-    private static final String loadUrlPattern = "http://%s/api/%s/%s/_stream_load?";
+    private static final String loadUrlPattern = "http://%s/api/%s/%s/_stream_load";
 
-    private static final String abortUrlPattern = "http://%s/api/%s/%s/_stream_load_2pc?";
+    private static final String abortUrlPattern = "http://%s/api/%s/_stream_load_2pc";
 
     private String loadUrlStr;
     private final String db;
@@ -270,7 +270,7 @@ public class DorisStreamLoad implements Serializable {
         try (CloseableHttpClient client = getHttpClient()) {
 
             String backend = getBackend();
-            String abortUrl = String.format(abortUrlPattern, backend, db, tbl);
+            String abortUrl = String.format(abortUrlPattern, backend, db);
             HttpPut httpPut = new HttpPut(abortUrl);
             addCommonHeader(httpPut);
             httpPut.setHeader("txn_operation", "commit");
@@ -358,7 +358,7 @@ public class DorisStreamLoad implements Serializable {
     private void doAbort(Consumer<HttpPut> putConsumer) throws StreamLoadException {
 
         try (CloseableHttpClient client = getHttpClient()) {
-            String abortUrl = String.format(abortUrlPattern, getBackend(), db, tbl);
+            String abortUrl = String.format(abortUrlPattern, getBackend(), db);
             HttpPut httpPut = new HttpPut(abortUrl);
             addCommonHeader(httpPut);
             httpPut.setHeader("txn_operation", "abort");
