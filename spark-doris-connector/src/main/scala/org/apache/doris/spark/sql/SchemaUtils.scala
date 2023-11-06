@@ -168,7 +168,7 @@ private[spark] object SchemaUtils {
           new Timestamp(row.getLong(ordinal) / 1000).toString
         case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
         case BinaryType => row.getBinary(ordinal)
-        case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale)
+        case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
         case at: ArrayType =>
           val arrayData = row.getArray(ordinal)
           if (arrayData == null) DataUtil.NULL_VALUE
