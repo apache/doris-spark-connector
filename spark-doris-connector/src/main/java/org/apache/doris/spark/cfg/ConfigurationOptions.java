@@ -119,4 +119,9 @@ public interface ConfigurationOptions {
     String DORIS_SINK_TXN_RETRIES = "doris.sink.txn.retries";
     int DORIS_SINK_TXN_RETRIES_DEFAULT = 3;
 
+    /**
+     * Use automatic redirection of fe without explicitly obtaining the be list
+     */
+    String DORIS_SINK_AUTO_REDIRECT = "doris.sink.auto-redirect";
+    boolean DORIS_SINK_AUTO_REDIRECT_DEFAULT = false;
 }
