@@ -67,8 +67,10 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
       case _: SaveMode => // do nothing
     }
 
+    // accumulator for transaction handling
+    val acc = sqlContext.sparkContext.collectionAccumulator[Long]("BatchTxnAcc")
     // init stream loader
-    val writer = new DorisWriter(sparkSettings)
+    val writer = new DorisWriter(sparkSettings, acc)
     writer.write(data)
 
     new BaseRelation {

@@ -17,7 +17,9 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.cfg.SparkSettings
+import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
+import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
+import org.apache.doris.spark.txn.listener.DorisTxnStreamingQueryListener
 import org.apache.doris.spark.writer.DorisWriter
 import org.apache.spark.sql.execution.streaming.Sink
 import org.apache.spark.sql.{DataFrame, SQLContext}
@@ -28,7 +30,12 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisStreamLoadSink].getName)
   @volatile private var latestBatchId = -1L
 
-  private val writer = new DorisWriter(settings)
+  // accumulator for transaction handling
+  private val acc = sqlContext.sparkContext.collectionAccumulator[Long]("StreamTxnAcc")
+  private val writer = new DorisWriter(settings, acc)
+
+  // add listener for structured streaming
+  sqlContext.streams.addListener(new DorisTxnStreamingQueryListener(acc, settings))
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
     if (batchId <= latestBatchId) {
