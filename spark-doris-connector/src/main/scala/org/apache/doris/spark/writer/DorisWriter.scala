@@ -79,6 +79,10 @@ class DorisWriter(settings: SparkSettings) extends Serializable {
    * @param dataFrame source dataframe
    */
   def writeStream(dataFrame: DataFrame): Unit = {
+    if (enable2PC) {
+      val errMsg = "two phrase commit is not supported in stream mode, please set doris.sink.enable-2pc to false."
+      throw new UnsupportedOperationException(errMsg)
+    }
     doWrite(dataFrame, dorisStreamLoader.loadStream)
   }
 
