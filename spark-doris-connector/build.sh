@@ -142,23 +142,29 @@ selectScala() {
 
 selectSpark() {
   echo 'Spark-Doris-Connector supports multiple versions of spark. Which version do you need ?'
-  select spark in "2.3.x" "3.1.x" "3.2.x" "3.3.x" "other"
+  select spark in "2.3.x" "2.4.x" "3.1.x" "3.2.x" "3.3.x" "3.4.x" "other"
   do
     case $spark in
       "2.3.x")
         return 1
         ;;
-      "3.1.x")
+      "2.4.x")
         return 2
         ;;
-      "3.2.x")
+      "3.1.x")
         return 3
         ;;
-      "3.3.x")
+      "3.2.x")
         return 4
         ;;
-      "other")
+      "3.3.x")
         return 5
+        ;;
+      "3.4.x")
+        return 6
+        ;;
+      "other")
+        return 7
         ;;
     esac
   done
@@ -174,16 +180,28 @@ SparkVer=$?
 if [ ${SparkVer} -eq 1 ]; then
     SPARK_VERSION="2.3.4"
 elif [ ${SparkVer} -eq 2 ]; then
-    SPARK_VERSION="3.1.2"
+    SPARK_VERSION="2.4.8"
 elif [ ${SparkVer} -eq 3 ]; then
-    SPARK_VERSION="3.2.0"
+    SPARK_VERSION="3.1.3"
 elif [ ${SparkVer} -eq 4 ]; then
-    SPARK_VERSION="3.3.2"
+    SPARK_VERSION="3.2.4"
 elif [ ${SparkVer} -eq 5 ]; then
+    SPARK_VERSION="3.3.3"
+elif [ ${SparkVer} -eq 6 ]; then
+    SPARK_VERSION="3.4.1"
+elif [ ${SparkVer} -eq 7 ]; then
     # shellcheck disable=SC2162
     read -p 'Which spark version do you need? please input
     :' ver
     SPARK_VERSION=$ver
+fi
+
+if [[ $SPARK_VERSION =~ ^2.3 && $SCALA_VERSION == "2.12"  ]]; then
+  echo_r "Spark 2.3 is not compatible with scala 2.12, will exit."
+  exit 1
+elif [[ $SPARK_VERSION =~ ^3.* && $SCALA_VERSION == "2.11" ]]; then
+  echo_r "Spark 3.x is not compatible with scala 2.11, will exit."
+  exit 1
 fi
 
 # extract major version:
