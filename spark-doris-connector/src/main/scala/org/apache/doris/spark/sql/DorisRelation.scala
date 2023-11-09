@@ -76,7 +76,7 @@ private[sql] class DorisRelation(
           requiredColumns.map(Utils.quote).mkString(","))
     } else {
       paramWithScan += (ConfigurationOptions.DORIS_READ_FIELD ->
-          lazySchema.fields.map(f => f.name).mkString(","))
+          lazySchema.fields.map(f => Utils.quote(f.name)).mkString(","))
     }
 
     if (filters != null && filters.length > 0) {
