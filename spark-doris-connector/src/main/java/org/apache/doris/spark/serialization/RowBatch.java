@@ -378,7 +378,7 @@ public class RowBatch {
                         }
                         break;
                     case "HLL":
-                    case "BITMAP":
+                    case "OBJECT"://BITMAP
                         Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR),
                                 typeMismatchMessage(currentType, mt));
                         VarCharVector varcharVector = (VarCharVector) curFieldVector;
