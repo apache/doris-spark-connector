@@ -124,6 +124,29 @@ dorisSparkDF = spark.read.format("doris")
 dorisSparkDF.show(5)
 ```
 
+## type convertion for writing to doris using arrow
+|doris|spark|
+|---|---|
+| BOOLEAN | BooleanType |
+| TINYINT | ByteType |
+| SMALLINT | ShortType |
+| INT | IntegerType |
+| BIGINT | LongType |
+| LARGEINT | StringType |
+| FLOAT | FloatType |
+| DOUBLE | DoubleType |
+| DECIMAL(M,D) | DecimalType(M,D) |
+| DATE | DateType |
+| DATETIME | TimestampType |
+| CHAR(L) | StringType |
+| VARCHAR(L) | StringType |
+| STRING | StringType |
+| ARRAY | ARRAY |
+| MAP | MAP |
+| STRUCT | STRUCT |
+
+
+
 ## Report issues or submit pull request
 
 If you find any bugs, feel free to file a [GitHub issue](https://github.com/apache/doris/issues) or fix it by submitting a [pull request](https://github.com/apache/doris/pulls).

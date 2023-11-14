@@ -17,7 +17,11 @@
 
 package org.apache.doris.spark.load;
 
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.doris.spark.ArrowSchemaUtils;
 import org.apache.spark.sql.types.StructType;
 
 import java.nio.charset.Charset;
@@ -39,7 +43,7 @@ public class RecordBatch {
     /**
      * stream load format
      */
-    private final String format;
+    private final DataFormat format;
 
     /**
      * column separator, only used when the format is csv
@@ -58,7 +62,11 @@ public class RecordBatch {
 
     private final boolean addDoubleQuotes;
 
-    private RecordBatch(Iterator<InternalRow> iterator, String format, String sep, byte[] delim,
+    private VectorSchemaRoot arrowRoot = null;
+
+    private int arrowBatchSize = 1000;
+
+    private RecordBatch(Iterator<InternalRow> iterator, DataFormat format, String sep, byte[] delim,
                         StructType schema, boolean addDoubleQuotes) {
         this.iterator = iterator;
         this.format = format;
@@ -66,13 +74,17 @@ public class RecordBatch {
         this.delim = delim;
         this.schema = schema;
         this.addDoubleQuotes = addDoubleQuotes;
+        if (format.equals(DataFormat.ARROW)) {
+            Schema arrowSchema = ArrowSchemaUtils.toArrowSchema(schema, "UTC");
+            this.arrowRoot = VectorSchemaRoot.create(arrowSchema, new RootAllocator(Integer.MAX_VALUE));
+        }
     }
 
     public Iterator<InternalRow> getIterator() {
         return iterator;
     }
 
-    public String getFormat() {
+    public DataFormat getFormat() {
         return format;
     }
 
@@ -84,13 +96,28 @@ public class RecordBatch {
         return delim;
     }
 
+    public VectorSchemaRoot getVectorSchemaRoot() {
+        return arrowRoot;
+    }
+
     public StructType getSchema() {
         return schema;
+    }
+
+    public int getArrowBatchSize() {
+        return arrowBatchSize;
     }
 
     public boolean getAddDoubleQuotes(){
         return addDoubleQuotes;
     }
+
+    public void clearBatch() {
+        if (format.equals(DataFormat.ARROW)) {
+            this.arrowRoot.clear();
+        }
+    }
+
     public static Builder newBuilder(Iterator<InternalRow> iterator) {
         return new Builder(iterator);
     }
@@ -102,7 +129,7 @@ public class RecordBatch {
 
         private final Iterator<InternalRow> iterator;
 
-        private String format;
+        private DataFormat format;
 
         private String sep;
 
@@ -116,7 +143,7 @@ public class RecordBatch {
             this.iterator = iterator;
         }
 
-        public Builder format(String format) {
+        public Builder format(DataFormat format) {
             this.format = format;
             return this;
         }
