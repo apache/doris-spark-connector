@@ -155,12 +155,10 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
     override def next(): T = {
       recordCount += 1
       if (batchRetryEnable) {
-        if (isReset && buffer.nonEmpty) {
-          buffer(recordCount)
+        if (isReset) {
+          readBuffer()
         } else {
-          val elem = iterator.next
-          buffer += elem
-          elem
+          writeBufferAndReturn()
         }
       } else {
         iterator.next
@@ -172,8 +170,10 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
      */
     def reset(): Unit = {
       recordCount = 0
-      isReset = true
-      logger.info("batch iterator is reset")
+      isReset = buffer.nonEmpty
+      if (isReset) {
+        logger.info("buffer is not empty and batch iterator is reset")
+      }
     }
 
     /**
@@ -184,6 +184,20 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
         buffer.clear()
         logger.info("buffer is cleared and batch iterator is closed")
       }
+    }
+
+    private def readBuffer(): T = {
+      if (recordCount == buffer.size) {
+        logger.debug("read buffer end, recordCount:{}, bufferSize: {}", recordCount, buffer.size)
+        isReset = false
+      }
+      buffer(recordCount - 1)
+    }
+
+    private def writeBufferAndReturn(): T = {
+      val elem = iterator.next
+      buffer += elem
+      elem
     }
 
   }
