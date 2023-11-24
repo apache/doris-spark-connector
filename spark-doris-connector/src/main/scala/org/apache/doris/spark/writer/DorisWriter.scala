@@ -150,7 +150,17 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
 
     private var isReset = false
 
-    override def hasNext: Boolean = recordCount < batchSize && iterator.hasNext
+    override def hasNext: Boolean = {
+      if (recordCount < batchSize) {
+        if (isReset) {
+          recordCount < buffer.size
+        } else {
+          iterator.hasNext
+        }
+      } else {
+        false
+      }
+    }
 
     override def next(): T = {
       recordCount += 1
