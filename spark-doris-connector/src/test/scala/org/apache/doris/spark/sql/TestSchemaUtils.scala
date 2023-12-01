@@ -23,10 +23,9 @@ import org.apache.doris.spark.rest.models.{Field, Schema}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types._
 import org.hamcrest.core.StringStartsWith.startsWith
-import org.junit.{Assert, Ignore, Test}
+import org.junit.{Assert, Test}
 
 import java.sql.Timestamp
-import java.time.temporal.ChronoField
 import scala.collection.JavaConverters._
 
 class TestSchemaUtils extends ExpectedExceptionTest {
@@ -57,11 +56,11 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     Assert.assertEquals(DataTypes.FloatType, SchemaUtils.getCatalystType("FLOAT", 0, 0))
     Assert.assertEquals(DataTypes.DoubleType, SchemaUtils.getCatalystType("DOUBLE", 0, 0))
     Assert.assertEquals(DataTypes.DateType, SchemaUtils.getCatalystType("DATE", 0, 0))
-    Assert.assertEquals(DataTypes.TimestampType, SchemaUtils.getCatalystType("DATETIME", 0, 0))
+    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("DATETIME", 0, 0))
     Assert.assertEquals(DataTypes.BinaryType, SchemaUtils.getCatalystType("BINARY", 0, 0))
     Assert.assertEquals(DecimalType(9, 3), SchemaUtils.getCatalystType("DECIMAL", 9, 3))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("CHAR", 0, 0))
-    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("LARGEINT", 0, 0))
+    Assert.assertEquals(DecimalType(38, 0), SchemaUtils.getCatalystType("LARGEINT", 0, 0))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("VARCHAR", 0, 0))
     Assert.assertEquals(DecimalType(10, 5), SchemaUtils.getCatalystType("DECIMALV2", 10, 5))
     Assert.assertEquals(DataTypes.DoubleType, SchemaUtils.getCatalystType("TIME", 0, 0))
