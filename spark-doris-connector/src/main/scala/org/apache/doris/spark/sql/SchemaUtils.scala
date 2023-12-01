@@ -32,7 +32,9 @@ import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
+import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneOffset}
+import java.util.Locale
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
@@ -164,8 +166,7 @@ private[spark] object SchemaUtils {
         case DoubleType => row.getDouble(ordinal)
         case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(DataUtil.NULL_VALUE)
         case TimestampType =>
-          LocalDateTime.ofEpochSecond(row.getLong(ordinal) / 100000, (row.getLong(ordinal) % 1000).toInt, ZoneOffset.UTC)
-          new Timestamp(row.getLong(ordinal) / 1000).toString
+          DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
         case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
         case BinaryType => row.getBinary(ordinal)
         case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
