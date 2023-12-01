@@ -17,10 +17,11 @@
 
 package org.apache.doris.spark.util;
 
-import org.apache.doris.spark.sql.SchemaUtils;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.module.scala.DefaultScalaModule;
+import org.apache.doris.spark.sql.SchemaUtils;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
@@ -31,7 +32,7 @@ import java.util.Map;
 
 public class DataUtil {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = JsonMapper.builder().addModule(new DefaultScalaModule()).build();
 
     public static final String NULL_VALUE = "\\N";
 
@@ -67,8 +68,7 @@ public class DataUtil {
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    public static byte[] rowToJsonBytes(InternalRow row, StructType schema)
-            throws JsonProcessingException {
+    public static byte[] rowToJsonBytes(InternalRow row, StructType schema) throws JsonProcessingException {
         StructField[] fields = schema.fields();
         Map<String, Object> rowMap = new HashMap<>(row.numFields());
         for (int i = 0; i < fields.length; i++) {

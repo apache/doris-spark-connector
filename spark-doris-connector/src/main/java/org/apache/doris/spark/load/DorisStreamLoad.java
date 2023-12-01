@@ -69,6 +69,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 
 /**
@@ -82,9 +83,9 @@ public class DorisStreamLoad implements Serializable {
 
     private final static List<String> DORIS_SUCCESS_STATUS = new ArrayList<>(Arrays.asList("Success", "Publish Timeout"));
 
-    private static final String loadUrlPattern = "http://%s/api/%s/%s/_stream_load?";
+    private static final String loadUrlPattern = "http://%s/api/%s/%s/_stream_load";
 
-    private static final String abortUrlPattern = "http://%s/api/%s/%s/_stream_load_2pc?";
+    private static final String abortUrlPattern = "http://%s/api/%s/_stream_load_2pc";
 
     private String loadUrlStr;
     private final String db;
@@ -162,12 +163,17 @@ public class DorisStreamLoad implements Serializable {
         return httpClientBuilder.build();
     }
 
-    private HttpPut getHttpPut(String label, String loadUrlStr, Boolean enable2PC) {
+    private HttpPut getHttpPut(String label, String loadUrlStr, Boolean enable2PC, StructType schema) {
         HttpPut httpPut = new HttpPut(loadUrlStr);
         addCommonHeader(httpPut);
         httpPut.setHeader("label", label);
         if (StringUtils.isNotBlank(columns)) {
             httpPut.setHeader("columns", columns);
+        } else {
+            if (schema != null && !schema.isEmpty()) {
+                String dfColumns = Arrays.stream(schema.fieldNames()).collect(Collectors.joining(","));
+                httpPut.setHeader("columns", dfColumns);
+            }
         }
         if (StringUtils.isNotBlank(maxFilterRatio)) {
             httpPut.setHeader("max_filter_ratio", maxFilterRatio);
@@ -210,7 +216,7 @@ public class DorisStreamLoad implements Serializable {
         try (CloseableHttpClient httpClient = getHttpClient()) {
             String loadUrlStr = String.format(loadUrlPattern, getBackend(), db, tbl);
             this.loadUrlStr = loadUrlStr;
-            HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC);
+            HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC, schema);
             RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
                     .format(fileType)
                     .sep(FIELD_DELIMITER)
@@ -270,7 +276,7 @@ public class DorisStreamLoad implements Serializable {
         try (CloseableHttpClient client = getHttpClient()) {
 
             String backend = getBackend();
-            String abortUrl = String.format(abortUrlPattern, backend, db, tbl);
+            String abortUrl = String.format(abortUrlPattern, backend, db);
             HttpPut httpPut = new HttpPut(abortUrl);
             addCommonHeader(httpPut);
             httpPut.setHeader("txn_operation", "commit");
@@ -358,7 +364,7 @@ public class DorisStreamLoad implements Serializable {
     private void doAbort(Consumer<HttpPut> putConsumer) throws StreamLoadException {
 
         try (CloseableHttpClient client = getHttpClient()) {
-            String abortUrl = String.format(abortUrlPattern, getBackend(), db, tbl);
+            String abortUrl = String.format(abortUrlPattern, getBackend(), db);
             HttpPut httpPut = new HttpPut(abortUrl);
             addCommonHeader(httpPut);
             httpPut.setHeader("txn_operation", "abort");
