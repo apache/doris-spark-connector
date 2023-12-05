@@ -20,13 +20,14 @@ package org.apache.doris.spark.sql
 import org.apache.doris.sdk.thrift.{TPrimitiveType, TScanColumnDesc}
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.models.{Field, Schema}
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types._
 import org.hamcrest.core.StringStartsWith.startsWith
-import org.junit.{Assert, Ignore, Test}
+import org.junit.{Assert, Test}
 
+import java.sql.Timestamp
 import scala.collection.JavaConverters._
 
-@Ignore
 class TestSchemaUtils extends ExpectedExceptionTest {
   @Test
   def testConvertToStruct(): Unit = {
@@ -54,12 +55,12 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     Assert.assertEquals(DataTypes.LongType, SchemaUtils.getCatalystType("BIGINT", 0, 0))
     Assert.assertEquals(DataTypes.FloatType, SchemaUtils.getCatalystType("FLOAT", 0, 0))
     Assert.assertEquals(DataTypes.DoubleType, SchemaUtils.getCatalystType("DOUBLE", 0, 0))
-    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("DATE", 0, 0))
+    Assert.assertEquals(DataTypes.DateType, SchemaUtils.getCatalystType("DATE", 0, 0))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("DATETIME", 0, 0))
     Assert.assertEquals(DataTypes.BinaryType, SchemaUtils.getCatalystType("BINARY", 0, 0))
     Assert.assertEquals(DecimalType(9, 3), SchemaUtils.getCatalystType("DECIMAL", 9, 3))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("CHAR", 0, 0))
-    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("LARGEINT", 0, 0))
+    Assert.assertEquals(DecimalType(38, 0), SchemaUtils.getCatalystType("LARGEINT", 0, 0))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("VARCHAR", 0, 0))
     Assert.assertEquals(DecimalType(10, 5), SchemaUtils.getCatalystType("DECIMALV2", 10, 5))
     Assert.assertEquals(DataTypes.DoubleType, SchemaUtils.getCatalystType("TIME", 0, 0))
@@ -110,6 +111,18 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     fields :+= DataTypes.createStructField("col1", DataTypes.ByteType, true)
     val expected = DataTypes.createStructType(fields.asJava)
     Assert.assertEquals(expected, SchemaUtils.convertToStruct(schema, null, "bitmap,hll"))
+
+  }
+
+  @Test
+  def rowColumnValueTest(): Unit = {
+
+    val timestamp = Timestamp.valueOf("2021-01-01 11:12:23.345678")
+    val row = InternalRow.fromSeq(Seq(
+      timestamp.getTime / 1000 * 1000000 + timestamp.getNanos / 1000
+    ))
+
+    Assert.assertEquals("2021-01-01 11:12:23.345678", SchemaUtils.rowColumnValue(row, 0, TimestampType))
 
   }
 
