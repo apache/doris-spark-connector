@@ -32,7 +32,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import scala.collection.JavaConverters;
+import scala.collection.JavaConversions;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -68,7 +68,8 @@ public class DataUtilTest extends TestCase {
 
     @Test
     public void rowToCsvBytes() {
-        InternalRow row = InternalRow.apply(JavaConverters.collectionAsScalaIterable(values).toSeq());
+
+        InternalRow row = InternalRow.apply(JavaConversions.asScalaBuffer(values).toSeq());
         byte[] bytes = DataUtil.rowToCsvBytes(row, schema, ",", false);
         Assert.assertArrayEquals("1,\\N,abc".getBytes(StandardCharsets.UTF_8), bytes);
         byte[] bytes1 = DataUtil.rowToCsvBytes(row, schema, ",", true);
@@ -81,7 +82,7 @@ public class DataUtilTest extends TestCase {
         dataMap.put("c1", 1);
         dataMap.put("c2", null);
         dataMap.put("c3", "abc");
-        InternalRow row = InternalRow.apply(JavaConverters.collectionAsScalaIterable(values).toSeq());
+        InternalRow row = InternalRow.apply(JavaConversions.asScalaBuffer(values).toSeq());
         byte[] bytes = DataUtil.rowToJsonBytes(row, schema);
         Assert.assertArrayEquals(MAPPER.writeValueAsBytes(dataMap), bytes);
     }
