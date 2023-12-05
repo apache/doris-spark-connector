@@ -421,7 +421,6 @@ public class DorisStreamLoad implements Serializable {
             List<BackendV2.BackendRowV2> backends = cache.get("backends");
             Collections.shuffle(backends);
             BackendV2.BackendRowV2 backend = backends.get(0);
-            LOG.info("Backend Info:{}", backend.getIp() + ":" + backend.getHttpPort());
             return backend.getIp() + ":" + backend.getHttpPort();
         } catch (ExecutionException e) {
             throw new RuntimeException("get backends info fail", e);

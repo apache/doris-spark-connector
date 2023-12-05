@@ -743,9 +743,9 @@ public class RestService implements Serializable {
     }
 
     /**
-     * choice a Doris FE node to request.
+     * choice a Doris BE node to request.
      *
-     * @param beNodes Doris FE node list, separate be comma
+     * @param beNodes Doris BE node list, separate be comma
      * @param logger  slf4j logger
      * @return the array of Doris FE nodes
      * @throws IllegalArgumentException fe nodes is illegal
