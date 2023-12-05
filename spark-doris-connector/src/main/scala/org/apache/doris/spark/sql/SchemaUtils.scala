@@ -31,10 +31,6 @@ import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
 
-import java.sql.Timestamp
-import java.time.format.DateTimeFormatter
-import java.time.{LocalDateTime, ZoneOffset}
-import java.util.Locale
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
@@ -194,11 +190,11 @@ private[spark] object SchemaUtils {
           }
         case st: StructType =>
           val structData = row.getStruct(ordinal, st.length)
-          val map = mutable.HashMap[String, Any]()
+          val map = new java.util.TreeMap[String, Any]()
           var i = 0
           while (i < structData.numFields) {
             val field = st.get(i)
-            map += field.name -> rowColumnValue(structData, i, field.dataType)
+            map.put(field.name, rowColumnValue(structData, i, field.dataType))
             i += 1
           }
           MAPPER.writeValueAsString(map)
