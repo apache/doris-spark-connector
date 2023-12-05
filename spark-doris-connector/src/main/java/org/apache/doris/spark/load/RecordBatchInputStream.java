@@ -164,11 +164,7 @@ public class RecordBatchInputStream extends InputStream {
 
         switch (recordBatch.getFormat().toLowerCase()) {
             case "csv":
-                if (recordBatch.getAddDoubleQuotes()) {
-                    bytes = DataUtil.rowAddDoubleQuotesToCsvBytes(row, recordBatch.getSchema(), recordBatch.getSep());
-                } else {
-                    bytes = DataUtil.rowToCsvBytes(row, recordBatch.getSchema(), recordBatch.getSep());
-                }
+                bytes = DataUtil.rowToCsvBytes(row, recordBatch.getSchema(), recordBatch.getSep(), recordBatch.getAddDoubleQuotes());
                 break;
             case "json":
                 try {
