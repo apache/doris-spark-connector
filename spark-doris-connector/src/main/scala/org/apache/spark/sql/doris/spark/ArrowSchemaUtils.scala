@@ -18,18 +18,20 @@
 package org.apache.spark.sql.doris.spark
 
 import org.apache.arrow.vector.types.pojo.Schema
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{IntegerType, StructType}
 
 object ArrowSchemaUtils {
   var classArrowUtils: Option[Class[_]] = None: Option[Class[_]]
 
   def tryLoadArrowUtilsClass(): Unit = {
-    // for spark3.x
-    classArrowUtils = classArrowUtils.orElse(tryLoadClass("org.apache.spark.sql.util.ArrowUtils"))
-    // for spark2.x
-    classArrowUtils = classArrowUtils.orElse(tryLoadClass("org.apache.spark.sql.execution.arrow.ArrowUtils"))
     if (classArrowUtils.isEmpty) {
-      throw new ClassNotFoundException("can't load class for ArrowUtils")
+      // for spark3.x
+      classArrowUtils = classArrowUtils.orElse(tryLoadClass("org.apache.spark.sql.util.ArrowUtils"))
+      // for spark2.x
+      classArrowUtils = classArrowUtils.orElse(tryLoadClass("org.apache.spark.sql.execution.arrow.ArrowUtils"))
+      if (classArrowUtils.isEmpty) {
+        throw new ClassNotFoundException("can't load class for ArrowUtils")
+      }
     }
   }
 
