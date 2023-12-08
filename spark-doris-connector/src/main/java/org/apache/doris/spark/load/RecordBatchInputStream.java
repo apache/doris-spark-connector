@@ -17,6 +17,8 @@
 
 package org.apache.doris.spark.load;
 
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.IllegalArgumentException;
 import org.apache.doris.spark.exception.ShouldNeverHappenException;
@@ -24,9 +26,11 @@ import org.apache.doris.spark.util.DataUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.execution.arrow.ArrowWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -54,11 +58,16 @@ public class RecordBatchInputStream extends InputStream {
      * record buffer
      */
 
-    private ByteBuffer lineBuf = ByteBuffer.allocate(0);;
+    private ByteBuffer lineBuf = ByteBuffer.allocate(0);
 
     private ByteBuffer delimBuf = ByteBuffer.allocate(0);
 
     private final byte[] delim;
+
+    /**
+     * record count has been read
+     */
+    private int readCount = 0;
 
     /**
      * streaming mode pass through data without process
@@ -73,18 +82,13 @@ public class RecordBatchInputStream extends InputStream {
 
     @Override
     public int read() throws IOException {
-        try {
-            if (lineBuf.remaining() == 0 && endOfBatch()) {
-                return -1;
-            }
-
-            if (delimBuf != null && delimBuf.remaining() > 0) {
-                return delimBuf.get() & 0xff;
-            }
-        } catch (DorisException e) {
-            throw new IOException(e);
+        byte[] bytes = new byte[1];
+        int read = read(bytes, 0, 1);
+        if (read < 0) {
+            return -1;
+        } else {
+            return bytes[0];
         }
-        return lineBuf.get() & 0xFF;
     }
 
     @Override
@@ -102,6 +106,7 @@ public class RecordBatchInputStream extends InputStream {
         } catch (DorisException e) {
             throw new IOException(e);
         }
+
         int bytesRead = Math.min(len, lineBuf.remaining());
         lineBuf.get(b, off, bytesRead);
         return bytesRead;
@@ -121,6 +126,8 @@ public class RecordBatchInputStream extends InputStream {
             readNext(iterator);
             return false;
         }
+
+        recordBatch.clearBatch();
         delimBuf = null;
         return true;
     }
@@ -135,14 +142,41 @@ public class RecordBatchInputStream extends InputStream {
         if (!iterator.hasNext()) {
             throw new ShouldNeverHappenException();
         }
-        byte[] rowBytes = rowToByte(iterator.next());
-        if (isFirst) {
+
+        if (recordBatch.getFormat().equals(DataFormat.ARROW)) {
+            ArrowWriter arrowWriter = ArrowWriter.create(recordBatch.getVectorSchemaRoot());
+            while (iterator.hasNext() && readCount <  recordBatch.getArrowBatchSize()) {
+                arrowWriter.write(iterator.next());
+                readCount++;
+            }
+            arrowWriter.finish();
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ArrowStreamWriter writer = new ArrowStreamWriter(
+                recordBatch.getVectorSchemaRoot(),
+                new DictionaryProvider.MapDictionaryProvider(),
+                out);
+
+            try {
+                writer.writeBatch();
+                writer.end();
+            } catch (IOException e) {
+                throw new DorisException(e);
+            }
+
             delimBuf = null;
-            lineBuf = ByteBuffer.wrap(rowBytes);
-            isFirst = false;
+            lineBuf = ByteBuffer.wrap(out.toByteArray());
+            readCount = 0;
         } else {
-            delimBuf =  ByteBuffer.wrap(delim);
-            lineBuf = ByteBuffer.wrap(rowBytes);
+            byte[] rowBytes = rowToByte(iterator.next());
+            if (isFirst) {
+                delimBuf = null;
+                lineBuf = ByteBuffer.wrap(rowBytes);
+                isFirst = false;
+            } else {
+                delimBuf =  ByteBuffer.wrap(delim);
+                lineBuf = ByteBuffer.wrap(rowBytes);
+            }
         }
     }
 
@@ -162,11 +196,11 @@ public class RecordBatchInputStream extends InputStream {
             return bytes;
         }
 
-        switch (recordBatch.getFormat().toLowerCase()) {
-            case "csv":
+        switch (recordBatch.getFormat()) {
+            case CSV:
                 bytes = DataUtil.rowToCsvBytes(row, recordBatch.getSchema(), recordBatch.getSep(), recordBatch.getAddDoubleQuotes());
                 break;
-            case "json":
+            case JSON:
                 try {
                     bytes = DataUtil.rowToJsonBytes(row, recordBatch.getSchema());
                 } catch (JsonProcessingException e) {
@@ -174,7 +208,7 @@ public class RecordBatchInputStream extends InputStream {
                 }
                 break;
             default:
-                throw new IllegalArgumentException("format", recordBatch.getFormat());
+                throw new IllegalArgumentException("Unsupported format: ", recordBatch.getFormat().toString());
         }
 
         return bytes;

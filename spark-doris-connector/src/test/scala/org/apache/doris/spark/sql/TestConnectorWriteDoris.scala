@@ -184,5 +184,4 @@ class TestConnectorWriteDoris {
       .save()
     spark.stop()
   }
-
 }
