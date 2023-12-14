@@ -413,10 +413,7 @@ public class DorisStreamLoad implements Serializable {
 
     private String getBackend() {
         try {
-            /**
-             * It says that when BE exists there is no FE so this is handled logically
-             */
-            if (autoRedirect && null == beNodes) {
+            if (autoRedirect) {
                 return RestService.randomEndpoint(fenodes, LOG);
             }
             // get backends from cache

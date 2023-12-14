@@ -17,7 +17,16 @@
 
 package org.apache.doris.spark.rest;
 
-import static org.apache.doris.spark.cfg.ConfigurationOptions.*;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_FENODES;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_FILTER_QUERY;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_REQUEST_AUTH_USER;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE_DEFAULT;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE_MIN;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLE_IDENTIFIER;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_BENODES;
 import static org.apache.doris.spark.util.ErrorMessages.CONNECT_FAILED_MESSAGE;
 import static org.apache.doris.spark.util.ErrorMessages.ILLEGAL_ARGUMENT_MESSAGE;
 import static org.apache.doris.spark.util.ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE;
