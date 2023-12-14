@@ -98,6 +98,7 @@ public class DorisStreamLoad implements Serializable {
     private static final long cacheExpireTimeout = 4 * 60;
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private final String fenodes;
+    private final String beNodes;
     private final DataFormat dataFormat;
     private String FIELD_DELIMITER;
     private final String LINE_DELIMITER;
@@ -112,6 +113,7 @@ public class DorisStreamLoad implements Serializable {
         this.db = dbTable[0];
         this.tbl = dbTable[1];
         this.fenodes = settings.getProperty(ConfigurationOptions.DORIS_FENODES);
+        this.beNodes = settings.getProperty(ConfigurationOptions.DORIS_BENODES);
         String user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         String passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
         this.authEncoded = getAuthEncoded(user, passwd);
@@ -421,7 +423,8 @@ public class DorisStreamLoad implements Serializable {
             return backend.getIp() + ":" + backend.getHttpPort();
         } catch (ExecutionException e) {
             throw new RuntimeException("get backends info fail", e);
-        } catch (IllegalArgumentException e) {
+        }
+        catch (IllegalArgumentException e) {
             throw new RuntimeException("get frontend info fail", e);
         }
     }
@@ -444,9 +447,12 @@ public class DorisStreamLoad implements Serializable {
 
         @Override
         public List<BackendV2.BackendRowV2> load(String key) throws Exception {
-            return RestService.getBackendRows(settings, LOG);
+            if(RestService.notBeNode(settings,LOG)){
+                return RestService.getBackendRows(settings, LOG);
+            }else{
+                return RestService.getBeBackendRows(settings, LOG);
+            }
         }
-
     }
 
     private String generateLoadLabel() {
