@@ -21,6 +21,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.module.scala.DefaultScalaModule;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.spark.sql.SchemaUtils;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.StructField;
@@ -29,6 +31,8 @@ import org.apache.spark.sql.types.StructType;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class DataUtil {
 
@@ -36,36 +40,20 @@ public class DataUtil {
 
     public static final String NULL_VALUE = "\\N";
 
-    public static byte[] rowToCsvBytes(InternalRow row, StructType schema, String sep) {
-        StringBuilder builder = new StringBuilder();
+    public static byte[] rowToCsvBytes(InternalRow row, StructType schema, String sep, boolean quote) {
         StructField[] fields = schema.fields();
         int n = row.numFields();
         if (n > 0) {
-            builder.append(SchemaUtils.rowColumnValue(row, 0, fields[0].dataType()));
-            int i = 1;
-            while (i < n) {
-                builder.append(sep);
-                builder.append(SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
-                i++;
-            }
+            return IntStream.range(0, row.numFields()).boxed().map(idx -> {
+                Object value = ObjectUtils.defaultIfNull(SchemaUtils.rowColumnValue(row, idx, fields[idx].dataType()),
+                        NULL_VALUE);
+                if (quote) {
+                    value = "\"" + value + "\"";
+                }
+                return value.toString();
+            }).collect(Collectors.joining(sep)).getBytes(StandardCharsets.UTF_8);
         }
-        return builder.toString().getBytes(StandardCharsets.UTF_8);
-    }
-
-    public static byte[] rowAddDoubleQuotesToCsvBytes(InternalRow row, StructType schema, String sep) {
-        StringBuilder builder = new StringBuilder();
-        StructField[] fields = schema.fields();
-        int n = row.numFields();
-        if (n > 0) {
-            builder.append("\"").append(SchemaUtils.rowColumnValue(row, 0, fields[0].dataType())).append("\"");
-            int i = 1;
-            while (i < n) {
-                builder.append(sep);
-                builder.append("\"").append(SchemaUtils.rowColumnValue(row, i, fields[i].dataType())).append("\"");
-                i++;
-            }
-        }
-        return builder.toString().getBytes(StandardCharsets.UTF_8);
+        return StringUtils.EMPTY.getBytes(StandardCharsets.UTF_8);
     }
 
     public static byte[] rowToJsonBytes(InternalRow row, StructType schema) throws JsonProcessingException {

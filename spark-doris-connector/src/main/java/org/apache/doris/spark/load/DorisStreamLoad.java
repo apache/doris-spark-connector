@@ -98,9 +98,8 @@ public class DorisStreamLoad implements Serializable {
     private static final long cacheExpireTimeout = 4 * 60;
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private final String fenodes;
-    //添加BENODES
     private final String beNodes;
-    private final String fileType;
+    private final DataFormat dataFormat;
     private String FIELD_DELIMITER;
     private final String LINE_DELIMITER;
     private boolean streamingPassthrough = false;
@@ -122,16 +121,19 @@ public class DorisStreamLoad implements Serializable {
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
         this.streamLoadProp = getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder().expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES).build(new BackendCacheLoader(settings));
-        fileType = streamLoadProp.getOrDefault("format", "csv");
-        if ("csv".equals(fileType)) {
-            FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
-            this.addDoubleQuotes = Boolean.parseBoolean(streamLoadProp.getOrDefault("add_double_quotes", "false"));
-            if (addDoubleQuotes) {
-                LOG.info("set add_double_quotes for csv mode, add trim_double_quotes to true for prop.");
-                streamLoadProp.put("trim_double_quotes", "true");
-            }
-        } else if ("json".equalsIgnoreCase(fileType)) {
-            streamLoadProp.put("read_json_by_line", "true");
+        dataFormat = DataFormat.valueOf(streamLoadProp.getOrDefault("format", "csv").toUpperCase());
+        switch (dataFormat) {
+            case CSV:
+                FIELD_DELIMITER = escapeString(streamLoadProp.getOrDefault("column_separator", "\t"));
+                this.addDoubleQuotes = Boolean.parseBoolean(streamLoadProp.getOrDefault("add_double_quotes", "false"));
+                if (addDoubleQuotes) {
+                    LOG.info("set add_double_quotes for csv mode, add trim_double_quotes to true for prop.");
+                    streamLoadProp.put("trim_double_quotes", "true");
+                }
+                break;
+            case JSON:
+                streamLoadProp.put("read_json_by_line", "true");
+                break;
         }
         LINE_DELIMITER = escapeString(streamLoadProp.getOrDefault("line_delimiter", "\n"));
         this.streamingPassthrough = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,
@@ -221,7 +223,7 @@ public class DorisStreamLoad implements Serializable {
             this.loadUrlStr = loadUrlStr;
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC, schema);
             RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
-                    .format(fileType)
+                    .format(dataFormat)
                     .sep(FIELD_DELIMITER)
                     .delim(LINE_DELIMITER)
                     .schema(schema)
@@ -502,7 +504,7 @@ public class DorisStreamLoad implements Serializable {
      */
     private void handleStreamPassThrough() {
 
-        if ("json".equalsIgnoreCase(fileType)) {
+        if (dataFormat.equals(DataFormat.JSON)) {
             LOG.info("handle stream pass through, force set read_json_by_line is true for json format");
             streamLoadProp.put("read_json_by_line", "true");
             streamLoadProp.remove("strip_outer_array");

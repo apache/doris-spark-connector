@@ -31,8 +31,6 @@ import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
 
-import java.sql.Timestamp
-import java.time.{LocalDateTime, ZoneOffset}
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
@@ -164,8 +162,7 @@ private[spark] object SchemaUtils {
         case DoubleType => row.getDouble(ordinal)
         case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(DataUtil.NULL_VALUE)
         case TimestampType =>
-          LocalDateTime.ofEpochSecond(row.getLong(ordinal) / 100000, (row.getLong(ordinal) % 1000).toInt, ZoneOffset.UTC)
-          new Timestamp(row.getLong(ordinal) / 1000).toString
+          DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
         case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
         case BinaryType => row.getBinary(ordinal)
         case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
@@ -193,11 +190,11 @@ private[spark] object SchemaUtils {
           }
         case st: StructType =>
           val structData = row.getStruct(ordinal, st.length)
-          val map = mutable.HashMap[String, Any]()
+          val map = new java.util.TreeMap[String, Any]()
           var i = 0
           while (i < structData.numFields) {
             val field = st.get(i)
-            map += field.name -> rowColumnValue(structData, i, field.dataType)
+            map.put(field.name, rowColumnValue(structData, i, field.dataType))
             i += 1
           }
           MAPPER.writeValueAsString(map)
