@@ -128,8 +128,8 @@ private[spark] object SchemaUtils {
       case "ARRAY"           => DataTypes.StringType
       case "MAP"             => MapType(DataTypes.StringType, DataTypes.StringType)
       case "STRUCT"          => DataTypes.StringType
-      case "HLL"             =>
-        throw new DorisException("Unsupported type " + dorisType)
+      case "HLL"             => DataTypes.BinaryType
+      case "BITMAP"          => DataTypes.BinaryType
       case _                 =>
         throw new DorisException("Unrecognized Doris type " + dorisType)
     }
