@@ -447,11 +447,7 @@ public class DorisStreamLoad implements Serializable {
 
         @Override
         public List<BackendV2.BackendRowV2> load(String key) throws Exception {
-            if(RestService.notBeNode(settings,LOG)){
                 return RestService.getBackendRows(settings, LOG);
-            }else{
-                return RestService.getBeBackendRows(settings, LOG);
-            }
         }
     }
 

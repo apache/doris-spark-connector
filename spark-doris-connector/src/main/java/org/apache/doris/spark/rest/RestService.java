@@ -539,7 +539,7 @@ public class RestService implements Serializable {
     }
 
     private static String getBackend(SparkSettings sparkSettings, Logger logger) throws DorisException {
-        List<BackendV2.BackendRowV2> backends = getBackendRowV2s(sparkSettings, logger);
+        List<BackendV2.BackendRowV2> backends = getBackendRows(sparkSettings, logger);
         Collections.shuffle(backends);
         BackendV2.BackendRowV2 backend = backends.get(0);
         return backend.getIp() + ":" + backend.getHttpPort();
@@ -583,12 +583,12 @@ public class RestService implements Serializable {
     }
 
     /**
-     * get Doris BE node.
+     * get Doris BE nodes.
      * @param logger slf4j logger
      * @return the Doris BE node
      * @throws IllegalArgumentException BE nodes is illegal
      */
-    public static List<BackendV2.BackendRowV2> getBeBackendRows(SparkSettings sparkSettings,  Logger logger) throws DorisException {
+    public static List<BackendV2.BackendRowV2> getBeNodes(SparkSettings sparkSettings, Logger logger) throws DorisException {
         List<String> backends = allBeEndpoints(sparkSettings.getProperty(DORIS_BENODES),logger);
         List<BackendV2.BackendRowV2> backendRowV2s = new ArrayList<BackendV2.BackendRowV2>();
         if (backends == null || backends.isEmpty()) {
@@ -626,44 +626,34 @@ public class RestService implements Serializable {
      */
     @VisibleForTesting
     public static List<BackendV2.BackendRowV2> getBackendRows(SparkSettings sparkSettings,  Logger logger) throws DorisException {
-        List<String> feNodeList = allEndpoints(sparkSettings.getProperty(DORIS_FENODES), logger);
-        for (String feNode : feNodeList){
-            try {
-                String beUrl =   String.format("http://%s" + BACKENDS_V2, feNode);
-                HttpGet httpGet = new HttpGet(beUrl);
-                String response = send(sparkSettings, httpGet, logger);
-                logger.info("Backend Info:{}", response);
-                List<BackendV2.BackendRowV2> backends = parseBackendV2(response, logger);
-                logger.trace("Parse beNodes '{}'.", backends);
-                if (backends == null || backends.isEmpty()) {
-                    logger.error(ILLEGAL_ARGUMENT_MESSAGE, "beNodes", backends);
-                    throw new IllegalArgumentException("beNodes", String.valueOf(backends));
+        /**
+         * If the specified BE does not exist, the FE mode is used
+         */
+        if(notBeNode(sparkSettings,logger)){
+            List<String> feNodeList = allEndpoints(sparkSettings.getProperty(DORIS_FENODES), logger);
+            for (String feNode : feNodeList){
+                try {
+                    String beUrl =   String.format("http://%s" + BACKENDS_V2, feNode);
+                    HttpGet httpGet = new HttpGet(beUrl);
+                    String response = send(sparkSettings, httpGet, logger);
+                    logger.info("Backend Info:{}", response);
+                    List<BackendV2.BackendRowV2> backends = parseBackendV2(response, logger);
+                    logger.trace("Parse beNodes '{}'.", backends);
+                    if (backends == null || backends.isEmpty()) {
+                        logger.error(ILLEGAL_ARGUMENT_MESSAGE, "beNodes", backends);
+                        throw new IllegalArgumentException("beNodes", String.valueOf(backends));
+                    }
+                    return backends;
+                } catch (ConnectedFailedException e) {
+                    logger.info("Doris FE node {} is unavailable: {}, Request the next Doris FE node", feNode, e.getMessage());
                 }
-                return backends;
-            } catch (ConnectedFailedException e) {
-                logger.info("Doris FE node {} is unavailable: {}, Request the next Doris FE node", feNode, e.getMessage());
             }
+            String errMsg = "No Doris FE is available, please check configuration";
+            logger.error(errMsg);
+            throw new DorisException(errMsg);
+        }else {
+            return  getBeNodes(sparkSettings, logger);
         }
-        String errMsg = "No Doris FE is available, please check configuration";
-        logger.error(errMsg);
-        throw new DorisException(errMsg);
-    }
-
-    /**
-     * benode does not exist, execute the original FE
-     * @param sparkSettings  settings
-     * @param logger slf4j logger
-     * @return Doris Be nodes
-     * @throws DorisException
-     */
-    private static List<BackendV2.BackendRowV2> getBackendRowV2s(SparkSettings sparkSettings, Logger logger) throws DorisException {
-        List<BackendV2.BackendRowV2> backends = null;
-        if(notBeNode(sparkSettings, logger)){
-            backends = getBackendRows(sparkSettings, logger);
-        }else{
-            backends = getBeBackendRows(sparkSettings, logger);
-        }
-        return backends;
     }
 
     static List<BackendV2.BackendRowV2> parseBackendV2(String response, Logger logger) throws DorisException {
