@@ -118,6 +118,7 @@ private[spark] object SchemaUtils {
       case "CHAR"            => DataTypes.StringType
       case "LARGEINT"        => DecimalType(38,0)
       case "VARCHAR"         => DataTypes.StringType
+      case "JSON"            => DataTypes.StringType
       case "JSONB"           => DataTypes.StringType
       case "DECIMALV2"       => DecimalType(precision, scale)
       case "DECIMAL32"       => DecimalType(precision, scale)
@@ -130,7 +131,7 @@ private[spark] object SchemaUtils {
       case "STRUCT"          => DataTypes.StringType
       case "HLL"             =>
         throw new DorisException("Unsupported type " + dorisType)
-      case _                 =>
+      case _                             =>
         throw new DorisException("Unrecognized Doris type " + dorisType)
     }
   }
