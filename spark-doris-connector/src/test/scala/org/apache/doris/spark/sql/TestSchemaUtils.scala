@@ -57,6 +57,7 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     Assert.assertEquals(DataTypes.DoubleType, SchemaUtils.getCatalystType("DOUBLE", 0, 0))
     Assert.assertEquals(DataTypes.DateType, SchemaUtils.getCatalystType("DATE", 0, 0))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("DATETIME", 0, 0))
+    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("DATETIMEV2", 0, 0))
     Assert.assertEquals(DataTypes.BinaryType, SchemaUtils.getCatalystType("BINARY", 0, 0))
     Assert.assertEquals(DecimalType(9, 3), SchemaUtils.getCatalystType("DECIMAL", 9, 3))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("CHAR", 0, 0))
@@ -65,6 +66,8 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     Assert.assertEquals(DecimalType(10, 5), SchemaUtils.getCatalystType("DECIMALV2", 10, 5))
     Assert.assertEquals(DataTypes.DoubleType, SchemaUtils.getCatalystType("TIME", 0, 0))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("STRING", 0, 0))
+    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("JSON", 0, 0))
+    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("JSONB", 0, 0))
 
     thrown.expect(classOf[DorisException])
     thrown.expectMessage(startsWith("Unsupported type"))
