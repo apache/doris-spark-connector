@@ -592,8 +592,8 @@ public class RestService implements Serializable {
         List<String> backends = allBeEndpoints(sparkSettings.getProperty(DORIS_BENODES),logger);
         List<BackendV2.BackendRowV2> backendRowV2s = new ArrayList<BackendV2.BackendRowV2>();
         if (backends == null || backends.isEmpty()) {
-            logger.error(ILLEGAL_ARGUMENT_MESSAGE, "beNodes", backends);
-            throw new IllegalArgumentException("beNodes", String.valueOf(backends));
+            logger.error(ILLEGAL_ARGUMENT_MESSAGE, "benodes", backends);
+            throw new IllegalArgumentException("benodes", String.valueOf(backends));
         }
         BackendV2.BackendRowV2 backendRowV2 = new BackendV2.BackendRowV2();
         for (int i = 0; i < backends.size(); i++) {
@@ -638,10 +638,10 @@ public class RestService implements Serializable {
                     String response = send(sparkSettings, httpGet, logger);
                     logger.info("Backend Info:{}", response);
                     List<BackendV2.BackendRowV2> backends = parseBackendV2(response, logger);
-                    logger.trace("Parse beNodes '{}'.", backends);
+                    logger.trace("Parse benodes '{}'.", backends);
                     if (backends == null || backends.isEmpty()) {
-                        logger.error(ILLEGAL_ARGUMENT_MESSAGE, "beNodes", backends);
-                        throw new IllegalArgumentException("beNodes", String.valueOf(backends));
+                        logger.error(ILLEGAL_ARGUMENT_MESSAGE, "benodes", backends);
+                        throw new IllegalArgumentException("benodes", String.valueOf(backends));
                     }
                     return backends;
                 } catch (ConnectedFailedException e) {

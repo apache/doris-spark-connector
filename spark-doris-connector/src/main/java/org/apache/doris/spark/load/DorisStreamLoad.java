@@ -98,7 +98,7 @@ public class DorisStreamLoad implements Serializable {
     private static final long cacheExpireTimeout = 4 * 60;
     private final LoadingCache<String, List<BackendV2.BackendRowV2>> cache;
     private final String fenodes;
-    private final String beNodes;
+    private final String benodes;
     private final DataFormat dataFormat;
     private String FIELD_DELIMITER;
     private final String LINE_DELIMITER;
@@ -113,7 +113,7 @@ public class DorisStreamLoad implements Serializable {
         this.db = dbTable[0];
         this.tbl = dbTable[1];
         this.fenodes = settings.getProperty(ConfigurationOptions.DORIS_FENODES);
-        this.beNodes = settings.getProperty(ConfigurationOptions.DORIS_BENODES);
+        this.benodes = settings.getProperty(ConfigurationOptions.DORIS_BENODES);
         String user = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_USER);
         String passwd = settings.getProperty(ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD);
         this.authEncoded = getAuthEncoded(user, passwd);
