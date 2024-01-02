@@ -30,6 +30,15 @@ More information about compilation and usage, please visit [Spark Doris Connecto
 
 [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 
+## How to Build
+
+You need to copy customer_env.sh.tpl to customer_env.sh before build and you need to configure it before build.
+```shell
+git clone git@github.com:apache/doris-spark-connector.git
+cd doris-spark-connector/spark-doris-connector
+./build.sh
+```
+
 ### QuickStart
 
 1. download and compile Spark Doris Connector from  https://github.com/apache/doris-spark-connector, we suggest compile Spark Doris Connector  by Doris offfcial image。
