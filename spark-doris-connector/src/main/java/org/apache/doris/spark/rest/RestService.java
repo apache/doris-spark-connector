@@ -600,18 +600,13 @@ public class RestService implements Serializable {
             String ip = backends.get(i).substring(0,backends.get(i).indexOf(":"));
             try {
                 Integer port = Integer.valueOf(backends.get(i).substring(backends.get(i).indexOf(":")+1,backends.get(i).length()));
-                BackendV2.BackendRowV2 backend =  backendRowV2.clone();
                 /**
                  * By default, the BE port you enter is is_alive=true
                  */
-                backend.setAlive(true);
-                backend.setIp(ip);
-                backend.setHttpPort(port);
+                BackendV2.BackendRowV2 backend =  backendRowV2.of(ip,port,true);
                 backendRowV2s.add(backend);
             } catch (NumberFormatException e) {
                 logger.error("Doris BE is port error, please check configuration");
-                throw new RuntimeException(e);
-            } catch (CloneNotSupportedException e) {
                 throw new RuntimeException(e);
             }
         }
