@@ -73,9 +73,12 @@ public class BackendV2 {
         public void setAlive(boolean alive) {
             isAlive = alive;
         }
-        @Override
-        public BackendRowV2 clone() throws CloneNotSupportedException{
-            return (BackendRowV2) super.clone();
+        public static BackendRowV2 of(String ip, int httpPort, boolean alive) {
+            BackendRowV2 rowV2 = new BackendRowV2();
+            rowV2.setIp(ip);
+            rowV2.setHttpPort(httpPort);
+            rowV2.setAlive(alive);
+            return rowV2;
         }
     }
 }
