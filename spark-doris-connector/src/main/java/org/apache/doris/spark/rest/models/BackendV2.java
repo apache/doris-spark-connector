@@ -26,6 +26,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BackendV2 {
 
+
     @JsonProperty(value = "backends")
     private List<BackendRowV2> backends;
 
@@ -37,7 +38,11 @@ public class BackendV2 {
         this.backends = rows;
     }
 
-    public static class BackendRowV2 {
+    public static class BackendRowV2 implements Cloneable{
+
+        public BackendRowV2(){
+            super();
+        }
         @JsonProperty("ip")
         public String ip;
         @JsonProperty("http_port")
@@ -67,6 +72,13 @@ public class BackendV2 {
 
         public void setAlive(boolean alive) {
             isAlive = alive;
+        }
+        public static BackendRowV2 of(String ip, int httpPort, boolean alive) {
+            BackendRowV2 rowV2 = new BackendRowV2();
+            rowV2.setIp(ip);
+            rowV2.setHttpPort(httpPort);
+            rowV2.setAlive(alive);
+            return rowV2;
         }
     }
 }
