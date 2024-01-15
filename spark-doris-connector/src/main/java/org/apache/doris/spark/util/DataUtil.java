@@ -40,7 +40,7 @@ public class DataUtil {
 
     public static final String NULL_VALUE = "\\N";
 
-    public static byte[] rowToCsvBytes(InternalRow row, StructType schema, String sep, boolean quote) {
+    public static String rowToCsvString(InternalRow row, StructType schema, String sep, boolean quote) {
         StructField[] fields = schema.fields();
         int n = row.numFields();
         if (n > 0) {
@@ -51,9 +51,13 @@ public class DataUtil {
                     value = "\"" + value + "\"";
                 }
                 return value.toString();
-            }).collect(Collectors.joining(sep)).getBytes(StandardCharsets.UTF_8);
+            }).collect(Collectors.joining(sep));
         }
-        return StringUtils.EMPTY.getBytes(StandardCharsets.UTF_8);
+        return StringUtils.EMPTY;
+    }
+
+    public static byte[] rowToCsvBytes(InternalRow row, StructType schema, String sep, boolean quote) {
+        return rowToCsvString(row, schema, sep, quote).getBytes(StandardCharsets.UTF_8);
     }
 
     public static byte[] rowToJsonBytes(InternalRow row, StructType schema) throws JsonProcessingException {
@@ -63,6 +67,15 @@ public class DataUtil {
             rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
         }
         return MAPPER.writeValueAsBytes(rowMap);
+    }
+
+    public static String rowToJsonString(InternalRow row, StructType schema) throws JsonProcessingException {
+        StructField[] fields = schema.fields();
+        Map<String, Object> rowMap = new HashMap<>(row.numFields());
+        for (int i = 0; i < fields.length; i++) {
+            rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
+        }
+        return MAPPER.writeValueAsString(rowMap);
     }
 
 }

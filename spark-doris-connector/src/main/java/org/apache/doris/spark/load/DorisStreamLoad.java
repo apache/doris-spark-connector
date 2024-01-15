@@ -39,6 +39,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.BufferedHttpEntity;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
@@ -50,6 +51,7 @@ import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -70,6 +72,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
+
+import static org.apache.doris.spark.load.DataFormat.CSV;
 
 
 /**
@@ -107,6 +112,7 @@ public class DorisStreamLoad implements Serializable {
     private final Integer txnRetries;
     private final Integer txnIntervalMs;
     private final boolean autoRedirect;
+    private final String compressType;
 
     public DorisStreamLoad(SparkSettings settings) {
         String[] dbTable = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.");
@@ -147,6 +153,7 @@ public class DorisStreamLoad implements Serializable {
 
         this.autoRedirect = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT,
                 ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT_DEFAULT);
+        compressType=settings.getProperty(ConfigurationOptions.DORIS_SINK_DATA_COMPRESS_TYPE);
     }
 
     public String getLoadUrlStr() {
@@ -222,13 +229,34 @@ public class DorisStreamLoad implements Serializable {
             String loadUrlStr = String.format(loadUrlPattern, getBackend(), db, tbl);
             this.loadUrlStr = loadUrlStr;
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC, schema);
-            RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
-                    .format(dataFormat)
-                    .sep(FIELD_DELIMITER)
-                    .delim(LINE_DELIMITER)
-                    .schema(schema)
-                    .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
-            httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
+
+            if(StringUtils.isNotEmpty(compressType)){
+                if("gz".equals(compressType.toLowerCase())){
+                    if(dataFormat.equals(CSV)){
+                        RecordBatchString recordBatchString = new RecordBatchString(RecordBatch.newBuilder(rows)
+                                .format(dataFormat)
+                                .sep(FIELD_DELIMITER)
+                                .delim(LINE_DELIMITER)
+                                .schema(schema)
+                                .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
+                        String content = recordBatchString.getContent();
+                        byte[] compressedData = compressByGZ(content);
+                        httpPut.setEntity(new ByteArrayEntity(compressedData));
+                    }else{
+                        throw new StreamLoadException("compress data of JSON format is not supported");
+                    }
+                }else{
+                    throw new StreamLoadException("not support the compress type: " + compressType);
+                }
+            }else{
+                RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
+                        .format(dataFormat)
+                        .sep(FIELD_DELIMITER)
+                        .delim(LINE_DELIMITER)
+                        .schema(schema)
+                        .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
+                httpPut.setEntity(new InputStreamEntity(recodeBatchInputStream));
+            }
             HttpResponse httpResponse = httpClient.execute(httpPut);
             loadResponse = new LoadResponse(httpResponse);
         } catch (IOException e) {
@@ -503,6 +531,21 @@ public class DorisStreamLoad implements Serializable {
             streamLoadProp.remove("strip_outer_array");
         }
 
+    }
+
+    /**
+     * compress data by gz compression algorithm
+     */
+    private byte[] compressByGZ(String content) throws IOException{
+        byte[] compressedData;
+        try(ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            GZIPOutputStream gzipOutputStream = new GZIPOutputStream(baos);
+        ){
+            gzipOutputStream.write(content.getBytes("UTF-8"));
+            gzipOutputStream.finish();
+            compressedData = baos.toByteArray();
+        }
+        return compressedData;
     }
 
 }
