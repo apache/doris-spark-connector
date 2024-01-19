@@ -228,22 +228,18 @@ public class DorisStreamLoad implements Serializable {
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC, schema);
 
             if(StringUtils.isNotEmpty(compressType)){
-                if("gz".equals(compressType.toLowerCase())){
-                    if(dataFormat.equals(DataFormat.CSV)){
-                        RecordBatchString recordBatchString = new RecordBatchString(RecordBatch.newBuilder(rows)
-                                .format(dataFormat)
-                                .sep(FIELD_DELIMITER)
-                                .delim(LINE_DELIMITER)
-                                .schema(schema)
-                                .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
-                        String content = recordBatchString.getContent();
-                        byte[] compressedData = compressByGZ(content);
-                        httpPut.setEntity(new ByteArrayEntity(compressedData));
-                    }else{
-                        throw new StreamLoadException("compress data of JSON format is not supported");
-                    }
+                if("gz".equals(compressType.toLowerCase()) && dataFormat.equals(DataFormat.CSV) ){
+                    RecordBatchString recordBatchString = new RecordBatchString(RecordBatch.newBuilder(rows)
+                            .format(dataFormat)
+                            .sep(FIELD_DELIMITER)
+                            .delim(LINE_DELIMITER)
+                            .schema(schema)
+                            .addDoubleQuotes(addDoubleQuotes).build(), streamingPassthrough);
+                    String content = recordBatchString.getContent();
+                    byte[] compressedData = compressByGZ(content);
+                    httpPut.setEntity(new ByteArrayEntity(compressedData));
                 }else{
-                    throw new StreamLoadException("not support the compress type: " + compressType);
+                    throw new StreamLoadException("Not support the compress type [" + compressType + "] for the dataformat [" + dataFormat + "]");
                 }
             }else{
                 RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
@@ -533,7 +529,7 @@ public class DorisStreamLoad implements Serializable {
     /**
      * compress data by gz compression algorithm
      */
-    private byte[] compressByGZ(String content) throws IOException{
+    public byte[] compressByGZ(String content) throws IOException{
         byte[] compressedData;
         try(ByteArrayOutputStream baos = new ByteArrayOutputStream();
             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(baos);
