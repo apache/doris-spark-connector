@@ -42,18 +42,44 @@ jobs:
         java-version: '8'
         cache: 'maven'
 
-    - name: Build spark connector v2
+    - name: Build spark connector 2.3
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=2.3.4 \
           -Dscala.version=2.11 \
           -Dspark.major.version=2.3
 
-    - name: Build spark connector v3
+    - name: Build spark connector 2.4
+      run: |
+        cd spark-doris-connector && mvn clean package ${MVN_OPT} \
+          -Dspark.version=2.4.0 \
+          -Dscala.version=2.11 \
+          -Dspark.major.version=2.4    
+
+    - name: Build spark connector 3.1
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=3.1.2 \
           -Dscala.version=2.12 \
           -Dspark.major.version=3.1
-          
 
+    - name: Build spark connector 3.2
+      run: |
+        cd spark-doris-connector && mvn clean package ${MVN_OPT} \
+          -Dspark.version=3.2.0 \
+          -Dscala.version=2.12 \
+          -Dspark.major.version=3.2
+
+    - name: Build spark connector 3.3
+      run: |
+        cd spark-doris-connector && mvn clean package ${MVN_OPT} \
+          -Dspark.version=3.3.0 \
+          -Dscala.version=2.12 \
+          -Dspark.major.version=3.3
+
+    - name: Build spark connector 3.4
+      run: |
+        cd spark-doris-connector && mvn clean package ${MVN_OPT} \
+          -Dspark.version=3.4.0 \
+          -Dscala.version=2.12 \
+          -Dspark.major.version=3.4  
