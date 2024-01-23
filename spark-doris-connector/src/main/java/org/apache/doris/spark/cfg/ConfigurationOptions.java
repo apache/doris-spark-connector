@@ -125,7 +125,7 @@ public interface ConfigurationOptions {
      * Use automatic redirection of fe without explicitly obtaining the be list
      */
     String DORIS_SINK_AUTO_REDIRECT = "doris.sink.auto-redirect";
-    boolean DORIS_SINK_AUTO_REDIRECT_DEFAULT = false;
+    boolean DORIS_SINK_AUTO_REDIRECT_DEFAULT = true;
 
     /**
      * compress_type
