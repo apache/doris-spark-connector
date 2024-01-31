@@ -31,6 +31,7 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
+import org.apache.doris.spark.sql.Utils;
 import org.apache.doris.spark.util.ResponseUtil;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
@@ -180,7 +181,7 @@ public class DorisStreamLoad implements Serializable {
             httpPut.setHeader("columns", columns);
         } else {
             if (schema != null && !schema.isEmpty()) {
-                String dfColumns = Arrays.stream(schema.fieldNames()).collect(Collectors.joining(","));
+                String dfColumns = Arrays.stream(schema.fieldNames()).map(Utils::quote).collect(Collectors.joining(","));
                 httpPut.setHeader("columns", dfColumns);
             }
         }
