@@ -21,6 +21,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.jdbc.JdbcUtils
+import org.apache.doris.spark.load.{CommitMessage, StreamLoader}
 import org.apache.doris.spark.sql.DorisSourceProvider.SHORT_NAME
 import org.apache.doris.spark.writer.DorisWriter
 import org.apache.spark.SparkConf
@@ -68,9 +69,9 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
     }
 
     // accumulator for transaction handling
-    val acc = sqlContext.sparkContext.collectionAccumulator[Long]("BatchTxnAcc")
+    val acc = sqlContext.sparkContext.collectionAccumulator[CommitMessage]("BatchTxnAcc")
     // init stream loader
-    val writer = new DorisWriter(sparkSettings, acc)
+    val writer = new DorisWriter(sparkSettings, acc, false)
     writer.write(data)
 
     new BaseRelation {

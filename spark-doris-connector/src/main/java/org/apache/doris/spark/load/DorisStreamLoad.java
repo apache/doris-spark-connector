@@ -31,6 +31,7 @@ import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.RespContent;
+import org.apache.doris.spark.sql.Utils;
 import org.apache.doris.spark.util.ResponseUtil;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
@@ -77,6 +78,7 @@ import java.util.zip.GZIPOutputStream;
 /**
  * DorisStreamLoad
  **/
+@Deprecated
 public class DorisStreamLoad implements Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);

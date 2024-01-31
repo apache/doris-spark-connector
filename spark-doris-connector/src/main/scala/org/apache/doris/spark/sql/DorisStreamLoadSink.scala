@@ -17,8 +17,8 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
+import org.apache.doris.spark.cfg.SparkSettings
+import org.apache.doris.spark.load.CommitMessage
 import org.apache.doris.spark.txn.listener.DorisTxnStreamingQueryListener
 import org.apache.doris.spark.writer.DorisWriter
 import org.apache.spark.sql.execution.streaming.Sink
@@ -31,17 +31,17 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
   @volatile private var latestBatchId = -1L
 
   // accumulator for transaction handling
-  private val acc = sqlContext.sparkContext.collectionAccumulator[Long]("StreamTxnAcc")
-  private val writer = new DorisWriter(settings, acc)
+  private val acc = sqlContext.sparkContext.collectionAccumulator[CommitMessage]("StreamTxnAcc")
+  private val writer = new DorisWriter(settings, acc, true)
 
   // add listener for structured streaming
-  sqlContext.streams.addListener(new DorisTxnStreamingQueryListener(acc, settings))
+  sqlContext.streams.addListener(new DorisTxnStreamingQueryListener(acc, writer.getTransactionHandler))
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
     if (batchId <= latestBatchId) {
       logger.info(s"Skipping already committed batch $batchId")
     } else {
-      writer.writeStream(data)
+      writer.write(data)
       latestBatchId = batchId
     }
   }
