@@ -301,6 +301,7 @@
                             <excludes>
                                 <exclude>com.google.code.findbugs:*</exclude>
                                 <exclude>org.slf4j:*</exclude>
+                                <exclude>org.scala-lang:*</exclude>
                             </excludes>
                         </artifactSet>
                         <relocations>
