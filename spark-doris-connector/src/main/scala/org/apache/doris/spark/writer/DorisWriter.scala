@@ -18,7 +18,7 @@
 package org.apache.doris.spark.writer
 
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
+import org.apache.doris.spark.load.{CommitMessage, Loader, StreamLoader}
 import org.apache.doris.spark.sql.Utils
 import org.apache.doris.spark.txn.TransactionHandler
 import org.apache.doris.spark.txn.listener.DorisTransactionListener
@@ -30,13 +30,14 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import java.io.IOException
 import java.time.Duration
-import java.util
 import java.util.Objects
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success}
 
-class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumulator[Long]) extends Serializable {
+class DorisWriter(settings: SparkSettings,
+                  txnAcc: CollectionAccumulator[CommitMessage],
+                  isStreaming: Boolean) extends Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
@@ -58,9 +59,15 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
   private val enable2PC: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_ENABLE_2PC,
     ConfigurationOptions.DORIS_SINK_ENABLE_2PC_DEFAULT)
 
-  private val dorisStreamLoader: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
+  private val loader: Loader = generateLoader
 
-  private var isStreaming = false;
+  private val sinkTxnRetries = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_RETRIES,
+    ConfigurationOptions.DORIS_SINK_TXN_RETRIES_DEFAULT)
+
+  private val sinkTxnIntervalMs = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS,
+    ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS_DEFAULT)
+
+  private val txnHandler: TransactionHandler = TransactionHandler(loader, sinkTxnRetries, sinkTxnIntervalMs)
 
   /**
    * write data in batch mode
@@ -68,23 +75,13 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
    * @param dataFrame source dataframe
    */
   def write(dataFrame: DataFrame): Unit = {
-    doWrite(dataFrame, dorisStreamLoader.load)
+    doWrite(dataFrame, loader.load)
   }
 
-  /**
-   * write data in stream mode
-   *
-   * @param dataFrame source dataframe
-   */
-  def writeStream(dataFrame: DataFrame): Unit = {
-    isStreaming = true
-    doWrite(dataFrame, dorisStreamLoader.loadStream)
-  }
-
-  private def doWrite(dataFrame: DataFrame, loadFunc: (util.Iterator[InternalRow], StructType) => Long): Unit = {
+  private def doWrite(dataFrame: DataFrame, loadFunc: (Iterator[InternalRow], StructType) => Option[CommitMessage]): Unit = {
     // do not add spark listener when job is streaming mode
     if (enable2PC && !isStreaming) {
-      dataFrame.sparkSession.sparkContext.addSparkListener(new DorisTransactionListener(preCommittedTxnAcc, settings))
+      dataFrame.sparkSession.sparkContext.addSparkListener(new DorisTransactionListener(txnAcc, txnHandler))
     }
 
     var resultRdd = dataFrame.queryExecution.toRdd
@@ -96,16 +93,15 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
 
       while (iterator.hasNext) {
         val batchIterator = new BatchIterator[InternalRow](iterator, batchSize, maxRetryTimes > 0)
-        val retry = Utils.retry[Long, Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
-        retry(loadFunc(batchIterator.asJava, schema))(batchIterator.reset()) match {
-          case Success(txnId) =>
-            if (enable2PC) handleLoadSuccess(txnId, preCommittedTxnAcc)
+        val retry = Utils.retry[Option[CommitMessage], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
+        retry(loadFunc(batchIterator, schema))(batchIterator.reset()) match {
+          case Success(msg) =>
+            if (enable2PC) handleLoadSuccess(msg, txnAcc)
             batchIterator.close()
           case Failure(e) =>
-            if (enable2PC) handleLoadFailure(preCommittedTxnAcc)
+            if (enable2PC) handleLoadFailure(txnAcc)
             batchIterator.close()
-            throw new IOException(
-              s"Failed to load batch data on BE: ${dorisStreamLoader.getLoadUrlStr} node.", e)
+            throw e
         }
       }
 
@@ -113,11 +109,11 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
 
   }
 
-  private def handleLoadSuccess(txnId: Long, acc: CollectionAccumulator[Long]): Unit = {
-    acc.add(txnId)
+  private def handleLoadSuccess(msg: Option[CommitMessage], acc: CollectionAccumulator[CommitMessage]): Unit = {
+    acc.add(msg.get)
   }
 
-  private def handleLoadFailure(acc: CollectionAccumulator[Long]): Unit = {
+  private def handleLoadFailure(acc: CollectionAccumulator[CommitMessage]): Unit = {
     // if task run failed, acc value will not be returned to driver,
     // should abort all pre committed transactions inside the task
     logger.info("load task failed, start aborting previously pre-committed transactions")
@@ -126,7 +122,7 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
       return
     }
 
-    try TransactionHandler(settings).abortTransactions(acc.value.asScala.toList)
+    try txnHandler.abortTransactions(acc.value.asScala.toList)
     catch {
       case e: Exception => throw e
     }
@@ -211,6 +207,15 @@ class DorisWriter(settings: SparkSettings, preCommittedTxnAcc: CollectionAccumul
     }
 
   }
+
+  @throws[IllegalArgumentException]
+  private def generateLoader: Loader = {
+    val loadMode = settings.getProperty("load_mode", "stream_load")
+    if ("stream_load".equalsIgnoreCase(loadMode)) new StreamLoader(settings, isStreaming)
+    else throw new IllegalArgumentException(s"Unsupported load mode: $loadMode")
+  }
+
+  def getTransactionHandler: TransactionHandler = txnHandler
 
 
 }

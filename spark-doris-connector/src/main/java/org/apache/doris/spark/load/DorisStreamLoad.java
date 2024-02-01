@@ -78,6 +78,7 @@ import java.util.zip.GZIPOutputStream;
 /**
  * DorisStreamLoad
  **/
+@Deprecated
 public class DorisStreamLoad implements Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);

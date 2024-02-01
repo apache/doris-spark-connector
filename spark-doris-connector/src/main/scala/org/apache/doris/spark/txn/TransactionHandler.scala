@@ -17,8 +17,7 @@
 
 package org.apache.doris.spark.txn
 
-import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.load.{CachedDorisStreamLoadClient, DorisStreamLoad}
+import org.apache.doris.spark.load.{CommitMessage, Loader}
 import org.apache.doris.spark.sql.Utils
 import org.apache.spark.internal.Logging
 
@@ -27,29 +26,25 @@ import scala.collection.mutable
 import scala.util.{Failure, Success}
 
 /**
- * Stream load transaction handler
+ * load transaction handler
  *
- * @param settings job settings
+ * @param loader loader
+ * @param retries max retry times
+ * @param interval retry interval ms
  */
-class TransactionHandler(settings: SparkSettings) extends Logging {
-
-  private val sinkTxnIntervalMs: Int = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS,
-    ConfigurationOptions.DORIS_SINK_TXN_INTERVAL_MS_DEFAULT)
-  private val sinkTxnRetries: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TXN_RETRIES,
-    ConfigurationOptions.DORIS_SINK_TXN_RETRIES_DEFAULT)
-  private val dorisStreamLoad: DorisStreamLoad = CachedDorisStreamLoadClient.getOrCreate(settings)
+class TransactionHandler(loader: Loader, retries: Int, interval: Int) extends Logging with Serializable {
 
   /**
    * commit transactions
    *
-   * @param txnIds transaction id list
+   * @param messages commit message list
    */
-  def commitTransactions(txnIds: List[Long]): Unit = {
-    log.debug(s"start to commit transactions, count ${txnIds.size}")
-    val (failedTxnIds, ex) = txnIds.map(commitTransaction).filter(_._1.nonEmpty)
+  def commitTransactions(messages: List[CommitMessage]): Unit = {
+    log.debug(s"start to commit transactions, count ${messages.size}")
+    val (failedTxnIds, ex) = messages.map(commitTransaction).filter(_._1.nonEmpty)
       .map(e => (e._1.get, e._2.get))
-      .aggregate((mutable.Buffer[Long](), new Exception))(
-        (z, r) => ((z._1 += r._1).asInstanceOf[mutable.Buffer[Long]], r._2), (r1, r2) => (r1._1 ++ r2._1, r2._2))
+      .aggregate((mutable.Buffer[Any](), new Exception))(
+        (z, r) => ((z._1 += r._1).asInstanceOf[mutable.Buffer[Any]], r._2), (r1, r2) => (r1._1 ++ r2._1, r2._2))
     if (failedTxnIds.nonEmpty) {
       log.error("uncommitted txn ids: {}", failedTxnIds.mkString("[", ",", "]"))
       throw ex
@@ -59,34 +54,34 @@ class TransactionHandler(settings: SparkSettings) extends Logging {
   /**
    * commit single transaction
    *
-   * @param txnId transaction id
+   * @param msg commit message
    * @return
    */
-  private def commitTransaction(txnId: Long): (Option[Long], Option[Exception]) = {
-    Utils.retry(sinkTxnRetries, Duration.ofMillis(sinkTxnIntervalMs), log) {
-      dorisStreamLoad.commit(txnId)
+  private def commitTransaction(msg: CommitMessage): (Option[Any], Option[Exception]) = {
+    Utils.retry(retries, Duration.ofMillis(interval), log) {
+      loader.commit(msg)
     }() match {
       case Success(_) => (None, None)
-      case Failure(e: Exception) => (Option(txnId), Option(e))
+      case Failure(e: Exception) => (Option(msg.value), Option(e))
     }
   }
 
   /**
    * abort transactions
    *
-   * @param txnIds transaction id list
+   * @param messages commit message list
    */
-  def abortTransactions(txnIds: List[Long]): Unit = {
-    log.debug(s"start to abort transactions, count ${txnIds.size}")
+  def abortTransactions(messages: List[CommitMessage]): Unit = {
+    log.debug(s"start to abort transactions, count ${messages.size}")
     var ex: Option[Exception] = None
-    val failedTxnIds = txnIds.map(txnId =>
-      Utils.retry(sinkTxnRetries, Duration.ofMillis(sinkTxnIntervalMs), log) {
-        dorisStreamLoad.abortById(txnId)
+    val failedTxnIds = messages.map(msg =>
+      Utils.retry(retries, Duration.ofMillis(interval), log) {
+        loader.abort(msg)
       }() match {
         case Success(_) => None
         case Failure(e: Exception) =>
           ex = Option(e)
-          Option(txnId)
+          Option(msg.value)
       }).filter(_.nonEmpty).map(_.get)
     if (failedTxnIds.nonEmpty) {
       log.error("not aborted txn ids: {}", failedTxnIds.mkString("[", ",", "]"))
@@ -96,5 +91,6 @@ class TransactionHandler(settings: SparkSettings) extends Logging {
 }
 
 object TransactionHandler {
-  def apply(settings: SparkSettings): TransactionHandler = new TransactionHandler(settings)
+  def apply(loader: Loader, retries: Int, interval: Int): TransactionHandler =
+    new TransactionHandler(loader, retries, interval)
 }

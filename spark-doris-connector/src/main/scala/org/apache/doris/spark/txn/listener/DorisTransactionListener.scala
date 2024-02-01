@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.txn.listener
 
-import org.apache.doris.spark.cfg.SparkSettings
+import org.apache.doris.spark.load.CommitMessage
 import org.apache.doris.spark.txn.TransactionHandler
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
@@ -26,39 +26,37 @@ import org.apache.spark.util.CollectionAccumulator
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-class DorisTransactionListener(preCommittedTxnAcc: CollectionAccumulator[Long], settings: SparkSettings)
+class DorisTransactionListener(txnAcc: CollectionAccumulator[CommitMessage], txnHandler: TransactionHandler)
   extends SparkListener with Logging {
 
-  val txnHandler: TransactionHandler = TransactionHandler(settings)
-
   override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
-    val txnIds: mutable.Buffer[Long] = preCommittedTxnAcc.value.asScala
+    val messages: mutable.Buffer[CommitMessage] = txnAcc.value.asScala
     jobEnd.jobResult match {
       // if job succeed, commit all transactions
       case JobSucceeded =>
-        if (txnIds.isEmpty) {
+        if (messages.isEmpty) {
           log.debug("job run succeed, but there is no pre-committed txn ids")
           return
         }
         log.info("job run succeed, start committing transactions")
-        try txnHandler.commitTransactions(txnIds.toList)
+        try txnHandler.commitTransactions(messages.toList)
         catch {
           case e: Exception => throw e
         }
-        finally preCommittedTxnAcc.reset()
+        finally txnAcc.reset()
         log.info("commit transaction success")
       // if job failed, abort all pre committed transactions
       case _ =>
-        if (txnIds.isEmpty) {
+        if (messages.isEmpty) {
           log.debug("job run failed, but there is no pre-committed txn ids")
           return
         }
         log.info("job run failed, start aborting transactions")
-        try txnHandler.abortTransactions(txnIds.toList)
+        try txnHandler.abortTransactions(messages.toList)
         catch {
           case e: Exception => throw e
         }
-        finally preCommittedTxnAcc.reset()
+        finally txnAcc.reset()
         log.info("abort transaction success")
     }
   }
