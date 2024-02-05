@@ -74,8 +74,8 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
   private val autoRedirect: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT,
     ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT_DEFAULT)
 
-  require(settings.getBooleanProperty(ConfigurationOptions.DORIS_ENABLE_HTTPS,
-    ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT) && autoRedirect, "https must open with auto redirect")
+  require(if (settings.getBooleanProperty(ConfigurationOptions.DORIS_ENABLE_HTTPS,
+    ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT)) autoRedirect else true, "https must open with auto redirect")
 
   private val enableHttps: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_ENABLE_HTTPS,
     ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT) && autoRedirect
