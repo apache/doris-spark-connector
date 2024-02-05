@@ -132,4 +132,16 @@ public interface ConfigurationOptions {
      */
     String DORIS_SINK_DATA_COMPRESS_TYPE = "doris.sink.properties.compress_type";
 
+    String DORIS_ENABLE_HTTPS = "doris.enable.https";
+
+    boolean DORIS_ENABLE_HTTPS_DEFAULT = false;
+
+    String DORIS_HTTPS_KEY_STORE_PATH = "doris.https.key-store-path";
+
+    String DORIS_HTTPS_KEY_STORE_TYPE = "doris.https.key-store-type";
+
+    String DORIS_HTTPS_KEY_STORE_TYPE_DEFAULT = "JKS";
+
+    String DORIS_HTTPS_KEY_STORE_PASSWORD = "doris.https.key-store-password";
+
 }

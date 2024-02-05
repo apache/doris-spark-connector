@@ -28,7 +28,7 @@ import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.BackendV2.BackendRowV2
 import org.apache.doris.spark.rest.models.RespContent
 import org.apache.doris.spark.sql.Utils
-import org.apache.doris.spark.util.ResponseUtil
+import org.apache.doris.spark.util.{HttpUtil, ResponseUtil, URLs}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpRequestBase, HttpUriRequest}
 import org.apache.http.entity.{BufferedHttpEntity, ByteArrayEntity, InputStreamEntity}
 import org.apache.http.impl.client.{CloseableHttpClient, DefaultRedirectStrategy, HttpClients}
@@ -56,10 +56,6 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
   private final val MAPPER: ObjectMapper = JsonMapper.builder().build()
 
-  private val LOAD_URL_PATTERN = "http://%s/api/%s/%s/_stream_load"
-
-  private val LOAD_2PC_URL_PATTERN = "http://%s/api/%s/_stream_load_2pc"
-
   private val database: String = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.")(0)
 
   private val table: String = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER).split("\\.")(1)
@@ -75,11 +71,20 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
   private var currentLoadUrl: String = _
 
+  private val autoRedirect: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT,
+    ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT_DEFAULT)
+
+  require(settings.getBooleanProperty(ConfigurationOptions.DORIS_ENABLE_HTTPS,
+    ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT) && autoRedirect, "https must open with auto redirect")
+
+  private val enableHttps: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_ENABLE_HTTPS,
+    ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT) && autoRedirect
+
   /**
    * execute stream load
    *
    * @param iterator row data iterator
-   * @param schema row schema
+   * @param schema   row schema
    * @throws stream load exception
    * @return transaction id
    */
@@ -88,7 +93,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
     var msg: Option[CommitMessage] = None
 
-    val client: CloseableHttpClient = getHttpClient
+    val client: CloseableHttpClient = HttpUtil.getHttpClient(settings)
     val label: String = generateLoadLabel()
 
     Try {
@@ -122,8 +127,8 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
     Try {
 
-      val address = getAddress
-      val abortUrl = String.format(LOAD_2PC_URL_PATTERN, address, database)
+      val node = getNode
+      val abortUrl = URLs.streamLoad2PC(node, database, enableHttps)
       val httpPut = new HttpPut(abortUrl)
       addCommonHeader(httpPut)
       httpPut.setHeader("txn_operation", "commit")
@@ -139,7 +144,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       statusCode = response.getStatusLine.getStatusCode
       val reasonPhrase = response.getStatusLine.getReasonPhrase
       if (statusCode != 200) {
-        LOG.warn(s"commit failed with $address, reason $reasonPhrase")
+        LOG.warn(s"commit failed with $node, reason $reasonPhrase")
         throw new StreamLoadException("stream load error: " + reasonPhrase)
       }
 
@@ -188,7 +193,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    */
   private def getStreamLoadProps: Map[String, String] = {
     val props = settings.asProperties().asScala.filter(_._1.startsWith(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX))
-      .map { case (k,v) => (k.substring(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX.length), v)}
+      .map { case (k, v) => (k.substring(ConfigurationOptions.STREAM_LOAD_PROP_PREFIX.length), v) }
     if (props.getOrElse("add_double_quotes", "false").toBoolean) {
       LOG.info("set add_double_quotes for csv mode, add trim_double_quotes to true for prop.")
       props.put("trim_double_quotes", "true")
@@ -227,13 +232,13 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    * build load request, set params as request header
    *
    * @param iterator row data iterator
-   * @param schema row data schema
-   * @param label load label
+   * @param schema   row data schema
+   * @param label    load label
    * @return http request
    */
   private def buildLoadRequest(iterator: Iterator[InternalRow], schema: StructType, label: String): HttpUriRequest = {
 
-    currentLoadUrl = String.format(LOAD_URL_PATTERN, getAddress, database, table)
+    currentLoadUrl = URLs.streamLoad(getNode, database, table, enableHttps)
     val put = new HttpPut(currentLoadUrl)
     addCommonHeader(put)
 
@@ -269,18 +274,16 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    *
    * if load data to be directly, check node available will be done before return.
    *
-   * @throws [[org.apache.doris.spark.exception.StreamLoadException]]
+   * @throws [ [ org.apache.doris.spark.exception.StreamLoadException]]
    * @return address
    */
   @throws[StreamLoadException]
-  private def getAddress: String = {
+  private def getNode: String = {
 
     var address: Option[String] = None
 
     Try {
 
-      val autoRedirect: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT,
-        ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT_DEFAULT)
       if (autoRedirect) {
         val feNodes = settings.getProperty(ConfigurationOptions.DORIS_FENODES)
         address = Some(RestService.randomEndpoint(feNodes, LOG))
@@ -501,7 +504,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
     Try {
 
-      val abortUrl = String.format(LOAD_2PC_URL_PATTERN, getAddress, database)
+      val abortUrl = URLs.streamLoad2PC(getNode, database, enableHttps)
       val httpPut = new HttpPut(abortUrl)
       addCommonHeader(httpPut)
       httpPut.setHeader("txn_operation", "abort")
