@@ -136,4 +136,17 @@ public interface ConfigurationOptions {
 
     String CLUSTER_NAME = "selectdb.sink.clustername";
     String DEFAULT_CLUSTER_NAME = null;
+
+    String DORIS_ENABLE_HTTPS = "doris.enable.https";
+
+    boolean DORIS_ENABLE_HTTPS_DEFAULT = false;
+
+    String DORIS_HTTPS_KEY_STORE_PATH = "doris.https.key-store-path";
+
+    String DORIS_HTTPS_KEY_STORE_TYPE = "doris.https.key-store-type";
+
+    String DORIS_HTTPS_KEY_STORE_TYPE_DEFAULT = "JKS";
+
+    String DORIS_HTTPS_KEY_STORE_PASSWORD = "doris.https.key-store-password";
+
 }
