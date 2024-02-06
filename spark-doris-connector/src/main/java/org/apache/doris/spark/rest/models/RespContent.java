@@ -33,6 +33,9 @@ public class RespContent {
     @JsonProperty(value = "TxnId")
     private long TxnId;
 
+    @JsonProperty(value = "msg")
+    private String msg;
+
     @JsonProperty(value = "Label")
     private String Label;
 
@@ -108,4 +111,7 @@ public class RespContent {
         return DORIS_SUCCESS_STATUS.contains(getStatus());
     }
 
+    public boolean isCopyIntoSuccess(){
+        return this.msg.equals("success");
+    }
 }
