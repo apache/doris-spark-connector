@@ -132,4 +132,8 @@ public interface ConfigurationOptions {
      */
     String DORIS_SINK_DATA_COMPRESS_TYPE = "doris.sink.properties.compress_type";
 
+    String LOAD_MODE = "doris.sink.load.mode";
+
+    String CLUSTER_NAME = "selectdb.sink.clustername";
+    String DEFAULT_CLUSTER_NAME = null;
 }
