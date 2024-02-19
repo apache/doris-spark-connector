@@ -199,15 +199,16 @@ class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Load
       ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,
       ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH_DEFAULT)
 
+    val recordBatchString = new RecordBatchString(RecordBatch.newBuilder(iterator.asJava)
+      .format(format)
+      .sep(columnSeparator)
+      .delim(lineDelimiter)
+      .schema(schema)
+      .addDoubleQuotes(addDoubleQuotes).build, streamingPassthrough)
+    val content = recordBatchString.getContent
+
     if (compressType !=null && !compressType.isEmpty) {
       if ("gz".equalsIgnoreCase(compressType) && format == DataFormat.CSV) {
-        val recordBatchString = new RecordBatchString(RecordBatch.newBuilder(iterator.asJava)
-          .format(format)
-          .sep(columnSeparator)
-          .delim(lineDelimiter)
-          .schema(schema)
-          .addDoubleQuotes(addDoubleQuotes).build, streamingPassthrough)
-        val content = recordBatchString.getContent
         val compressedData = compressByGZ(content)
         entity = Some(new ByteArrayEntity(compressedData))
       }
@@ -217,13 +218,7 @@ class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Load
       }
     }
     else {
-      val recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(iterator.asJava)
-        .format(format)
-        .sep(columnSeparator)
-        .delim(lineDelimiter)
-        .schema(schema)
-        .addDoubleQuotes(addDoubleQuotes).build, streamingPassthrough)
-      entity = Some(new InputStreamEntity(recodeBatchInputStream))
+      entity = Some(new ByteArrayEntity(content.getBytes(StandardCharsets.UTF_8)))
     }
 
     entity.get

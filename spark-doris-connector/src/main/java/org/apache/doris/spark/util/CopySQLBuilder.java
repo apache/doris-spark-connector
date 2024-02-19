@@ -17,13 +17,16 @@
 
 package org.apache.doris.spark.util;
 
-import java.util.Map;
-import java.util.Properties;
-import java.util.StringJoiner;
+import java.util.*;
 
 public class CopySQLBuilder {
     private final static String COPY_SYNC = "copy.async";
     private final static String FILE_TYPE = "file.type";
+    private final static String FORMAT_KEY = "format";
+    private final static String FIELD_DELIMITER_KEY = "column_separator";
+    private final static String LINE_DELIMITER_KEY = "line_delimiter";
+    private final static String COMPRESSION = "compression";
+
     private final String fileName;
     private Properties copyIntoProps;
     private String tableIdentifier;
@@ -50,7 +53,7 @@ public class CopySQLBuilder {
         for (Map.Entry<Object, Object> entry : copyIntoProps.entrySet()) {
             // remove format
             if (!String.valueOf(entry.getKey()).equals("format")){
-                String key = String.valueOf(entry.getKey());
+                String key = concatPropPrefix(String.valueOf(entry.getKey()));
                 String value = String.valueOf(entry.getValue());
                 String prop = String.format("'%s'='%s'", key, value);
                 props.add(prop);
@@ -58,5 +61,18 @@ public class CopySQLBuilder {
         }
         sb.append(props).append(" )");
         return sb.toString();
+    }
+
+    static final List<String> PREFIX_LIST =
+            Arrays.asList(FIELD_DELIMITER_KEY, LINE_DELIMITER_KEY, COMPRESSION);
+
+    private String concatPropPrefix(String key) {
+        if (PREFIX_LIST.contains(key)) {
+            return "file." + key;
+        }
+        if (FORMAT_KEY.equals(key)) {
+            return "file.type";
+        }
+        return key;
     }
 }
