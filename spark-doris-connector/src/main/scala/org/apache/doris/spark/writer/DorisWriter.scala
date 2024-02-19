@@ -42,7 +42,7 @@ class DorisWriter(settings: SparkSettings,
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
   private val sinkTaskPartitionSize: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
-  private val loadMode: String = settings.getProperty(ConfigurationOptions.LOAD_MODE)
+  private val loadMode: String = settings.getProperty(ConfigurationOptions.LOAD_MODE,ConfigurationOptions.DEFAULT_LOAD_MODE)
   private val sinkTaskUseRepartition: Boolean = settings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION,
     ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
 
