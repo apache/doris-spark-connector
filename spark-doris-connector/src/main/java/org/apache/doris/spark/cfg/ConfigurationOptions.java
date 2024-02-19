@@ -147,7 +147,4 @@ public interface ConfigurationOptions {
     String LOAD_MODE = "doris.sink.load.mode";
     String DEFAULT_LOAD_MODE = "stream_load";
 
-    String CLUSTER_NAME = "sink.clustername";
-    String DEFAULT_CLUSTER_NAME = null;
-
 }

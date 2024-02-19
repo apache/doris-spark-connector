@@ -52,8 +52,6 @@ class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Load
 
   private val tableIdentifier: String = settings.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER)
 
-  private val clusterName: String = settings.getProperty(ConfigurationOptions.CLUSTER_NAME, ConfigurationOptions.DEFAULT_CLUSTER_NAME)
-
   private val OBJECT_MAPPER = new ObjectMapper
 
   private val copyIntoProps: Properties = getCopyIntoProps
@@ -172,7 +170,6 @@ class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Load
     LOG.info(s"build copy sql is $copySql")
     val objectNode: ObjectNode = OBJECT_MAPPER.createObjectNode()
     objectNode.put("sql", copySql)
-    if (clusterName != null && !clusterName.isEmpty) objectNode.put("cluster", clusterName)
 
     val postBuilder: HttpPostBuilder = new HttpPostBuilder()
     postBuilder.setUrl(String.format(COMMIT_PATTERN, hostPort)).baseAuth(authEncoded)
