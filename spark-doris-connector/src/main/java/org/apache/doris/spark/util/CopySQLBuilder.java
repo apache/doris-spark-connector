@@ -43,15 +43,18 @@ public class CopySQLBuilder {
         //copy into must be sync
         copyIntoProps.put(COPY_SYNC, false);
         copyIntoProps.put(FILE_TYPE, data_type);
-        if (data_type.equals("json")) {
-            copyIntoProps.put("file.strip_outer_array", "true");
+        if (data_type.equals("JSON")) {
+            copyIntoProps.put("file.strip_outer_array", "false");
         }
         StringJoiner props = new StringJoiner(",");
         for (Map.Entry<Object, Object> entry : copyIntoProps.entrySet()) {
-            String key = String.valueOf(entry.getKey());
-            String value = String.valueOf(entry.getValue());
-            String prop = String.format("'%s'='%s'", key, value);
-            props.add(prop);
+            // remove format
+            if (!String.valueOf(entry.getKey()).equals("format")){
+                String key = String.valueOf(entry.getKey());
+                String value = String.valueOf(entry.getValue());
+                String prop = String.format("'%s'='%s'", key, value);
+                props.add(prop);
+            }
         }
         sb.append(props).append(" )");
         return sb.toString();

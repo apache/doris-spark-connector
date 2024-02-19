@@ -237,10 +237,6 @@ class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Load
       LOG.info("set add_double_quotes for csv mode, add trim_double_quotes to true for prop.")
       props.put("trim_double_quotes", "true")
     }
-    if ("json".equalsIgnoreCase(props.getOrElse("format", "csv"))) {
-      props += "read_json_by_line" -> "true"
-      props.remove("strip_outer_array")
-    }
     props.remove("columns")
     val properties = new Properties()
     properties.putAll(props.mapValues(_.toString).asJava)
