@@ -17,7 +17,11 @@
 
 package org.apache.doris.spark.util;
 
-import java.util.*;
+import java.util.Map;
+import java.util.Properties;
+import java.util.StringJoiner;
+import java.util.List;
+import java.util.Arrays;
 
 public class CopySQLBuilder {
     private final static String COPY_SYNC = "copy.async";
