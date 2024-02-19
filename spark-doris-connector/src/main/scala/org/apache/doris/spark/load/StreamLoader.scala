@@ -365,7 +365,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
     val compressType = streamLoadProps.get("compress_type")
     val columnSeparator = escapeString(streamLoadProps.getOrElse("column_separator", "\t"))
-    val lineDelimiter = escapeString(streamLoadProps.getOrElse("line_delimiter", "\t"))
+    val lineDelimiter = escapeString(streamLoadProps.getOrElse("line_delimiter", "\n"))
     val addDoubleQuotes = streamLoadProps.getOrElse("add_double_quotes", "false").toBoolean
     val streamingPassthrough: Boolean = isStreaming && settings.getBooleanProperty(
       ConfigurationOptions.DORIS_SINK_STREAMING_PASSTHROUGH,

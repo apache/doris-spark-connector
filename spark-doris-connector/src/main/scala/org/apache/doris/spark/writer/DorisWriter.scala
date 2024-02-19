@@ -18,7 +18,7 @@
 package org.apache.doris.spark.writer
 
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.load.{CommitMessage, Loader, StreamLoader}
+import org.apache.doris.spark.load.{CommitMessage, CopyIntoLoader, Loader, StreamLoader}
 import org.apache.doris.spark.sql.Utils
 import org.apache.doris.spark.txn.TransactionHandler
 import org.apache.doris.spark.txn.listener.DorisTransactionListener
@@ -42,6 +42,7 @@ class DorisWriter(settings: SparkSettings,
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
   private val sinkTaskPartitionSize: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
+  private val loadMode: String = settings.getProperty(ConfigurationOptions.LOAD_MODE,ConfigurationOptions.DEFAULT_LOAD_MODE)
   private val sinkTaskUseRepartition: Boolean = settings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION,
     ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
 
@@ -210,9 +211,11 @@ class DorisWriter(settings: SparkSettings,
 
   @throws[IllegalArgumentException]
   private def generateLoader: Loader = {
-    val loadMode = settings.getProperty("load_mode", "stream_load")
-    if ("stream_load".equalsIgnoreCase(loadMode)) new StreamLoader(settings, isStreaming)
-    else throw new IllegalArgumentException(s"Unsupported load mode: $loadMode")
+    loadMode match {
+      case "stream_load" => new StreamLoader(settings, isStreaming)
+      case "copy_into" => new CopyIntoLoader(settings, isStreaming)
+      case _ => throw new IllegalArgumentException(s"Unsupported load mode: $loadMode")
+    }
   }
 
   def getTransactionHandler: TransactionHandler = txnHandler

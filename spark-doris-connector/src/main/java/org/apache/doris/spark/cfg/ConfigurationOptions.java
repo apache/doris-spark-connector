@@ -144,4 +144,7 @@ public interface ConfigurationOptions {
 
     String DORIS_HTTPS_KEY_STORE_PASSWORD = "doris.https.key-store-password";
 
+    String LOAD_MODE = "doris.sink.load.mode";
+    String DEFAULT_LOAD_MODE = "stream_load";
+
 }
