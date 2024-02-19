@@ -25,8 +25,8 @@ import org.apache.doris.spark.exception.{CopyIntoException, StreamLoadException}
 import org.apache.doris.spark.rest.models.RespContent
 import org.apache.doris.spark.util.{CopySQLBuilder, HttpPostBuilder, HttpPutBuilder}
 import org.apache.hadoop.util.StringUtils.escapeString
-import org.apache.http.{HttpEntity, HttpHeaders, HttpStatus}
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpRequestBase}
+import org.apache.http.{HttpEntity, HttpStatus}
+import org.apache.http.client.methods.CloseableHttpResponse
 import org.apache.http.entity.{BufferedHttpEntity, ByteArrayEntity, InputStreamEntity, StringEntity}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.apache.http.util.EntityUtils

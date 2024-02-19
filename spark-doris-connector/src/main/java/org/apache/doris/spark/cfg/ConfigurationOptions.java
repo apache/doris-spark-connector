@@ -146,7 +146,7 @@ public interface ConfigurationOptions {
 
     String LOAD_MODE = "doris.sink.load.mode";
 
-    String CLUSTER_NAME = "selectdb.sink.clustername";
+    String CLUSTER_NAME = "sink.clustername";
     String DEFAULT_CLUSTER_NAME = null;
 
 }
