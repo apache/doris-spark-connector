@@ -84,14 +84,15 @@ class DorisWriter(settings: SparkSettings,
     if (enable2PC && !isStreaming) {
       dataFrame.sparkSession.sparkContext.addSparkListener(new DorisTransactionListener(txnAcc, txnHandler))
     }
-
-    var resultRdd = dataFrame.queryExecution.toRdd
-    val schema = dataFrame.schema
+    var resultDataFrame = dataFrame
     if (Objects.nonNull(sinkTaskPartitionSize)) {
-      resultRdd = if (sinkTaskUseRepartition) resultRdd.repartition(sinkTaskPartitionSize) else resultRdd.coalesce(sinkTaskPartitionSize)
+      resultDataFrame = if (sinkTaskUseRepartition) dataFrame.repartition(sinkTaskPartitionSize) else dataFrame.coalesce(sinkTaskPartitionSize)
     }
-    resultRdd.foreachPartition(iterator => {
 
+    val resultRdd = resultDataFrame.queryExecution.toRdd
+    val schema = resultDataFrame.schema
+
+    resultRdd.foreachPartition(iterator => {
       while (iterator.hasNext) {
         val batchIterator = new BatchIterator[InternalRow](iterator, batchSize, maxRetryTimes > 0)
         val retry = Utils.retry[Option[CommitMessage], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
