@@ -17,6 +17,10 @@
 
 package org.apache.doris.spark.serialization;
 
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.doris.sdk.thrift.TScanBatchResult;
 import org.apache.doris.sdk.thrift.TStatus;
 import org.apache.doris.sdk.thrift.TStatusCode;
@@ -67,6 +71,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -458,6 +463,7 @@ public class TestRowBatch {
         ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
         childrenBuilder.add(new Field("k1", FieldType.nullable(new ArrowType.Utf8()), null));
         childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Utf8()), null));
+        childrenBuilder.add(new Field("k3", FieldType.nullable(new ArrowType.Date(DateUnit.DAY)), null));
 
         VectorSchemaRoot root = VectorSchemaRoot.create(
                 new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
@@ -490,6 +496,14 @@ public class TestRowBatch {
         dateV2Vector.setSafe(0, "2023-08-10".getBytes());
         vector.setValueCount(1);
 
+        vector = root.getVector("k3");
+        DateDayVector dateNewVector = (DateDayVector)vector;
+        dateNewVector.setInitialCapacity(1);
+        dateNewVector.allocateNew();
+        dateNewVector.setIndexDefined(0);
+        dateNewVector.setSafe(0, 19802);
+        vector.setValueCount(1);
+
         arrowStreamWriter.writeBatch();
 
         arrowStreamWriter.end();
@@ -505,7 +519,8 @@ public class TestRowBatch {
 
         String schemaStr = "{\"properties\":[" +
                 "{\"type\":\"DATE\",\"name\":\"k1\",\"comment\":\"\"}, " +
-                "{\"type\":\"DATEV2\",\"name\":\"k2\",\"comment\":\"\"}" +
+                "{\"type\":\"DATEV2\",\"name\":\"k2\",\"comment\":\"\"}, " +
+                "{\"type\":\"DATEV2\",\"name\":\"k3\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
         Schema schema = RestService.parseSchema(schemaStr, logger);
@@ -516,6 +531,7 @@ public class TestRowBatch {
         List<Object> actualRow0 = rowBatch.next();
         Assert.assertEquals(Date.valueOf("2023-08-09"), actualRow0.get(0));
         Assert.assertEquals(Date.valueOf("2023-08-10"), actualRow0.get(1));
+        Assert.assertEquals(Date.valueOf("2024-03-20"), actualRow0.get(2));
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
@@ -734,6 +750,96 @@ public class TestRowBatch {
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema);
         Assert.assertTrue(rowBatch.hasNext());
         Assert.assertEquals("{\"a\":\"a1\",\"b\":1}", rowBatch.next().get(0));
+
+    }
+
+    @Test
+    public void testDateTime() throws IOException, DorisException {
+
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        childrenBuilder.add(new Field("k1", FieldType.nullable(new ArrowType.Utf8()), null));
+        childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND,
+                null)), null));
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(3);
+
+        FieldVector vector = root.getVector("k1");
+        VarCharVector datetimeVector = (VarCharVector)vector;
+        datetimeVector.setInitialCapacity(3);
+        datetimeVector.allocateNew();
+        datetimeVector.setIndexDefined(0);
+        datetimeVector.setValueLengthSafe(0, 20);
+        datetimeVector.setSafe(0, "2024-03-20 00:00:00".getBytes());
+        datetimeVector.setIndexDefined(1);
+        datetimeVector.setValueLengthSafe(1, 20);
+        datetimeVector.setSafe(1, "2024-03-20 00:00:01".getBytes());
+        datetimeVector.setIndexDefined(2);
+        datetimeVector.setValueLengthSafe(2, 20);
+        datetimeVector.setSafe(2, "2024-03-20 00:00:02".getBytes());
+        vector.setValueCount(3);
+
+
+        vector = root.getVector("k2");
+        TimeStampMicroVector datetimeV2Vector = (TimeStampMicroVector)vector;
+        datetimeV2Vector.setInitialCapacity(3);
+        datetimeV2Vector.allocateNew();
+        datetimeV2Vector.setIndexDefined(0);
+        datetimeV2Vector.setSafe(0, 1710864000L);
+        datetimeV2Vector.setIndexDefined(1);
+        datetimeV2Vector.setSafe(1, 1710864000123L);
+        datetimeV2Vector.setIndexDefined(2);
+        datetimeV2Vector.setSafe(2, 1710864000123456L);
+        vector.setValueCount(3);
+
+        arrowStreamWriter.writeBatch();
+
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"DATETIME\",\"name\":\"k1\",\"comment\":\"\"}, " +
+                "{\"type\":\"DATETIMEV2\",\"name\":\"k2\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = RestService.parseSchema(schemaStr, logger);
+
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> actualRow0 = rowBatch.next();
+        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(1));
+
+        List<Object> actualRow1 = rowBatch.next();
+        Assert.assertEquals("2024-03-20 00:00:01", actualRow1.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00.123", actualRow1.get(1));
+
+        List<Object> actualRow2 = rowBatch.next();
+        Assert.assertEquals("2024-03-20 00:00:02", actualRow2.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00.123456", actualRow2.get(1));
+
+        Assert.assertFalse(rowBatch.hasNext());
+        thrown.expect(NoSuchElementException.class);
+        thrown.expectMessage(startsWith("Get row offset:"));
+        rowBatch.next();
 
     }
 
