@@ -71,10 +71,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 
 import static org.hamcrest.core.StringStartsWith.startsWith;
 
@@ -756,8 +759,6 @@ public class TestRowBatch {
     @Test
     public void testDateTime() throws IOException, DorisException {
 
-        System.setProperty("user.timezone", "Asia/Shanghai");
-
         ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
         childrenBuilder.add(new Field("k1", FieldType.nullable(new ArrowType.Utf8()), null));
         childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND,
@@ -790,17 +791,21 @@ public class TestRowBatch {
         datetimeVector.setSafe(2, "2024-03-20 00:00:02".getBytes());
         vector.setValueCount(3);
 
+        LocalDateTime localDateTime = LocalDateTime.of(2024, 3, 20,
+                0, 0, 0, 123456000);
+        long second = localDateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
+        int nano = localDateTime.getNano();
 
         vector = root.getVector("k2");
-        TimeStampMicroVector datetimeV2Vector = (TimeStampMicroVector)vector;
+        TimeStampMicroVector datetimeV2Vector = (TimeStampMicroVector) vector;
         datetimeV2Vector.setInitialCapacity(3);
         datetimeV2Vector.allocateNew();
         datetimeV2Vector.setIndexDefined(0);
-        datetimeV2Vector.setSafe(0, 1710864000L);
+        datetimeV2Vector.setSafe(0, second);
         datetimeV2Vector.setIndexDefined(1);
-        datetimeV2Vector.setSafe(1, 1710864000123L);
+        datetimeV2Vector.setSafe(1, second * 1000 + nano / 1000000);
         datetimeV2Vector.setIndexDefined(2);
-        datetimeV2Vector.setSafe(2, 1710864000123456L);
+        datetimeV2Vector.setSafe(2, second * 1000000 + nano / 1000);
         vector.setValueCount(3);
 
         arrowStreamWriter.writeBatch();
