@@ -756,6 +756,8 @@ public class TestRowBatch {
     @Test
     public void testDateTime() throws IOException, DorisException {
 
+        System.setProperty("user.timezone", "Asia/Shanghai");
+
         ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
         childrenBuilder.add(new Field("k1", FieldType.nullable(new ArrowType.Utf8()), null));
         childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND,
