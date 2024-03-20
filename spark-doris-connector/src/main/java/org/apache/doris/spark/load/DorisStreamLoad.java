@@ -97,6 +97,7 @@ public class DorisStreamLoad implements Serializable {
     private final String authEncoded;
     private final String columns;
     private final String maxFilterRatio;
+    private final String sourceTypeCol;
     private final Map<String, String> streamLoadProp;
     private boolean addDoubleQuotes;
     private static final long cacheExpireTimeout = 4 * 60;
@@ -124,6 +125,7 @@ public class DorisStreamLoad implements Serializable {
         this.authEncoded = getAuthEncoded(user, passwd);
         this.columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS);
         this.maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO);
+        this.sourceTypeCol = settings.getProperty(ConfigurationOptions.SOURCE_TYPE_COL);
         this.streamLoadProp = getStreamLoadProp(settings);
         cache = CacheBuilder.newBuilder().expireAfterWrite(cacheExpireTimeout, TimeUnit.MINUTES).build(new BackendCacheLoader(settings));
         dataFormat = DataFormat.valueOf(streamLoadProp.getOrDefault("format", "csv").toUpperCase());
@@ -152,7 +154,7 @@ public class DorisStreamLoad implements Serializable {
 
         this.autoRedirect = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT,
                 ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT_DEFAULT);
-        compressType=settings.getProperty(ConfigurationOptions.DORIS_SINK_DATA_COMPRESS_TYPE);
+        compressType = settings.getProperty(ConfigurationOptions.DORIS_SINK_DATA_COMPRESS_TYPE);
     }
 
     public String getLoadUrlStr() {
@@ -189,6 +191,10 @@ public class DorisStreamLoad implements Serializable {
         if (StringUtils.isNotBlank(maxFilterRatio)) {
             httpPut.setHeader("max_filter_ratio", maxFilterRatio);
         }
+        if (StringUtils.isNotBlank(sourceTypeCol)) {
+            httpPut.setHeader("function_column.sequence_col", sourceTypeCol);
+        }
+
         if (enable2PC) {
             httpPut.setHeader("two_phase_commit", "true");
         }
@@ -229,8 +235,8 @@ public class DorisStreamLoad implements Serializable {
             this.loadUrlStr = loadUrlStr;
             HttpPut httpPut = getHttpPut(label, loadUrlStr, enable2PC, schema);
 
-            if(StringUtils.isNotEmpty(compressType)){
-                if("gz".equals(compressType.toLowerCase()) && dataFormat.equals(DataFormat.CSV) ){
+            if (StringUtils.isNotEmpty(compressType)) {
+                if ("gz".equals(compressType.toLowerCase()) && dataFormat.equals(DataFormat.CSV)) {
                     RecordBatchString recordBatchString = new RecordBatchString(RecordBatch.newBuilder(rows)
                             .format(dataFormat)
                             .sep(FIELD_DELIMITER)
@@ -240,10 +246,10 @@ public class DorisStreamLoad implements Serializable {
                     String content = recordBatchString.getContent();
                     byte[] compressedData = compressByGZ(content);
                     httpPut.setEntity(new ByteArrayEntity(compressedData));
-                }else{
+                } else {
                     throw new StreamLoadException("Not support the compress type [" + compressType + "] for the dataformat [" + dataFormat + "]");
                 }
-            }else{
+            } else {
                 RecordBatchInputStream recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(rows)
                         .format(dataFormat)
                         .sep(FIELD_DELIMITER)
@@ -446,8 +452,7 @@ public class DorisStreamLoad implements Serializable {
             return backend.getIp() + ":" + backend.getHttpPort();
         } catch (ExecutionException e) {
             throw new RuntimeException("get backends info fail", e);
-        }
-        catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             throw new RuntimeException("get frontend info fail", e);
         }
     }
@@ -531,11 +536,11 @@ public class DorisStreamLoad implements Serializable {
     /**
      * compress data by gz compression algorithm
      */
-    public byte[] compressByGZ(String content) throws IOException{
+    public byte[] compressByGZ(String content) throws IOException {
         byte[] compressedData;
-        try(ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            GZIPOutputStream gzipOutputStream = new GZIPOutputStream(baos);
-        ){
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(baos);
+        ) {
             gzipOutputStream.write(content.getBytes("UTF-8"));
             gzipOutputStream.finish();
             compressedData = baos.toByteArray();

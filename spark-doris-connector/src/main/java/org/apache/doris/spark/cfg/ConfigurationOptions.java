@@ -146,5 +146,6 @@ public interface ConfigurationOptions {
 
     String LOAD_MODE = "doris.sink.load.mode";
     String DEFAULT_LOAD_MODE = "stream_load";
+    String SOURCE_TYPE_COL = "function_column.sequence_col";
 
 }

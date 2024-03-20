@@ -69,6 +69,8 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
   private val format: DataFormat = DataFormat.valueOf(streamLoadProps.getOrElse("format", "csv").toUpperCase)
 
+  private val source_type_col: String = settings.getProperty(ConfigurationOptions.SOURCE_TYPE_COL)
+
   private var currentLoadUrl: String = _
 
   private val autoRedirect: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_SINK_AUTO_REDIRECT,
@@ -260,6 +262,9 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       streamLoadProps.foreach(prop => put.setHeader(prop._1, prop._2))
     }
 
+    val sourceTypeCol = settings.getProperty(ConfigurationOptions.SOURCE_TYPE_COL)
+    if (StringUtils.isNotBlank(sourceTypeCol)) put.setHeader("function_column.sequence_col", sourceTypeCol)
+
     put.setEntity(generateHttpEntity(iterator, schema))
 
     put
@@ -274,7 +279,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    *
    * if load data to be directly, check node available will be done before return.
    *
-   * @throws [ [ org.apache.doris.spark.exception.StreamLoadException]]
+   * @throws [                                                                                                                               [                                                                                                                               org.apache.doris.spark.exception.StreamLoadException]]
    * @return address
    */
   @throws[StreamLoadException]
