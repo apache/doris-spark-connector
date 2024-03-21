@@ -17,14 +17,11 @@
 
 package org.apache.doris.spark.serialization;
 
-import org.apache.doris.sdk.thrift.TScanBatchResult;
-import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.rest.models.Schema;
-
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -32,6 +29,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -43,6 +41,9 @@ import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.doris.sdk.thrift.TScanBatchResult;
+import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.rest.models.Schema;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +74,11 @@ import java.util.Objects;
  */
 public class RowBatch {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
+
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+            .toFormatter();
 
     public static class Row {
         private final List<Object> cols;
@@ -301,21 +313,68 @@ public class RowBatch {
                         break;
                     case "DATE":
                     case "DATEV2":
-                        Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR),
-                                typeMismatchMessage(currentType, mt));
-                        VarCharVector date = (VarCharVector) curFieldVector;
-                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            if (date.isNull(rowIndex)) {
-                                addValueToRow(rowIndex, null);
-                                continue;
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR)
+                                        || mt.equals(Types.MinorType.DATEDAY), typeMismatchMessage(currentType, mt));
+                        if (mt.equals(Types.MinorType.VARCHAR)) {
+                            VarCharVector date = (VarCharVector) curFieldVector;
+                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                                if (date.isNull(rowIndex)) {
+                                    addValueToRow(rowIndex, null);
+                                    continue;
+                                }
+                                String stringValue = new String(date.get(rowIndex));
+                                LocalDate localDate = LocalDate.parse(stringValue);
+                                addValueToRow(rowIndex, Date.valueOf(localDate));
                             }
-                            String stringValue = new String(date.get(rowIndex));
-                            LocalDate localDate = LocalDate.parse(stringValue);
-                            addValueToRow(rowIndex, Date.valueOf(localDate));
+                        } else {
+                            DateDayVector date = (DateDayVector) curFieldVector;
+                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                                if (date.isNull(rowIndex)) {
+                                    addValueToRow(rowIndex, null);
+                                    continue;
+                                }
+                                LocalDate localDate = LocalDate.ofEpochDay(date.get(rowIndex));
+                                addValueToRow(rowIndex, Date.valueOf(localDate));
+                            }
                         }
                         break;
                     case "DATETIME":
                     case "DATETIMEV2":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR)
+                                        || mt.equals(Types.MinorType.TIMESTAMPMICRO),
+                                typeMismatchMessage(currentType, mt));
+                        if (mt.equals(Types.MinorType.VARCHAR)) {
+                            VarCharVector varCharVector = (VarCharVector) curFieldVector;
+                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                                if (varCharVector.isNull(rowIndex)) {
+                                    addValueToRow(rowIndex, null);
+                                    continue;
+                                }
+                                String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
+                                addValueToRow(rowIndex, value);
+                            }
+                        } else {
+                            TimeStampMicroVector vector = (TimeStampMicroVector) curFieldVector;
+                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                                if (vector.isNull(rowIndex)) {
+                                    addValueToRow(rowIndex, null);
+                                    continue;
+                                }
+                                long time = vector.get(rowIndex);
+                                Instant instant;
+                                if (time / 10000000000L == 0) { // datetime(0)
+                                    instant = Instant.ofEpochSecond(time);
+                                } else if (time / 10000000000000L == 0) { // datetime(3)
+                                    instant = Instant.ofEpochMilli(time);
+                                } else { // datetime(6)
+                                    instant = Instant.ofEpochSecond(time / 1000000, time % 1000000 * 1000);
+                                }
+                                LocalDateTime dateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+                                String formatted = DATE_TIME_FORMATTER.format(dateTime);
+                                addValueToRow(rowIndex, formatted);
+                            }
+                        }
+                        break;
                     case "CHAR":
                     case "VARCHAR":
                     case "STRING":
