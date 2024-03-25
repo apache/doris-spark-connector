@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.doris.spark
+package org.apache.spark.sql.execution.arrow
 
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.complex._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.util.ArrowUtils
 
 import scala.collection.JavaConverters._
 
+/**
+ * Copied from Spark 3.1.2. To avoid the package conflicts between spark 2 and spark 3.
+ */
 object ArrowWriter {
 
   def create(schema: StructType, timeZoneId: String): ArrowWriter = {

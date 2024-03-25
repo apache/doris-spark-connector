@@ -26,7 +26,7 @@ import org.apache.doris.spark.util.DataUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.doris.spark.ArrowWriter;
+import org.apache.spark.sql.execution.arrow.ArrowWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

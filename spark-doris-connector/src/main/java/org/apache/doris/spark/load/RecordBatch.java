@@ -21,8 +21,8 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.doris.spark.ArrowUtils;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.util.ArrowUtils;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;

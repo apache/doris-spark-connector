@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.doris.spark
+package org.apache.spark.sql.util
 
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.complex.MapVector
-import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision, TimeUnit}
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
+import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision, TimeUnit}
 import org.apache.spark.sql.types._
 
 import scala.collection.JavaConverters._
 
+/**
+ * Copied from Spark 3.1.2. To avoid the package conflicts between spark 2 and spark 3.
+ */
 object ArrowUtils {
 
   val rootAllocator = new RootAllocator(Long.MaxValue)
