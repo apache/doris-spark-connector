@@ -26,7 +26,7 @@ import org.apache.doris.spark.util.DataUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.execution.arrow.ArrowWriter;
+import org.apache.spark.sql.doris.spark.ArrowWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,7 +145,7 @@ public class RecordBatchInputStream extends InputStream {
 
         if (recordBatch.getFormat().equals(DataFormat.ARROW)) {
             ArrowWriter arrowWriter = ArrowWriter.create(recordBatch.getVectorSchemaRoot());
-            while (iterator.hasNext() && readCount <  recordBatch.getArrowBatchSize()) {
+            while (iterator.hasNext() && readCount < recordBatch.getArrowBatchSize()) {
                 arrowWriter.write(iterator.next());
                 readCount++;
             }
@@ -153,9 +153,9 @@ public class RecordBatchInputStream extends InputStream {
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             ArrowStreamWriter writer = new ArrowStreamWriter(
-                recordBatch.getVectorSchemaRoot(),
-                new DictionaryProvider.MapDictionaryProvider(),
-                out);
+                    recordBatch.getVectorSchemaRoot(),
+                    new DictionaryProvider.MapDictionaryProvider(),
+                    out);
 
             try {
                 writer.writeBatch();
@@ -174,7 +174,7 @@ public class RecordBatchInputStream extends InputStream {
                 lineBuf = ByteBuffer.wrap(rowBytes);
                 isFirst = false;
             } else {
-                delimBuf =  ByteBuffer.wrap(delim);
+                delimBuf = ByteBuffer.wrap(delim);
                 lineBuf = ByteBuffer.wrap(rowBytes);
             }
         }

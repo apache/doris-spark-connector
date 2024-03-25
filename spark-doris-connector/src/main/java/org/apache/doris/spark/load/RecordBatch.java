@@ -21,7 +21,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.doris.spark.ArrowSchemaUtils;
+import org.apache.spark.sql.doris.spark.ArrowUtils;
 import org.apache.spark.sql.types.StructType;
 
 import java.nio.charset.Charset;
@@ -75,7 +75,7 @@ public class RecordBatch {
         this.schema = schema;
         this.addDoubleQuotes = addDoubleQuotes;
         if (format.equals(DataFormat.ARROW)) {
-            Schema arrowSchema = ArrowSchemaUtils.toArrowSchema(schema, "UTC");
+            Schema arrowSchema = ArrowUtils.toArrowSchema(schema, "UTC");
             this.arrowRoot = VectorSchemaRoot.create(arrowSchema, new RootAllocator(Integer.MAX_VALUE));
         }
     }

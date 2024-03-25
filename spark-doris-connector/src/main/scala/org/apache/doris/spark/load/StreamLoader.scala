@@ -286,7 +286,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
       if (autoRedirect) {
         val feNodes = settings.getProperty(ConfigurationOptions.DORIS_FENODES)
-        address = Some(RestService.randomEndpoint(feNodes, LOG))
+        Some(RestService.randomEndpoint(feNodes, LOG))
       } else {
         val backends = RestService.getBackendRows(settings, LOG)
         val iter = backends.iterator()
@@ -298,11 +298,11 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
         if (backends.isEmpty) throw new StreamLoadException("no backend alive")
         Collections.shuffle(backends)
         val backend = backends.get(0)
-        address = Some(backend.getIp + ":" + backend.getHttpPort)
+        Some(backend.getIp + ":" + backend.getHttpPort)
       }
 
     } match {
-      case Success(_) => // do nothing
+      case Success(node) => address = node
       case Failure(e: ExecutionException) => throw new StreamLoadException("get backends info fail", e)
       case Failure(e: IllegalArgumentException) => throw new StreamLoadException("get frontend info fail", e)
     }
