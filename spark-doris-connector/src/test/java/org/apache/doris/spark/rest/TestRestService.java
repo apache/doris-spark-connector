@@ -273,21 +273,32 @@ public class TestRestService {
         String database = "d";
         String table = "t";
 
-        Set<Long> be1Tablet = new HashSet<>();
-        be1Tablet.add(1L);
-        be1Tablet.add(2L);
+        Set<Long> be1Tablet1 = new HashSet<>();
+        be1Tablet1.add(1L);
         PartitionDefinition pd1 = new PartitionDefinition(
-                database, table, settings, "be1", be1Tablet, opaquedQueryPlan);
+                database, table, settings, "be1", be1Tablet1, opaquedQueryPlan);
 
-        Set<Long> be2Tablet = new HashSet<>();
-        be2Tablet.add(3L);
-        be2Tablet.add(4L);
+        Set<Long> be1Tablet2 = new HashSet<>();
+        be1Tablet2.add(2L);
         PartitionDefinition pd2 = new PartitionDefinition(
-                database, table, settings, "be2", be2Tablet, opaquedQueryPlan);
+                database, table, settings, "be1", be1Tablet2, opaquedQueryPlan);
+
+        Set<Long> be2Tablet1 = new HashSet<>();
+        be2Tablet1.add(3L);
+        PartitionDefinition pd3 = new PartitionDefinition(
+                database, table, settings, "be2", be2Tablet1, opaquedQueryPlan);
+
+        Set<Long> be2Tablet2 = new HashSet<>();
+        be2Tablet2.add(4L);
+        PartitionDefinition pd4 = new PartitionDefinition(
+                database, table, settings, "be2", be2Tablet2, opaquedQueryPlan);
+
 
         List<PartitionDefinition> expected = new ArrayList<>();
         expected.add(pd1);
         expected.add(pd2);
+        expected.add(pd3);
+        expected.add(pd4);
         Collections.sort(expected);
 
         List<PartitionDefinition> actual = RestService.tabletsMapToPartition(
