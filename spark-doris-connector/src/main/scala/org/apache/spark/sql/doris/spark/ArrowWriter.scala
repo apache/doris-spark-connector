@@ -25,6 +25,9 @@ import org.apache.spark.sql.types._
 
 import scala.collection.JavaConverters._
 
+/**
+ * Copied from Spark 3.1.2. To avoid the package conflicts between spark 2 and spark 3.
+ */
 object ArrowWriter {
 
   def create(schema: StructType, timeZoneId: String): ArrowWriter = {
