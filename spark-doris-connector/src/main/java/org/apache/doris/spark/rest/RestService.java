@@ -489,7 +489,7 @@ public class RestService implements Serializable {
      */
     @VisibleForTesting
     public static List<BackendV2.BackendRowV2> getBackendRows(SparkSettings sparkSettings,  Logger logger) throws DorisException {
-        if (StringUtils.isNoneBlank(sparkSettings.getProperty(sparkSettings.getProperty(DORIS_BENODES)))) {
+        if (StringUtils.isNoneBlank(sparkSettings.getProperty(DORIS_BENODES))) {
             return getBeNodes(sparkSettings, logger);
         } else { // If the specified BE does not exist, the FE mode is used
             String response = queryAllFrontends(sparkSettings, (frontend, enableHttps) ->
