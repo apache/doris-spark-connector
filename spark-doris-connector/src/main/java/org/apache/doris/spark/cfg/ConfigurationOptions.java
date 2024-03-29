@@ -47,17 +47,17 @@ public interface ConfigurationOptions {
     int DORIS_REQUEST_RETRIES_DEFAULT = 3;
     int DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT = 30 * 1000;
     int DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT = 30 * 1000;
-    int DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT = 3600;
+    int DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT = 6 * 60 * 60;
 
     String DORIS_TABLET_SIZE = "doris.request.tablet.size";
-    int DORIS_TABLET_SIZE_DEFAULT = Integer.MAX_VALUE;
+    int DORIS_TABLET_SIZE_DEFAULT = 1;
     int DORIS_TABLET_SIZE_MIN = 1;
 
     String DORIS_BATCH_SIZE = "doris.batch.size";
     int DORIS_BATCH_SIZE_DEFAULT = 1024;
 
     String DORIS_EXEC_MEM_LIMIT = "doris.exec.mem.limit";
-    long DORIS_EXEC_MEM_LIMIT_DEFAULT = 2147483648L;
+    long DORIS_EXEC_MEM_LIMIT_DEFAULT = 8L * 1024 * 1024 * 1024;
 
     String DORIS_VALUE_READER_CLASS = "doris.value.reader.class";
 
