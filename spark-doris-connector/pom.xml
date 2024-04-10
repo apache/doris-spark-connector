@@ -77,7 +77,7 @@
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.77.Final</netty.version>
         <fasterxml.jackson.version>2.13.5</fasterxml.jackson.version>
-        <thrift-service.version>1.0.0</thrift-service.version>
+        <thrift-service.version>1.0.1</thrift-service.version>
         <testcontainers.version>1.17.6</testcontainers.version>
     </properties>
 
