@@ -19,6 +19,7 @@ package org.apache.doris.spark.serialization;
 
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -251,9 +252,14 @@ public class RowBatch {
                         }
                         break;
                     case "IPV4":
-                        Preconditions.checkArgument(mt.equals(Types.MinorType.UINT4),
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.UINT4) || mt.equals(Types.MinorType.INT),
                                 typeMismatchMessage(currentType, mt));
-                        UInt4Vector ipv4Vector = (UInt4Vector) curFieldVector;
+                        BaseIntVector ipv4Vector;
+                        if (mt.equals(Types.MinorType.INT)) {
+                            ipv4Vector = (IntVector) curFieldVector;
+                        } else {
+                            ipv4Vector = (UInt4Vector) curFieldVector;
+                        }
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = ipv4Vector.isNull(rowIndex) ? null : convertLongToIPv4Address(ipv4Vector.getValueAsLong(rowIndex));
                             addValueToRow(rowIndex, fieldValue);
@@ -327,7 +333,7 @@ public class RowBatch {
                     case "DATE":
                     case "DATEV2":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR)
-                                        || mt.equals(Types.MinorType.DATEDAY), typeMismatchMessage(currentType, mt));
+                                || mt.equals(Types.MinorType.DATEDAY), typeMismatchMessage(currentType, mt));
                         if (mt.equals(Types.MinorType.VARCHAR)) {
                             VarCharVector date = (VarCharVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
