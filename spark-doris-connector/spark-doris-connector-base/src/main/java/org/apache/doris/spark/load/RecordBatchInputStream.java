@@ -88,7 +88,7 @@ public class RecordBatchInputStream extends InputStream {
         if (read < 0) {
             return -1;
         } else {
-            return bytes[0];
+            return bytes[0] & 0xFF;
         }
     }
 

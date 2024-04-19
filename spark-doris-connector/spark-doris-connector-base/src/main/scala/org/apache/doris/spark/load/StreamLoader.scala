@@ -531,14 +531,12 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
     val loadResponse: StreamLoadResponse = StreamLoadResponse(code, msg, content)
 
     if (loadResponse.code != HttpStatus.SC_OK) {
-      LOG.error(s"Stream load http status is not OK, status: ${loadResponse.code}, response: $loadResponse")
-      throw new StreamLoadException(String.format("stream load error, http status:%d, response:%s",
-        new Integer(loadResponse.code), loadResponse))
+      throw new StreamLoadException(String.format("stream load error, http status:%d, msg:%s",
+        new Integer(loadResponse.code), loadResponse.msg))
     } else {
       try {
         val respContent = MAPPER.readValue(loadResponse.content, classOf[RespContent])
         if (!respContent.isSuccess) {
-          LOG.error(s"Stream load status is not success, status:${respContent.getStatus}, response:$loadResponse")
           throw new StreamLoadException(String.format("stream load error, load status:%s, response:%s", respContent.getStatus, loadResponse))
         }
         LOG.info("Stream load Response:{}", loadResponse)
