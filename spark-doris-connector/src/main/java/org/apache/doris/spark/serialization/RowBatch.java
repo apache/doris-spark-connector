@@ -19,6 +19,7 @@ package org.apache.doris.spark.serialization;
 
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -31,6 +32,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -44,6 +46,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.doris.sdk.thrift.TScanBatchResult;
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.rest.models.Schema;
+import org.apache.doris.spark.util.IPUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +71,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+
+import static org.apache.doris.spark.util.IPUtils.convertLongToIPv4Address;
 
 /**
  * row batch data container.
@@ -246,6 +251,20 @@ public class RowBatch {
                             }
                         }
                         break;
+                    case "IPV4":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.UINT4) || mt.equals(Types.MinorType.INT),
+                                typeMismatchMessage(currentType, mt));
+                        BaseIntVector ipv4Vector;
+                        if (mt.equals(Types.MinorType.INT)) {
+                            ipv4Vector = (IntVector) curFieldVector;
+                        } else {
+                            ipv4Vector = (UInt4Vector) curFieldVector;
+                        }
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            Object fieldValue = ipv4Vector.isNull(rowIndex) ? null : convertLongToIPv4Address(ipv4Vector.getValueAsLong(rowIndex));
+                            addValueToRow(rowIndex, fieldValue);
+                        }
+                        break;
                     case "FLOAT":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.FLOAT4),
                                 typeMismatchMessage(currentType, mt));
@@ -314,7 +333,7 @@ public class RowBatch {
                     case "DATE":
                     case "DATEV2":
                         Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR)
-                                        || mt.equals(Types.MinorType.DATEDAY), typeMismatchMessage(currentType, mt));
+                                || mt.equals(Types.MinorType.DATEDAY), typeMismatchMessage(currentType, mt));
                         if (mt.equals(Types.MinorType.VARCHAR)) {
                             VarCharVector date = (VarCharVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
@@ -390,6 +409,20 @@ public class RowBatch {
                             }
                             String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
                             addValueToRow(rowIndex, value);
+                        }
+                        break;
+                    case "IPV6":
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR),
+                                typeMismatchMessage(currentType, mt));
+                        VarCharVector ipv6VarcharVector = (VarCharVector) curFieldVector;
+                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                            if (ipv6VarcharVector.isNull(rowIndex)) {
+                                addValueToRow(rowIndex, null);
+                                break;
+                            }
+                            String ipv6Str = new String(ipv6VarcharVector.get(rowIndex));
+                            String ipv6Address = IPUtils.fromBigInteger(new BigInteger(ipv6Str));
+                            addValueToRow(rowIndex, ipv6Address);
                         }
                         break;
                     case "ARRAY":

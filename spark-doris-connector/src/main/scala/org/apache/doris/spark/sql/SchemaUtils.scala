@@ -130,6 +130,8 @@ private[spark] object SchemaUtils {
       case "MAP"             => MapType(DataTypes.StringType, DataTypes.StringType)
       case "STRUCT"          => DataTypes.StringType
       case "VARIANT"         => DataTypes.StringType
+      case "IPV4"            => DataTypes.StringType
+      case "IPV6"            => DataTypes.StringType
       case "HLL"             =>
         throw new DorisException("Unsupported type " + dorisType)
       case _                             =>
