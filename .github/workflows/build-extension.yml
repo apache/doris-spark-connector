@@ -46,47 +46,54 @@ jobs:
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=2.3.4 \
-          -Dscala.version=2.11 \
-          -Dspark.major.version=2.3
+          -Dscala.version=2.11.8 \
+          -Dspark.major.version=2.3 \
+          -Dscala.major.version=2.11
 
     - name: Build spark connector 2.4 2.11
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=2.4.0 \
-          -Dscala.version=2.11 \
-          -Dspark.major.version=2.4    
+          -Dscala.version=2.11.8 \
+          -Dspark.major.version=2.4 \
+          -Dscala.major.version=2.11  
 
     - name: Build spark connector 2.4 2.12
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=2.4.0 \
-          -Dscala.version=2.12 \
-          -Dspark.major.version=2.4        
+          -Dscala.version=2.12.10 \
+          -Dspark.major.version=2.4 \
+          -Dscala.major.version=2.12       
 
     - name: Build spark connector 3.1
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=3.1.2 \
-          -Dscala.version=2.12 \
-          -Dspark.major.version=3.1
+          -Dscala.version=2.12.10 \
+          -Dspark.major.version=3.1 \
+          -Dscala.major.version=2.12
 
     - name: Build spark connector 3.2
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=3.2.0 \
-          -Dscala.version=2.12 \
-          -Dspark.major.version=3.2
+          -Dscala.version=2.12.10 \
+          -Dspark.major.version=3.2 \
+          -Dscala.major.version=2.12
 
     - name: Build spark connector 3.3
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=3.3.0 \
-          -Dscala.version=2.12 \
-          -Dspark.major.version=3.3
+          -Dscala.version=2.12.10 \
+          -Dspark.major.version=3.3 \
+          -Dscala.major.version=2.12
 
     - name: Build spark connector 3.4
       run: |
         cd spark-doris-connector && mvn clean package ${MVN_OPT} \
           -Dspark.version=3.4.0 \
-          -Dscala.version=2.12 \
-          -Dspark.major.version=3.4  
+          -Dscala.version=2.12.10 \
+          -Dspark.major.version=3.4 \
+          -Dscala.major.version=2.12

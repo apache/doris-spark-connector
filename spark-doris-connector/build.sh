@@ -170,9 +170,15 @@ selectSpark() {
   done
 }
 
+SCALA_VERSION=0
 selectScala
 ScalaVer=$?
-SCALA_VERSION="2.1${ScalaVer}"
+if [ ${ScalaVer} -eq 1 ]; then
+    SCALA_VERSION="2.11.8"
+elif [ ${ScalaVer} -eq 2 ]; then
+    SCALA_VERSION="2.12.10"
+fi
+
 
 SPARK_VERSION=0
 selectSpark
@@ -196,27 +202,30 @@ elif [ ${SparkVer} -eq 7 ]; then
     SPARK_VERSION=$ver
 fi
 
-if [[ $SPARK_VERSION =~ ^2.3 && $SCALA_VERSION == "2.12"  ]]; then
+if [[ $SPARK_VERSION =~ ^2.3 && $SCALA_VERSION == "2.12.10"  ]]; then
   echo_r "Spark 2.3 is not compatible with scala 2.12, will exit."
   exit 1
-elif [[ $SPARK_VERSION =~ ^3.* && $SCALA_VERSION == "2.11" ]]; then
+elif [[ $SPARK_VERSION =~ ^3.* && $SCALA_VERSION == "2.11.8" ]]; then
   echo_r "Spark 3.x is not compatible with scala 2.11, will exit."
   exit 1
 fi
 
 # extract major version:
 # eg: 3.1.2 -> 3.1
+SCALA_MAJOR_VERSION=0
+[ ${SCALA_VERSION} != 0 ] && SCALA_MAJOR_VERSION=${SCALA_VERSION%.*}
 SPARK_MAJOR_VERSION=0
 [ ${SPARK_VERSION} != 0 ] && SPARK_MAJOR_VERSION=${SPARK_VERSION%.*}
 
-echo_g " scala version: ${SCALA_VERSION}"
+echo_g " scala version: ${SCALA_VERSION}, major version: ${SCALA_MAJOR_VERSION}"
 echo_g " spark version: ${SPARK_VERSION}, major version: ${SPARK_MAJOR_VERSION}"
 echo_g " build starting..."
 
 ${MVN_BIN} clean package \
   -Dspark.version=${SPARK_VERSION} \
   -Dscala.version=${SCALA_VERSION} \
-  -Dspark.major.version=${SPARK_MAJOR_VERSION} "$@"
+  -Dspark.major.version=${SPARK_MAJOR_VERSION} \
+  -Dscala.major.version=${SCALA_MAJOR_VERSION} "$@"
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then
