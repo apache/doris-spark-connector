@@ -44,13 +44,12 @@ public class ListUtils {
      * recursively splits large collections to normal collection and serializes the collection
      * @param batch
      * @param result
-     * @throws JsonProcessingException
      */
-    public static void divideAndSerialize(List<Map<Object, Object>> batch, List<String> result, String lineDelimiter)
-            throws JsonProcessingException {
-        String serializedResult = generateSerializedResult(batch, lineDelimiter);
+    public static void divideAndSerialize(List<Map<Object, Object>> batch, List<String> result, String lineDelimiter) {
+
         // if an error occurred in the batch call to getBytes ,average divide the batch
         try {
+            String serializedResult = generateSerializedResult(batch, lineDelimiter);
             //the "Requested array size exceeds VM limit" exception occurs when the collection is large
             serializedResult.getBytes("UTF-8");
             result.add(serializedResult);
