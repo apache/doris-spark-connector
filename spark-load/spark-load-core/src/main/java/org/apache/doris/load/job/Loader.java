@@ -40,9 +40,7 @@ public abstract class Loader {
             throw new SparkLoadException("submit spark job failed", e);
         }
         do {
-            if (SparkAppHandle.State.FAILED == appHandle.getState()
-                    || SparkAppHandle.State.KILLED == appHandle.getState()
-                    || SparkAppHandle.State.FINISHED == appHandle.getState()) {
+            if (appHandle.getState().isFinal()) {
                 if (SparkAppHandle.State.FAILED == appHandle.getState()
                         || SparkAppHandle.State.KILLED == appHandle.getState()) {
                     statusInfo.put("msg",
