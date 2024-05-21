@@ -1,7 +1,7 @@
 package org.apache.doris.load.job;
 
-import org.apache.doris.common.JobStatus;
-import org.apache.doris.common.SparkLoadException;
+import org.apache.doris.common.enums.JobStatus;
+import org.apache.doris.exception.SparkLoadException;
 import org.apache.doris.config.JobConfig;
 
 import lombok.Getter;
