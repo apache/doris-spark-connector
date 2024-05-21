@@ -11,6 +11,7 @@ import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -141,7 +142,8 @@ public class JobConfig {
                 case HIVE:
                     Preconditions.checkArgument(StringUtils.isNoneBlank(taskInfo.getHiveDatabase()),
                             "hive database is empty");
-                    Preconditions.checkArgument(StringUtils.isNoneBlank(taskInfo.getHiveTable()), "hive table is empty");
+                    Preconditions.checkArgument(StringUtils.isNoneBlank(taskInfo.getHiveTable()),
+                            "hive table is empty");
                     break;
                 case FILE:
                     Preconditions.checkArgument(taskInfo.getPaths() != null && !taskInfo.getPaths().isEmpty(),
@@ -166,15 +168,14 @@ public class JobConfig {
                 "spark config item sparkHome is empty");
         Preconditions.checkArgument(StringUtils.isNoneBlank(sparkInfo.getWorkingDir()),
                 "spark config item workingDir is empty");
-        Preconditions.checkArgument(
-                StringUtils.equalsAnyIgnoreCase(sparkInfo.getMaster(), "yarn", "standalone", "local"),
+        Preconditions.checkArgument(checkSparkMaster(sparkInfo.getMaster()),
                 "spark master only supports yarn or standalone or local ");
         Preconditions.checkArgument(
                 StringUtils.equalsAnyIgnoreCase(sparkInfo.getDeployMode(), "cluster", "client"),
                 "spark deployMode only supports cluster or client ");
-        if ("local".equalsIgnoreCase(sparkInfo.getMaster())) {
+        if (!"yarn".equalsIgnoreCase(sparkInfo.getMaster())) {
             Preconditions.checkArgument("client".equalsIgnoreCase(sparkInfo.getDeployMode()),
-                    "local master only supports client mode");
+                    "standalone and local master only supports client mode");
         }
         if (LoadMode.PULL == getLoadMode()) {
             if (StringUtils.isBlank(getSpark().getDppJarPath())) {
@@ -184,6 +185,18 @@ public class JobConfig {
                 throw new IllegalArgumentException("dpp jar file is not exists, path: " + getSpark().getDppJarPath());
             }
         }
+    }
+
+    private boolean checkSparkMaster(String master) {
+        if (StringUtils.isBlank(master)) {
+            return false;
+        }
+        if ("yarn".equalsIgnoreCase(master) || master.startsWith("local")) {
+            return true;
+        }
+        URI uri = URI.create(master);
+        return Constants.SPARK_STANDALONE_SCHEME.equalsIgnoreCase(uri.getScheme())
+                && StringUtils.isNoneBlank(uri.getHost()) && uri.getPort() != -1;
     }
 
 }
