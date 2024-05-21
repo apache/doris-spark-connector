@@ -12,6 +12,17 @@ dependency-reduced-pom.xml
 target
 .flattened-pom.xml
 
+spark-load/spark-dpp/dependency-reduced-pom.xml
+spark-load/spark-dpp/output/
+spark-load/spark-dpp/target/
+spark-load/spark-dpp/.idea/
+
+spark-load/spark-load-core/dependency-reduced-pom.xml
+spark-load/spark-load-core/output/
+spark-load/spark-load-core/target/
+spark-load/spark-load-core/.idea/
+
+
 ### Java template
 # Compiled class file
 *.class
