@@ -1,7 +1,8 @@
 package org.apache.doris.config;
 
 import org.apache.doris.SparkLoadRunner;
-import org.apache.doris.common.LoadMode;
+import org.apache.doris.common.Constants;
+import org.apache.doris.common.enums.LoadMode;
 import org.apache.doris.sparkdpp.EtlJobConfig;
 
 import com.fasterxml.jackson.annotation.JsonProperty;

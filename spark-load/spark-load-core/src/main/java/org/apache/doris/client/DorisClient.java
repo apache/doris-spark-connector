@@ -2,7 +2,7 @@ package org.apache.doris.client;
 
 import org.apache.doris.common.LoadInfo;
 import org.apache.doris.common.ResponseEntity;
-import org.apache.doris.common.SparkLoadException;
+import org.apache.doris.exception.SparkLoadException;
 import org.apache.doris.common.meta.LoadInfoResponse;
 import org.apache.doris.common.meta.LoadMeta;
 import org.apache.doris.util.HttpUtils;
