@@ -3,12 +3,12 @@ package org.apache.doris.load.job;
 import org.apache.doris.SparkLoadRunner;
 import org.apache.doris.client.DorisClient;
 import org.apache.doris.common.DppResult;
-import org.apache.doris.common.JobStatus;
 import org.apache.doris.common.LoadInfo;
-import org.apache.doris.common.SparkLoadException;
+import org.apache.doris.common.enums.JobStatus;
 import org.apache.doris.common.meta.LoadMeta;
 import org.apache.doris.common.meta.TableMeta;
 import org.apache.doris.config.JobConfig;
+import org.apache.doris.exception.SparkLoadException;
 import org.apache.doris.sparkdpp.EtlJobConfig;
 import org.apache.doris.util.DateUtils;
 import org.apache.doris.util.HadoopUtils;
@@ -18,7 +18,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
-import org.apache.spark.launcher.SparkAppHandle;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,6 +58,7 @@ public class PullLoader extends Loader implements Recoverable {
         loadMeta = feClient.createSparkLoad(jobConfig.getDatabase(), tableToPartition, jobConfig.getLabel(),
                 jobConfig.getJobProperties());
         etlJobConfig = loadMeta.getEtlJobConfig(jobConfig);
+        jobStatus = JobStatus.SUCCESS;
     }
 
     @Override
@@ -87,30 +87,14 @@ public class PullLoader extends Loader implements Recoverable {
             file.mkdir();
         }
 
-        LOG.info("submit spark job in mode: " + spark.getMaster() + "-" + spark.getDeployMode());
+        LOG.info("submit spark job on master: " + spark.getMaster() + ", deployMode: " + spark.getDeployMode());
 
         super.execute();
-        boolean isRunning = true;
-        do {
-            if (SparkAppHandle.State.FAILED == appHandle.getState()
-                    || SparkAppHandle.State.KILLED == appHandle.getState()
-                    || SparkAppHandle.State.FINISHED == appHandle.getState()) {
-                isRunning = false;
-                if (SparkAppHandle.State.FAILED == appHandle.getState()
-                        || SparkAppHandle.State.KILLED == appHandle.getState()) {
-                    statusInfo.put("msg",
-                            String.format("spark job run failed, appId: %s, state: %s", appHandle.getAppId(),
-                                    appHandle.getState()));
-                    LOG.error("spark job run failed, appId: " + appHandle.getAppId() + ", state: "
-                            + appHandle.getState());
-                    jobStatus = JobStatus.FAILED;
-                }
-                LOG.info("spark job run finished, appId: " + appHandle.getAppId() + ", state: " + appHandle.getState());
-            }
-            statusInfo.put("appId", appHandle.getAppId());
-        } while (isRunning);
 
-        jobStatus = JobStatus.SUCCESS;
+        if (jobStatus == JobStatus.FAILED) {
+            throw new SparkLoadException("spark job run failed, msg: " + statusInfo.get("msg"));
+        }
+        LOG.info("spark job run finished.");
 
     }
 
