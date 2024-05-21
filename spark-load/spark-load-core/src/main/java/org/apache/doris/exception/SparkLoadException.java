@@ -1,4 +1,4 @@
-package org.apache.doris.common;
+package org.apache.doris.exception;
 
 public class SparkLoadException extends Exception {
 

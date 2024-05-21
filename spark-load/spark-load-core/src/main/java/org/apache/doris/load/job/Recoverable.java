@@ -1,6 +1,6 @@
 package org.apache.doris.load.job;
 
-import org.apache.doris.common.SparkLoadException;
+import org.apache.doris.exception.SparkLoadException;
 
 public interface Recoverable {
 
