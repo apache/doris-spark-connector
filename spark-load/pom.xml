@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>spark-load-core</module>
-        <module>spark-dpp</module>
+        <module>spark-load-dpp</module>
     </modules>
 
     <properties>
@@ -36,6 +36,7 @@
         <log4j.version>2.17.1</log4j.version>
         <slf4j.version>2.0.7</slf4j.version>
         <commons-logging.version>1.2</commons-logging.version>
+        <aws-java-sdk.version>1.12.669</aws-java-sdk.version>
     </properties>
 
     <dependencyManagement>
@@ -152,6 +153,55 @@
                 </exclusions>
             </dependency>
             <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-aws</artifactId>
+                <version>${hadoop.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>servlet-api</artifactId>
+                        <groupId>javax.servlet</groupId>
+                    </exclusion>
+                    <!-- https://github.com/aws/aws-sdk-java/issues/1032 -->
+                    <exclusion>
+                        <groupId>com.amazonaws</groupId>
+                        <artifactId>aws-java-sdk-s3</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.amazonaws</groupId>
+                        <artifactId>aws-java-sdk-bundle</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-s3</artifactId>
+                <version>${aws-java-sdk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-glue</artifactId>
+                <version>${aws-java-sdk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-dynamodb</artifactId>
+                <version>${aws-java-sdk.version}</version>
+            </dependency>
+            <!--only for apache ranger audit-->
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-logs</artifactId>
+                <version>${aws-java-sdk.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-column</artifactId>
                 <version>${parquet.version}</version>
@@ -229,6 +279,9 @@
                 <artifactId>httpclient5</artifactId>
                 <version>${httpclient5.version}</version>
             </dependency>
+
+
+
             <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
