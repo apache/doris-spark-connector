@@ -113,7 +113,7 @@ public class JobConfig {
         private String driverMemory;
 
         private String dppJarPath =
-                SparkLoadRunner.SPARK_LOAD_HOME + "/spark-dpp-1.0-SNAPSHOT-jar-with-dependencies.jar";
+                SparkLoadRunner.SPARK_LOAD_HOME + "/spark-load-dpp-1.0-SNAPSHOT-jar-with-dependencies.jar";
 
         private Map<String, String> properties = Collections.emptyMap();
 
