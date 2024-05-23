@@ -2,7 +2,6 @@ package org.apache.doris.util;
 
 import org.apache.doris.config.JobConfig;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -17,24 +16,19 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-public class HadoopUtils {
+public class FileSystemUtils {
 
-    private static final String DEFAULT_FS_KEY = "fs.defaultFS";
-
-    private static FileSystem getFs(JobConfig config) throws IOException {
+    private static FileSystem getFs(JobConfig config, Path path) throws IOException {
         Configuration conf = new Configuration();
         Map<String, String> props = config.getHadoopProperties();
         props.forEach(conf::set);
-        String defaultFs = props.getOrDefault(DEFAULT_FS_KEY, "");
-        if (StringUtils.isBlank(defaultFs)) {
-            throw new IllegalArgumentException("fs.defaultFS is not set");
-        }
-        return FileSystem.get(conf);
+        return FileSystem.get(path.toUri(), conf);
     }
 
     public static void createFile(JobConfig config, String content, String path, Boolean overwrite) throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            FSDataOutputStream outputStream = fs.create(new Path(path), overwrite);
+        Path p = new Path(path);
+        try (FileSystem fs = getFs(config, p)) {
+            FSDataOutputStream outputStream = fs.create(p, overwrite);
             outputStream.write(content.getBytes(StandardCharsets.UTF_8));
             outputStream.close();
         }
@@ -42,34 +36,38 @@ public class HadoopUtils {
 
     public static void createFile(JobConfig config, byte[] contentBytes, String path, Boolean overwrite)
             throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            FSDataOutputStream outputStream = fs.create(new Path(path), overwrite);
+        Path p = new Path(path);
+        try (FileSystem fs = getFs(config, p)) {
+            FSDataOutputStream outputStream = fs.create(p, overwrite);
             outputStream.write(contentBytes);
             outputStream.close();
         }
     }
 
     public static void delete(JobConfig config, String path) throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            fs.delete(new Path(path), true);
+        Path p = new Path(path);
+        try (FileSystem fs = getFs(config, p)) {
+            fs.delete(p, true);
         }
     }
 
     public static boolean exists(JobConfig config, String path) throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            return fs.exists(new Path(path));
+        Path p = new Path(path);
+        try (FileSystem fs = getFs(config, p)) {
+            return fs.exists(p);
         }
     }
 
     public static FileStatus[] list(JobConfig config, String path) throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            return fs.listStatus(new Path(path));
+        Path p = new Path(path);
+        try (FileSystem fs = getFs(config, p)) {
+            return fs.listStatus(p);
         }
     }
 
     public static String readFile(JobConfig config, String path) throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            Path p = new Path(path);
+        Path p = new Path(path);
+        try (FileSystem fs = getFs(config, p)) {
             if (fs.exists(p) && fs.getFileStatus(p).isFile()) {
                 FSDataInputStream inputStream = fs.open(p);
                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
@@ -80,19 +78,22 @@ public class HadoopUtils {
                 }
                 return sb.toString();
             }
+            throw new UnsupportedOperationException("read file is not exist or is not a file, path: " + path);
         }
-        return null;
     }
 
     public static void move(JobConfig config, String src, String dst) throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            fs.rename(new Path(src), new Path(dst));
+        Path srcPath = new Path(src);
+        Path dstpath = new Path(dst);
+        try (FileSystem fs = getFs(config, srcPath)) {
+            fs.rename(srcPath, dstpath);
         }
     }
 
     public static void mkdir(JobConfig config, String path) throws IOException {
-        try (FileSystem fs = getFs(config)) {
-            fs.mkdirs(new Path(path), new FsPermission(644));
+        Path p = new Path(path);
+        try (FileSystem fs = getFs(config, p)) {
+            fs.mkdirs(p, new FsPermission(644));
         }
     }
 
