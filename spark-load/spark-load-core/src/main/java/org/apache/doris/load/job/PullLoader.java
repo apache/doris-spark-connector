@@ -11,7 +11,7 @@ import org.apache.doris.config.JobConfig;
 import org.apache.doris.exception.SparkLoadException;
 import org.apache.doris.sparkdpp.EtlJobConfig;
 import org.apache.doris.util.DateUtils;
-import org.apache.doris.util.HadoopUtils;
+import org.apache.doris.util.FileSystemUtils;
 import org.apache.doris.util.JsonUtils;
 
 import org.apache.commons.lang3.StringUtils;
@@ -58,7 +58,6 @@ public class PullLoader extends Loader implements Recoverable {
         loadMeta = feClient.createSparkLoad(jobConfig.getDatabase(), tableToPartition, jobConfig.getLabel(),
                 jobConfig.getJobProperties());
         etlJobConfig = loadMeta.getEtlJobConfig(jobConfig);
-        jobStatus = JobStatus.SUCCESS;
     }
 
     @Override
@@ -73,9 +72,8 @@ public class PullLoader extends Loader implements Recoverable {
 
         String etlJobConfPath = etlJobConfig.outputPath + "/configs/jobconfig.json";
         try {
-            HadoopUtils.createFile(jobConfig, etlJobConfig.configToJson(), etlJobConfPath, true);
+            FileSystemUtils.createFile(jobConfig, etlJobConfig.configToJson(), etlJobConfPath, true);
         } catch (IOException e) {
-            LOG.error("create job config file failed", e);
             throw new SparkLoadException("create job config file failed", e);
         }
 
@@ -109,12 +107,16 @@ public class PullLoader extends Loader implements Recoverable {
             String dppResultStr = null;
             int checkCnt = 0;
             while (checkCnt < 3) {
-                dppResultStr = getDppResultString();
+                try {
+                    dppResultStr = getDppResultString();
+                } catch (UnsupportedOperationException e) {
+                    LOG.warn("retry get dpp result", e);
+                    checkCnt++;
+                    LockSupport.parkNanos(Duration.ofMillis(500).toNanos());
+                }
                 if (dppResultStr != null) {
                     break;
                 }
-                checkCnt++;
-                LockSupport.parkNanos(Duration.ofMillis(500).toNanos());
             }
             if (dppResultStr == null) {
                 throw new SparkLoadException("get dpp result str failed");
@@ -130,7 +132,7 @@ public class PullLoader extends Loader implements Recoverable {
             LoadInfo loadInfo = feClient.getLoadInfo(jobConfig.getDatabase(), jobConfig.getLabel());
             switch (loadInfo.getState().toUpperCase(Locale.ROOT)) {
                 case "FINISHED":
-                    LOG.info("loading job finished");
+                    LOG.info("load job finished.");
                     try {
                         cleanOutputPath();
                     } catch (IOException e) {
@@ -138,8 +140,7 @@ public class PullLoader extends Loader implements Recoverable {
                     }
                     return;
                 case "CANCELLED":
-                    LOG.error("loading job failed, failed msg: " + loadInfo.getFailMsg());
-                    throw new SparkLoadException("loading job failed, " + loadInfo.getFailMsg());
+                    throw new SparkLoadException("load job failed, " + loadInfo.getFailMsg());
                 default:
                     LOG.info("load job unfinished, state: " + loadInfo.getState());
                     break;
@@ -172,18 +173,18 @@ public class PullLoader extends Loader implements Recoverable {
             String outputPath = etlJobConfig.getOutputPath();
             String parentOutputPath = outputPath.substring(0, StringUtils.lastIndexOf(outputPath, "/"));
             try {
-                if (HadoopUtils.exists(jobConfig, parentOutputPath)) {
-                    FileStatus[] fileStatuses = HadoopUtils.list(jobConfig, parentOutputPath);
+                if (FileSystemUtils.exists(jobConfig, parentOutputPath)) {
+                    FileStatus[] fileStatuses = FileSystemUtils.list(jobConfig, parentOutputPath);
                     if (fileStatuses.length != 1) {
                         return false;
                     }
-                    fileStatuses = HadoopUtils.list(jobConfig, fileStatuses[0].getPath().toString());
+                    fileStatuses = FileSystemUtils.list(jobConfig, fileStatuses[0].getPath().toString());
                     boolean hasDppResult = false;
                     for (FileStatus fileStatus : fileStatuses) {
                         String fileName = fileStatus.getPath().getName();
                         if (DPP_RESULT_JSON.equalsIgnoreCase(fileName)) {
                             hasDppResult = true;
-                            String content = HadoopUtils.readFile(jobConfig, fileStatus.getPath().toString());
+                            String content = FileSystemUtils.readFile(jobConfig, fileStatus.getPath().toString());
                             DppResult dppResult = JsonUtils.readValue(content, DppResult.class);
                             if (!checkDppResult(dppResult)) {
                                 LOG.info("previous etl job is failed, cannot be recovered");
@@ -192,7 +193,7 @@ public class PullLoader extends Loader implements Recoverable {
                         }
                         // check meta consist
                         if (LOAD_META_JSON.equalsIgnoreCase(fileName)) {
-                            String content = HadoopUtils.readFile(jobConfig, fileStatus.getPath().toString());
+                            String content = FileSystemUtils.readFile(jobConfig, fileStatus.getPath().toString());
                             LoadMeta oldLoadMeta = JsonUtils.readValue(content, LoadMeta.class);
                             for (Map.Entry<String, TableMeta> entry : loadMeta.getTableMeta().entrySet()) {
                                 TableMeta tableMeta = entry.getValue();
@@ -255,10 +256,11 @@ public class PullLoader extends Loader implements Recoverable {
         String outputPath = etlJobConfig.getOutputPath();
         String parentOutputPath = outputPath.substring(0, StringUtils.lastIndexOf(outputPath, "/"));
         try {
-            FileStatus[] fileStatuses = HadoopUtils.list(jobConfig, parentOutputPath);
-            HadoopUtils.move(jobConfig, fileStatuses[0].getPath().toString(), outputPath);
-            HadoopUtils.delete(jobConfig, outputPath + "/load_meta.json");
+            FileStatus[] fileStatuses = FileSystemUtils.list(jobConfig, parentOutputPath);
+            FileSystemUtils.move(jobConfig, fileStatuses[0].getPath().toString(), outputPath);
+            FileSystemUtils.delete(jobConfig, outputPath + "/load_meta.json");
             uploadMetaInfo(loadMeta, etlJobConfig.getOutputPath());
+            jobStatus = JobStatus.SUCCESS;
         } catch (IOException e) {
             throw new SparkLoadException("prepare recovery failed", e);
         }
@@ -274,10 +276,10 @@ public class PullLoader extends Loader implements Recoverable {
 
     private void uploadMetaInfo(LoadMeta metaInfo, String outputPath) throws SparkLoadException {
         try {
-            if (!HadoopUtils.exists(jobConfig, outputPath)) {
-                HadoopUtils.mkdir(jobConfig, outputPath);
+            if (!FileSystemUtils.exists(jobConfig, outputPath)) {
+                FileSystemUtils.mkdir(jobConfig, outputPath);
             }
-            HadoopUtils.createFile(jobConfig, JsonUtils.writeValueAsBytes(metaInfo),
+            FileSystemUtils.createFile(jobConfig, JsonUtils.writeValueAsBytes(metaInfo),
                     outputPath + "/load_meta.json", true);
         } catch (IOException e) {
             throw new SparkLoadException("upload load meta failed", e);
@@ -301,15 +303,15 @@ public class PullLoader extends Loader implements Recoverable {
     }
 
     public void cleanOutputPath() throws IOException {
-        if (HadoopUtils.exists(jobConfig, etlJobConfig.outputPath)) {
+        if (FileSystemUtils.exists(jobConfig, etlJobConfig.outputPath)) {
             LOG.info("clean output: " + etlJobConfig.outputPath);
-            HadoopUtils.delete(jobConfig, etlJobConfig.outputPath);
+            FileSystemUtils.delete(jobConfig, etlJobConfig.outputPath);
         }
     }
 
     private String getDppResultString() throws SparkLoadException {
         try {
-            return HadoopUtils.readFile(jobConfig, etlJobConfig.outputPath + "/dpp_result.json");
+            return FileSystemUtils.readFile(jobConfig, etlJobConfig.outputPath + "/dpp_result.json");
         } catch (IOException e) {
             throw new SparkLoadException("get dpp result failed", e);
         }
@@ -318,7 +320,7 @@ public class PullLoader extends Loader implements Recoverable {
     private Map<String, Long> getFilePathToSize() throws SparkLoadException {
         Map<String, Long> filePathToSize = new HashMap<>();
         try {
-            FileStatus[] fileStatuses = HadoopUtils.list(jobConfig, etlJobConfig.outputPath);
+            FileStatus[] fileStatuses = FileSystemUtils.list(jobConfig, etlJobConfig.outputPath);
             for (FileStatus fileStatus : fileStatuses) {
                 if (fileStatus.isDirectory()) {
                     continue;
