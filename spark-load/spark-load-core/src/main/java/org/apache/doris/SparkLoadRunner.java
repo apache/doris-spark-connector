@@ -56,6 +56,7 @@ public class SparkLoadRunner {
 
         LoadManager loadManager = LoadManager.getInstance();
         Loader loader = loadManager.createLoader(jobConfig, cmdOptions.getRecovery());
+        Runtime.getRuntime().addShutdownHook(new Thread(loader::cancel));
         try {
 
             loader.prepare();
