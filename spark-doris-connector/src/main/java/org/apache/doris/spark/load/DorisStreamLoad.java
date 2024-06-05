@@ -328,10 +328,11 @@ public class DorisStreamLoad implements Serializable {
                 String loadResult = EntityUtils.toString(response.getEntity());
                 Map<String, String> res = MAPPER.readValue(loadResult, new TypeReference<HashMap<String, String>>() {
                 });
-                if (res.get("status").equals("Fail") && !ResponseUtil.isCommitted(res.get("msg"))) {
-                    throw new StreamLoadException("Commit failed " + loadResult);
+                if (res.get("status").equals("Success") || ResponseUtil.isCommitted(res.get("msg"))) {
+                    LOG.info("commit transaction {} succeed, load result: {}.", txnId, loadResult);
                 } else {
-                    LOG.info("load result {}", loadResult);
+                    LOG.error("commit transaction {} failed. load result: {}", txnId, loadResult);
+                    throw new StreamLoadException("Commit failed " + loadResult);
                 }
             }
 
