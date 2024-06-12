@@ -96,13 +96,18 @@ public class JobConfig {
     @Data
     public static class SparkInfo {
 
+        private static final String DEFAULT_DEPLOY_MODE = "client";
+
+        private static final String DEFAULT_DPP_JAR_PATH =
+                SparkLoadRunner.SPARK_LOAD_HOME + "/app/spark-load-dpp-1.0-SNAPSHOT.jar";
+
         private String sparkHome;
 
         private String workingDir;
 
         private String master;
 
-        private String deployMode;
+        private String deployMode = DEFAULT_DEPLOY_MODE;
 
         private Integer numExecutors;
 
@@ -112,8 +117,7 @@ public class JobConfig {
 
         private String driverMemory;
 
-        private String dppJarPath =
-                SparkLoadRunner.SPARK_LOAD_HOME + "/spark-load-dpp-1.0-SNAPSHOT-jar-with-dependencies.jar";
+        private String dppJarPath = DEFAULT_DPP_JAR_PATH;
 
         private Map<String, String> properties = Collections.emptyMap();
 
