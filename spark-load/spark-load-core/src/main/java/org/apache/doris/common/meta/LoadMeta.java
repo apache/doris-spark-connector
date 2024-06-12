@@ -7,6 +7,7 @@ import org.apache.doris.sparkdpp.EtlJobConfig;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,10 +52,15 @@ public class LoadMeta {
                                     partitionIds);
                     break;
                 case FILE:
-                    List<String> columnList =
-                            Arrays.stream(taskInfo.getColumns().split(",")).collect(Collectors.toList());
-                    List<String> columnFromPathList = taskInfo.getColumnFromPath() == null ? Collections.emptyList() :
-                            Arrays.stream(taskInfo.getColumnFromPath().split(",")).collect(Collectors.toList());
+                    List<String> columnList = Collections.emptyList();
+                    if (StringUtils.isNoneBlank(taskInfo.getColumns())) {
+                        columnList = Arrays.stream(taskInfo.getColumns().split(",")).collect(Collectors.toList());
+                    }
+                    List<String> columnFromPathList = Collections.emptyList();
+                    if (StringUtils.isNoneBlank(taskInfo.getColumnFromPath())) {
+                        columnFromPathList =
+                                Arrays.stream(taskInfo.getColumnFromPath().split(",")).collect(Collectors.toList());
+                    }
                     fileGroup =
                             new EtlJobConfig.EtlFileGroup(EtlJobConfig.SourceType.FILE, taskInfo.getPaths(), columnList,
                                     columnFromPathList, taskInfo.getFieldSep(), taskInfo.getLineDelim(), false,
@@ -79,7 +85,7 @@ public class LoadMeta {
 
     @VisibleForTesting
     public void checkMapping(EtlJobConfig.EtlTable etlTable,
-                              Map<String, EtlJobConfig.EtlColumnMapping> columnMappingMap) throws SparkLoadException {
+                             Map<String, EtlJobConfig.EtlColumnMapping> columnMappingMap) throws SparkLoadException {
         Optional<EtlJobConfig.EtlIndex> baseIdx = etlTable.indexes.stream().filter(idx -> idx.isBaseIndex).findFirst();
         if (baseIdx.isPresent()) {
             EtlJobConfig.EtlIndex etlIndex = baseIdx.get();
