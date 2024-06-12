@@ -80,12 +80,15 @@ public abstract class Loader {
     public void cancel() {
         if (jobStatus == JobStatus.RUNNING) {
             if (appHandle != null) {
-                appHandle.kill();
+                try {
+                    appHandle.stop();
+                } catch (Exception e) {
+                    appHandle.kill();
+                }
             }
-        } else if (jobStatus == JobStatus.SUCCESS) {
-            jobStatus = JobStatus.FAILED;
-            afterFailed(new SparkLoadException("load client cancelled."));
         }
+        jobStatus = JobStatus.FAILED;
+        afterFailed(new SparkLoadException("load client cancelled."));
     }
 
     protected abstract String getMainClass();
