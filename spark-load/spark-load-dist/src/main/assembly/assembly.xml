@@ -1,0 +1,53 @@
+<assembly>
+    <id>bin</id>
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <baseDirectory>${project.parent.artifactId}-${project.version}-bin</baseDirectory>
+
+    <dependencySets>
+        <dependencySet>
+            <unpack>false</unpack>
+            <scope>runtime</scope>
+            <useProjectArtifact>true</useProjectArtifact>
+            <outputDirectory>lib</outputDirectory>
+            <excludes>
+                <exclude>org.apache.doris:spark-load-dpp</exclude>
+            </excludes>
+        </dependencySet>
+    </dependencySets>
+
+    <fileSets>
+        <fileSet>
+            <directory>./src/main/bin</directory>
+            <outputDirectory>bin</outputDirectory>
+            <includes>
+                <include>spark-load.sh</include>
+            </includes>
+            <lineEnding>unix</lineEnding>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/lib</directory>
+            <outputDirectory>lib</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/app</directory>
+            <outputDirectory>app</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/../src/main/resources</directory>
+            <outputDirectory>conf</outputDirectory>
+            <lineEnding>unix</lineEnding>
+            <fileMode>0755</fileMode>
+            <includes>
+                <include>*.yml</include>
+                <include>*.properties</include>
+                <include>logback*.xml</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>
