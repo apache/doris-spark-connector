@@ -11,11 +11,12 @@
     <modules>
         <module>spark-load-core</module>
         <module>spark-load-dpp</module>
+        <module>spark-load-dist</module>
     </modules>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <revision>1.0-SNAPSHOT</revision>
         <doris.fe.version>1.2-SNAPSHOT</doris.fe.version>
@@ -27,7 +28,7 @@
         <commons-collections.version>3.2.2</commons-collections.version>
         <kryo.version>4.0.2</kryo.version>
         <guava.version>32.1.2-jre</guava.version>
-        <jackson.version>2.16.1</jackson.version>
+        <jackson.version>2.14.2</jackson.version>
         <lombok.veresion>1.18.30</lombok.veresion>
         <commons-cli.version>1.4</commons-cli.version>
         <httpclient5.version>5.2.1</httpclient5.version>
@@ -42,7 +43,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>${project.groupId}</groupId>
+                <groupId>org.apache.doris</groupId>
                 <artifactId>fe-common</artifactId>
                 <version>${doris.fe.version}</version>
                 <exclusions>
@@ -65,6 +66,18 @@
                     <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -281,7 +294,6 @@
             </dependency>
 
 
-
             <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
@@ -388,36 +400,20 @@
     </profiles>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.1</version>
-                <configuration>
-                    <artifactSet>
-                        <excludes>
-                            <exclude>com.google.code.findbugs:*</exclude>
-                            <exclude>org.slf4j:*</exclude>
-                            <exclude>org.scala-lang:*</exclude>
-                        </excludes>
-                    </artifactSet>
-                    <relocations>
-                        <relocation>
-                            <pattern>org.apache.hadoop</pattern>
-                            <shadedPattern>org.apache.doris.shaded.org.apache.hadoop</shadedPattern>
-                        </relocation>
-                    </relocations>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>3.1.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.2.1</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 
 </project>
