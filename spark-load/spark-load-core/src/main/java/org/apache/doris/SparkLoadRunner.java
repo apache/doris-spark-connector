@@ -2,7 +2,7 @@ package org.apache.doris;
 
 import org.apache.doris.common.CommandLineOptions;
 import org.apache.doris.config.JobConfig;
-import org.apache.doris.load.LoadManager;
+import org.apache.doris.load.LoaderFactory;
 import org.apache.doris.load.job.Loader;
 import org.apache.doris.load.job.Recoverable;
 import org.apache.doris.util.JsonUtils;
@@ -54,8 +54,7 @@ public class SparkLoadRunner {
             System.exit(-1);
         }
 
-        LoadManager loadManager = LoadManager.getInstance();
-        Loader loader = loadManager.createLoader(jobConfig, cmdOptions.getRecovery());
+        Loader loader = LoaderFactory.createLoader(jobConfig, cmdOptions.getRecovery());
         Runtime.getRuntime().addShutdownHook(new Thread(loader::cancel));
         try {
 
