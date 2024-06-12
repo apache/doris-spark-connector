@@ -62,7 +62,7 @@
             <artifactId>hadoop-client</artifactId>
         </dependency>
         <dependency>
-            <groupId>${project.groupId}</groupId>
+            <groupId>org.apache.doris</groupId>
             <artifactId>fe-common</artifactId>
         </dependency>
         <dependency>
