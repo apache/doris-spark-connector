@@ -25,7 +25,7 @@ import org.apache.spark.sql.sources._
 import org.slf4j.Logger
 
 import java.sql.{Date, Timestamp}
-import java.time.Duration
+import java.time.{Duration, LocalDate}
 import java.util.concurrent.locks.LockSupport
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
@@ -106,6 +106,7 @@ private[spark] object Utils {
     case stringValue: String => s"'${escapeSql(stringValue)}'"
     case timestampValue: Timestamp => "'" + timestampValue + "'"
     case dateValue: Date => "'" + dateValue + "'"
+    case dateValue: LocalDate => "'" + dateValue + "'"
     case arrayValue: Array[Any] => arrayValue.map(compileValue).mkString(", ")
     case _ => value
   }
