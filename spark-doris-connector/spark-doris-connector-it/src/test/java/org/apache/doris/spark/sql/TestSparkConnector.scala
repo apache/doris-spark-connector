@@ -17,7 +17,8 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.junit.{Ignore, Test}
 
@@ -25,10 +26,10 @@ import org.junit.{Ignore, Test}
 // Set the connect info before comment out this @Ignore
 @Ignore
 class TestSparkConnector {
-  val dorisFeNodes = "your_fe_host:8030"
+  val dorisFeNodes = "10.16.10.6:8939"
   val dorisUser = "root"
   val dorisPwd = ""
-  val dorisTable = "test.test_tbl"
+  val dorisTable = "test.dwd_test"
 
   val kafkaServers = ""
   val kafkaTopics = ""
@@ -110,10 +111,69 @@ class TestSparkConnector {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
-      .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.batch.size", 2)
+      .option("sink.max-retries", 2)
       .start().awaitTermination()
     spark.stop()
+  }
+
+  @Test
+  def sqlReadTest(): Unit = {
+
+    val spark = SparkSession.builder()
+      .master("local")
+      .getOrCreate()
+    spark.sql(
+      s"""
+         |CREATE TEMPORARY VIEW t
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${dorisTable}",
+         | "fenodes"="${dorisFeNodes}",
+         | "user"="${dorisUser}",
+         | "password"="${dorisPwd}"
+         |)
+         |""".stripMargin)
+
+    spark.sql(
+        """
+          |select * from t where dt = '2023-06-15'
+          |""".stripMargin)
+      // .explain()
+      .show(false)
+
+  }
+
+  @Test
+  def jsonDataWriteTest(): Unit = {
+    val schema = StructType(Array(
+      StructField("batch_id", StringType, true),
+      StructField("gen_uuid", StringType, true),
+      StructField("keyword", StringType, true),
+      StructField("step", StringType, true),
+      StructField("title", StringType, true),
+      StructField("original_keyword", StringType, true),
+      StructField("host_ip", StringType, true),
+      StructField("modify_at", StringType, true)
+    ))
+    val sparkSession = SparkSession.builder().appName("JSON DATA READ").master("local[*]").getOrCreate()
+    val df = sparkSession.read.schema(schema).json("/Users/gnehil/Downloads/social_google_trends_keyword_v2_fdc.json").coalesce(1)
+    // df.show(2)
+    df.write.format("doris").mode(SaveMode.Append).option(
+      "doris.table.identifier", "test.social_google_trends_keyword_v2_fdc_20240506"
+    ).option(
+      "doris.fenodes", "10.16.10.6:48733"
+    ).option("user", "root").option("password", ""
+      //      ).option("doris.write.fields", fieldsString
+    ).option("sink.properties.format", "json"
+    ).option("sink.batch.size", 100000
+      //      ).option("doris.request.connect.timeout.ms", DORIS_REQUEST_CONNECT_TIMEOUT_MS
+    ).option(
+      "doris.query.port", 49733
+    ).option(
+      "sink.max-retries", "1"
+    ).save()
+    sparkSession.stop()
   }
 
 }

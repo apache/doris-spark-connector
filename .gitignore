@@ -17,10 +17,15 @@ spark-load/spark-dpp/output/
 spark-load/spark-dpp/target/
 spark-load/spark-dpp/.idea/
 
+spark-load/target
 spark-load/spark-load-core/dependency-reduced-pom.xml
 spark-load/spark-load-core/output/
 spark-load/spark-load-core/target/
 spark-load/spark-load-core/.idea/
+spark-load/spark-load-dist/dependency-reduced-pom.xml
+spark-load/spark-load-dist/target/
+spark-load/spark-load-dpp/dependency-reduced-pom.xml
+spark-load/spark-load-dpp/target/
 
 
 ### Java template
