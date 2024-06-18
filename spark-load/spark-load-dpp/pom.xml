@@ -27,6 +27,10 @@ under the License.
     </parent>
     <artifactId>spark-load-dpp</artifactId>
     <packaging>jar</packaging>
+    <properties>
+        <fe_ut_parallel>1</fe_ut_parallel>
+        <argLine>-Xmx512m</argLine>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -192,9 +196,9 @@ under the License.
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <!-->set larger, eg, 3, to reduce the time or running FE unit tests<-->
-                    <!-- <forkCount>${fe_ut_parallel}</forkCount> -->
+                    <forkCount>${fe_ut_parallel}</forkCount>
                     <!-->not reuse forked jvm, so that each unit test will run in separate jvm. to avoid singleton confict<-->
-                    <!-- <reuseForks>false</reuseForks> -->
+                    <reuseForks>false</reuseForks>
                     <argLine>
                         -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar @{argLine}
                     </argLine>
