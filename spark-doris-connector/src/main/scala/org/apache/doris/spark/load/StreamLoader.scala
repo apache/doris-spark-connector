@@ -20,6 +20,7 @@ package org.apache.doris.spark.load
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.json.JsonMapper
+import org.apache.commons.io.IOUtils
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
@@ -38,7 +39,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.StructType
 import org.slf4j.{Logger, LoggerFactory}
 
-import java.io.{ByteArrayOutputStream, IOException}
+import java.io.{ByteArrayOutputStream, IOException, InputStream}
 import java.net.{HttpURLConnection, URL}
 import java.nio.charset.StandardCharsets
 import java.util
@@ -375,14 +376,13 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
     if (compressType.nonEmpty) {
       if ("gz".equalsIgnoreCase(compressType.get) && format == DataFormat.CSV) {
-        val recordBatchString = new RecordBatchString(RecordBatch.newBuilder(iterator.asJava)
+        val recodeBatchInputStream = new RecordBatchInputStream(RecordBatch.newBuilder(iterator.asJava)
           .format(format)
           .sep(columnSeparator)
           .delim(lineDelimiter)
           .schema(schema)
           .addDoubleQuotes(addDoubleQuotes).build, streamingPassthrough)
-        val content = recordBatchString.getContent
-        val compressedData = compressByGZ(content)
+        val compressedData = compressByGZ(recodeBatchInputStream)
         entity = Some(new ByteArrayEntity(compressedData))
       }
       else {
@@ -447,6 +447,31 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       val gzipOutputStream = new GZIPOutputStream(baos)
       try {
         gzipOutputStream.write(content.getBytes("UTF-8"))
+        gzipOutputStream.finish()
+        compressedData = baos.toByteArray
+      } finally {
+        if (baos != null) baos.close()
+        if (gzipOutputStream != null) gzipOutputStream.close()
+      }
+    }
+    compressedData
+  }
+
+  /**
+   * compress data by gzip
+   *
+   * @param contentInputStream data content
+   * @throws
+   * @return compressed byte array data
+   */
+  @throws[IOException]
+  def compressByGZ(contentInputStream: InputStream): Array[Byte] = {
+    var compressedData: Array[Byte] = null
+    try {
+      val baos = new ByteArrayOutputStream
+      val gzipOutputStream = new GZIPOutputStream(baos)
+      try {
+        IOUtils.copy(contentInputStream, gzipOutputStream)
         gzipOutputStream.finish()
         compressedData = baos.toByteArray
       } finally {
