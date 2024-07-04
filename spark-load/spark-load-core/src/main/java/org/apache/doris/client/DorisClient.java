@@ -2,12 +2,13 @@ package org.apache.doris.client;
 
 import org.apache.doris.common.LoadInfo;
 import org.apache.doris.common.ResponseEntity;
-import org.apache.doris.exception.SparkLoadException;
 import org.apache.doris.common.meta.LoadInfoResponse;
 import org.apache.doris.common.meta.LoadMeta;
+import org.apache.doris.exception.SparkLoadException;
 import org.apache.doris.util.HttpUtils;
 import org.apache.doris.util.JsonUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -49,7 +50,7 @@ public class DorisClient {
 
         public static final String BASE_URL = "http://%s%s";
 
-        public static final String RAW_LOAD_URL_PATTERN = "/api/spark_load/%s/%s";
+        public static final String INGESTION_LOAD_URL_PATTERN = "/api/ingestion_load/%s/%s";
 
         public static final String CREATE_ACTION = "_create";
 
@@ -78,10 +79,10 @@ public class DorisClient {
             return Base64.getEncoder().encodeToString((user + ":" + password).getBytes(StandardCharsets.UTF_8));
         }
 
-        public LoadMeta createSparkLoad(String db, Map<String, List<String>> tableToPartition, String label,
-                                        Map<String, String> properties) throws SparkLoadException {
+        public LoadMeta createIngestionLoad(String db, Map<String, List<String>> tableToPartition, String label,
+                                            Map<String, String> properties) throws SparkLoadException {
             try {
-                String path = String.format(RAW_LOAD_URL_PATTERN, db, CREATE_ACTION);
+                String path = String.format(INGESTION_LOAD_URL_PATTERN, db, CREATE_ACTION);
                 HttpPost httpPost = new HttpPost();
                 addCommonHeaders(httpPost);
                 Map<String, Object> params = new HashMap<>();
@@ -90,6 +91,9 @@ public class DorisClient {
                 params.put("properties", properties);
                 httpPost.setEntity(new StringEntity(JsonUtils.writeValueAsString(params)));
                 String content = executeRequest(httpPost, path, null);
+                if (StringUtils.isBlank(content)) {
+                    throw new SparkLoadException(String.format("request create load failed, path: %s", path));
+                }
                 ResponseEntity res = JsonUtils.readValue(content, ResponseEntity.class);
                 if (res.getCode() != 0) {
                     throw new SparkLoadException(String.format("create load failed, code: %d, msg: %s, reason: %s",
@@ -132,10 +136,10 @@ public class DorisClient {
             return null;
         }
 
-        public void updateSparkLoad(String db, Long loadId, Map<String, String> statusInfo)
+        public void updateIngestionLoad(String db, Long loadId, Map<String, String> statusInfo)
                 throws SparkLoadException {
 
-            String path = String.format(RAW_LOAD_URL_PATTERN, db, UPDATE_ACTION);
+            String path = String.format(INGESTION_LOAD_URL_PATTERN, db, UPDATE_ACTION);
             HttpPost httpPost = new HttpPost();
             addCommonHeaders(httpPost);
             Map<String, Object> params = new HashMap<>();

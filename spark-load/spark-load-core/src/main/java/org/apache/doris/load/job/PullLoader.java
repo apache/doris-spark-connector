@@ -19,6 +19,7 @@ package org.apache.doris.load.job;
 
 import org.apache.doris.SparkLoadRunner;
 import org.apache.doris.client.DorisClient;
+import org.apache.doris.common.Constants;
 import org.apache.doris.common.DppResult;
 import org.apache.doris.common.LoadInfo;
 import org.apache.doris.common.enums.JobStatus;
@@ -72,9 +73,17 @@ public class PullLoader extends Loader implements Recoverable {
                 jobConfig.getPassword());
         Map<String, List<String>> tableToPartition = jobConfig.getLoadTasks().entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getTargetPartitions()));
-        loadMeta = feClient.createSparkLoad(jobConfig.getDatabase(), tableToPartition, jobConfig.getLabel(),
+        loadMeta = feClient.createIngestionLoad(jobConfig.getDatabase(), tableToPartition, jobConfig.getLabel(),
                 jobConfig.getJobProperties());
         etlJobConfig = loadMeta.getEtlJobConfig(jobConfig);
+        if (Constants.HADOOP_AUTH_KERBEROS.equalsIgnoreCase(
+                jobConfig.getHadoopProperties().get(Constants.HADOOP_SECURITY_AUTHENTICATION))) {
+            try {
+                FileSystemUtils.kerberosLogin(jobConfig);
+            } catch (IOException e) {
+                throw new SparkLoadException("login with kerberos auth failed", e);
+            }
+        }
     }
 
     @Override
@@ -144,7 +153,7 @@ public class PullLoader extends Loader implements Recoverable {
         } catch (IOException e) {
             throw new SparkLoadException("update job status failed", e);
         }
-        feClient.updateSparkLoad(jobConfig.getDatabase(), loadMeta.getLoadId(), statusInfo);
+        feClient.updateIngestionLoad(jobConfig.getDatabase(), loadMeta.getLoadId(), statusInfo);
         do {
             LoadInfo loadInfo = feClient.getLoadInfo(jobConfig.getDatabase(), jobConfig.getLabel());
             switch (loadInfo.getState().toUpperCase(Locale.ROOT)) {
@@ -178,7 +187,7 @@ public class PullLoader extends Loader implements Recoverable {
         statusInfo.put("msg", e.getMessage());
         statusInfo.put("appId", appHandle == null ? null : appHandle.getAppId());
         try {
-            feClient.updateSparkLoad(jobConfig.getDatabase(), loadMeta.getLoadId(), statusInfo);
+            feClient.updateIngestionLoad(jobConfig.getDatabase(), loadMeta.getLoadId(), statusInfo);
         } catch (SparkLoadException ex) {
             LOG.warn("update load failed status failed", ex);
         }
