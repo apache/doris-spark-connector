@@ -21,5 +21,9 @@ public interface Constants {
 
     String HIVE_METASTORE_URIS = "hive.metastore.uris";
     String SPARK_STANDALONE_SCHEME = "spark";
+    String HADOOP_AUTH_KERBEROS = "kerberos";
+    String HADOOP_SECURITY_AUTHENTICATION = "hadoop.security.authentication";
+    String HADOOP_KERBEROS_PRINCIPAL = "hadoop.kerberos.principal";
+    String HADOOP_KERBEROS_KEYTAB = "hadoop.kerberos.keytab";
 
 }
