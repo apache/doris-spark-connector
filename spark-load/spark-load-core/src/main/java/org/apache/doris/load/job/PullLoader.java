@@ -202,6 +202,9 @@ public class PullLoader extends Loader implements Recoverable {
                         if (DPP_RESULT_JSON.equalsIgnoreCase(fileName)) {
                             hasDppResult = true;
                             String content = FileSystemUtils.readFile(jobConfig, fileStatus.getPath().toString());
+                            if (StringUtils.isBlank(content)) {
+                                return false;
+                            }
                             DppResult dppResult = JsonUtils.readValue(content, DppResult.class);
                             if (!checkDppResult(dppResult)) {
                                 LOG.info("previous etl job is failed, cannot be recovered");
@@ -211,6 +214,9 @@ public class PullLoader extends Loader implements Recoverable {
                         // check meta consist
                         if (LOAD_META_JSON.equalsIgnoreCase(fileName)) {
                             String content = FileSystemUtils.readFile(jobConfig, fileStatus.getPath().toString());
+                            if (StringUtils.isBlank(content)) {
+                                return false;
+                            }
                             LoadMeta oldLoadMeta = JsonUtils.readValue(content, LoadMeta.class);
                             for (Map.Entry<String, TableMeta> entry : loadMeta.getTableMeta().entrySet()) {
                                 TableMeta tableMeta = entry.getValue();
@@ -230,11 +236,19 @@ public class PullLoader extends Loader implements Recoverable {
                                 for (Map.Entry<Long, EtlJobConfig.EtlIndex> indexEntry : indexMap.entrySet()) {
                                     EtlJobConfig.EtlIndex index = indexEntry.getValue();
                                     EtlJobConfig.EtlIndex oldIndex = oldIndexMap.get(indexEntry.getKey());
-                                    // index not exists or index mismatch
-                                    if (oldIndex == null || oldIndex.indexId != index.indexId
-                                            || oldIndex.schemaHash != index.schemaHash) {
-                                        LOG.info("index mismatch, old index: " + oldIndex + ", now index: " + index
-                                                + ", cannot be recovered");
+                                    // index not exists
+                                    if (oldIndex == null) {
+                                        LOG.info("index " + index.indexId + " is not exists in previous meta");
+                                        return false;
+                                    }
+                                    // index mismatch
+                                    if (oldIndex.schemaHash != index.schemaHash
+                                            || oldIndex.schemaVersion != index.schemaVersion) {
+                                        LOG.info("index " + index.indexId + " has changed, "
+                                                + "old schemaHash: " + oldIndex.schemaHash + " and schemaVersion: "
+                                                + oldIndex.schemaVersion + "current schemaHash: "
+                                                + index.schemaHash + " and schemaVersion: "
+                                                + index.schemaVersion + ", cannot be recovered");
                                         return false;
                                     }
                                 }
