@@ -17,7 +17,8 @@
 
 package org.apache.doris.common.meta;
 
-import org.apache.doris.sparkdpp.EtlJobConfig;
+
+import org.apache.doris.config.EtlJobConfig;
 
 import lombok.Data;
 
@@ -38,13 +39,14 @@ public class TableMeta {
         public int schemaHash;
         public String indexType;
         public boolean isBaseIndex;
+        public int schemaVersion;
 
         public EtlIndex() {
 
         }
 
         public EtlJobConfig.EtlIndex toEtlIndex() {
-            return new EtlJobConfig.EtlIndex(indexId, columns, schemaHash, indexType, isBaseIndex);
+            return new EtlJobConfig.EtlIndex(indexId, columns, schemaHash, indexType, isBaseIndex, schemaVersion);
         }
 
     }
