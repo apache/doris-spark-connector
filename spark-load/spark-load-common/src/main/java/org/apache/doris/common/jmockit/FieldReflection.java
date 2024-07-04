@@ -12,10 +12,11 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 
-
 /**
  * Modify from mockit.internal.util.FieldReflection JMockit v1.13
  * Util class to set and get the value of specified field.
+ * <p>
+ * Copied from Apache Doris
  */
 public final class FieldReflection {
     private FieldReflection() {

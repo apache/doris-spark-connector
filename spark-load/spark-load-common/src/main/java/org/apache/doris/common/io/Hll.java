@@ -9,6 +9,9 @@ import java.math.BigInteger;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Copied from Apache Doris
+ */
 public class Hll {
 
     public static final byte HLL_DATA_EMPTY = 0;

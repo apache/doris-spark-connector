@@ -20,11 +20,11 @@ package org.apache.doris.config;
 import org.apache.doris.SparkLoadRunner;
 import org.apache.doris.common.Constants;
 import org.apache.doris.common.enums.LoadMode;
-import org.apache.doris.sparkdpp.EtlJobConfig;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import lombok.Data;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;

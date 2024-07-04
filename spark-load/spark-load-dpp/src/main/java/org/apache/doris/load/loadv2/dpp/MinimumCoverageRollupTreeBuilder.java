@@ -17,7 +17,7 @@
 
 package org.apache.doris.load.loadv2.dpp;
 
-import org.apache.doris.sparkdpp.EtlJobConfig;
+import org.apache.doris.config.EtlJobConfig;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -18,7 +18,7 @@
 package org.apache.doris.load.loadv2.dpp;
 
 import org.apache.doris.common.SparkDppException;
-import org.apache.doris.sparkdpp.EtlJobConfig;
+import org.apache.doris.config.EtlJobConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,8 +33,6 @@ import java.time.format.DateTimeFormatterBuilder;
 // Parser to validate value for different type
 public abstract class ColumnParser implements Serializable {
 
-    protected static final Logger LOG = LoggerFactory.getLogger(ColumnParser.class);
-
     // thread safe formatter
     public static final DateTimeFormatter DATE_FORMATTER = new DateTimeFormatterBuilder()
             .appendPattern("uuuu-MM-dd")
@@ -42,6 +40,7 @@ public abstract class ColumnParser implements Serializable {
     public static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
             .appendPattern("uuuu-MM-dd HH:mm:ss")
             .toFormatter();
+    protected static final Logger LOG = LoggerFactory.getLogger(ColumnParser.class);
 
     public static ColumnParser create(EtlJobConfig.EtlColumn etlColumn) throws SparkDppException {
         String columnType = etlColumn.columnType;

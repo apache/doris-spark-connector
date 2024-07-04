@@ -1,6 +1,5 @@
 package org.apache.doris.config;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -14,6 +13,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Copied from Apache Doris org.apache.doris.sparkdpp.EtlJobConfig
+ */
 public class EtlJobConfig implements Serializable {
     // global dict
     public static final String GLOBAL_DICT_TABLE_NAME = "doris_global_dict_table_%d";

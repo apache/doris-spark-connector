@@ -18,9 +18,9 @@
 package org.apache.doris.common.meta;
 
 import org.apache.doris.common.Constants;
+import org.apache.doris.config.EtlJobConfig;
 import org.apache.doris.config.JobConfig;
 import org.apache.doris.exception.SparkLoadException;
-import org.apache.doris.sparkdpp.EtlJobConfig;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Data;
