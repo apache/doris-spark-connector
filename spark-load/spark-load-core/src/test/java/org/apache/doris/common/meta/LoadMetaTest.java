@@ -18,8 +18,8 @@
 package org.apache.doris.common.meta;
 
 
+import org.apache.doris.config.EtlJobConfig;
 import org.apache.doris.exception.SparkLoadException;
-import org.apache.doris.sparkdpp.EtlJobConfig;
 
 import org.junit.Assert;
 import org.junit.Rule;
@@ -45,7 +45,7 @@ public class LoadMetaTest {
         columns.add(new EtlJobConfig.EtlColumn("c1", "HLL", true, false, "NONE", null, 0, 10, 0));
         columns.add(new EtlJobConfig.EtlColumn("c2", "BITMAP", true, false, "NONE", null, 0, 10, 0));
 
-        EtlJobConfig.EtlIndex etlIndex = new EtlJobConfig.EtlIndex(1, columns, 1, "DUPLICATE", true);
+        EtlJobConfig.EtlIndex etlIndex = new EtlJobConfig.EtlIndex(1, columns, 1, "DUPLICATE", true, 1);
         EtlJobConfig.EtlPartition etlPartition =
                 new EtlJobConfig.EtlPartition(1L, Collections.singletonList(0), Collections.singletonList(1), true, 1);
         EtlJobConfig.EtlPartitionInfo etlPartitionInfo =

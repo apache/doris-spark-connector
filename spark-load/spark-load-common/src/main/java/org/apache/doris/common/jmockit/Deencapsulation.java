@@ -7,6 +7,8 @@ package org.apache.doris.common.jmockit;
 
 /**
  * Modify from mockit.internal.util.Deencapsulation JMockit ver1.13
+ * <p>
+ * Copied from Apache Doris
  */
 public final class Deencapsulation {
     private Deencapsulation() {

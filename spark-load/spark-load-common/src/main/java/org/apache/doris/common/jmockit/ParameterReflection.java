@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 /**
  * Modify from mockit.internal.util.ParameterReflection JMockit v1.13
  * Util class to verify parameter of methods.
+ * <p>
+ * Copied from Apache Doris
  */
 public final class ParameterReflection {
     public static final Class<?>[] NO_PARAMETERS = new Class[0];

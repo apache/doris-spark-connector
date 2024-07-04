@@ -12,6 +12,8 @@ import java.lang.reflect.InvocationTargetException;
 /**
  * Modify from mockit.internal.util.ConstructorReflection JMockit v1.13
  * Util class to invoke constructor of specified class.
+ * <p>
+ * Copied from Apache Doris
  */
 public final class ConstructorReflection {
 
@@ -129,7 +131,8 @@ public final class ConstructorReflection {
             int gap = declaredParamTypes.length - argTypes.length;
             if (gap == 0 && (ParameterReflection.matchesParameterTypes(declaredParamTypes, argTypes)
                     || ParameterReflection.acceptsArgumentTypes(declaredParamTypes, argTypes))
-                    && (found == null || ParameterReflection.hasMoreSpecificTypes(declaredParamTypes, foundParameters))) {
+                    &&
+                    (found == null || ParameterReflection.hasMoreSpecificTypes(declaredParamTypes, foundParameters))) {
                 found = (Constructor<T>) declaredConstructor;
                 foundParameters = declaredParamTypes;
             }
@@ -143,10 +146,12 @@ public final class ConstructorReflection {
             // check if this constructor is belong to a inner class
             // the parameter[0] of inner class's constructor is a instance of outer class
             if (paramTypes[0] == declaringClass && paramTypes.length > argTypes.length) {
-                throw new IllegalArgumentException("Invalid instantiation of inner class; use newInnerInstance instead");
+                throw new IllegalArgumentException(
+                        "Invalid instantiation of inner class; use newInnerInstance instead");
             } else {
                 String argTypesDesc = ParameterReflection.getParameterTypesDescription(argTypes);
-                throw new IllegalArgumentException("No compatible constructor found: " + theClass.getSimpleName() + argTypesDesc);
+                throw new IllegalArgumentException(
+                        "No compatible constructor found: " + theClass.getSimpleName() + argTypesDesc);
             }
         }
     }

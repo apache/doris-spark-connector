@@ -13,6 +13,8 @@ import java.lang.reflect.Modifier;
 /**
  * Modify from mockit.internal.util.MethodReflection JMockit v1.13
  * Util class to get and invoke method from specified class.
+ * <p>
+ * Copied from Apache Doris
  */
 public final class MethodReflection {
     private MethodReflection() {
@@ -24,9 +26,11 @@ public final class MethodReflection {
         }
         boolean staticMethod = targetInstance == null;
         Class<?>[] argTypes = ParameterReflection.getArgumentTypesFromArgumentValues(methodArgs);
-        Method method = staticMethod ? findCompatibleStaticMethod(theClass, methodName, argTypes) : findCompatibleMethod(theClass, methodName, argTypes);
+        Method method = staticMethod ? findCompatibleStaticMethod(theClass, methodName, argTypes) :
+                findCompatibleMethod(theClass, methodName, argTypes);
         if (staticMethod && !Modifier.isStatic(method.getModifiers())) {
-            throw new IllegalArgumentException("Attempted to invoke non-static method without an instance to invoke it on");
+            throw new IllegalArgumentException(
+                    "Attempted to invoke non-static method without an instance to invoke it on");
         } else {
             T result = invoke(targetInstance, method, methodArgs);
             return result;
@@ -110,7 +114,7 @@ public final class MethodReflection {
                 if (gap == 0 && (ParameterReflection.matchesParameterTypes(declaredParamTypes, argTypes)
                         || ParameterReflection.acceptsArgumentTypes(declaredParamTypes, argTypes))
                         && (foundParamTypes == null
-                            || ParameterReflection.hasMoreSpecificTypes(declaredParamTypes, foundParamTypes))) {
+                        || ParameterReflection.hasMoreSpecificTypes(declaredParamTypes, foundParamTypes))) {
                     found = declaredMethod;
                     foundParamTypes = declaredParamTypes;
                 }
@@ -132,7 +136,9 @@ public final class MethodReflection {
 
         while (true) {
             Method compatibleMethod = findCompatibleMethodInClass(theClass, methodName, argTypes);
-            if (compatibleMethod != null && (methodFound == null || ParameterReflection.hasMoreSpecificTypes(compatibleMethod.getParameterTypes(), methodFound.getParameterTypes()))) {
+            if (compatibleMethod != null && (methodFound == null ||
+                    ParameterReflection.hasMoreSpecificTypes(compatibleMethod.getParameterTypes(),
+                            methodFound.getParameterTypes()))) {
                 methodFound = compatibleMethod;
             }
 
@@ -144,7 +150,6 @@ public final class MethodReflection {
             theClass = superClass;
         }
     }
-
 
 
     // ensure that field is accessible

@@ -18,7 +18,7 @@
 package org.apache.doris.load.loadv2.dpp;
 
 import org.apache.doris.common.SparkDppException;
-import org.apache.doris.sparkdpp.EtlJobConfig;
+import org.apache.doris.config.EtlJobConfig;
 
 import com.google.common.collect.Lists;
 import org.apache.spark.sql.Row;
@@ -231,7 +231,7 @@ public class DppUtils {
     }
 
     public static StructType createDstTableSchema(List<EtlJobConfig.EtlColumn> columns,
-            boolean addBucketIdColumn, boolean regardDistinctColumnAsBinary) {
+                                                  boolean addBucketIdColumn, boolean regardDistinctColumnAsBinary) {
         List<StructField> fields = new ArrayList<>();
         if (addBucketIdColumn) {
             StructField bucketIdField = DataTypes.createStructField(BUCKET_ID, DataTypes.StringType, true);

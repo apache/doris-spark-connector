@@ -21,6 +21,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
 
+/**
+ * Copied from Apache Doris org.apache.doris.sparkdpp.DppResult
+ */
 public class DppResult implements Serializable {
 
     @JsonProperty(value = "is_success", required = true)

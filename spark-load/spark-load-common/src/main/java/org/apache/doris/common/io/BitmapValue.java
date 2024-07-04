@@ -6,6 +6,9 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
+/**
+ * Copied from Apache Doris
+ */
 public class BitmapValue {
 
     public static final int EMPTY = 0;

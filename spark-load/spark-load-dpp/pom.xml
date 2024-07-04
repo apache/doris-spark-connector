@@ -33,8 +33,9 @@ under the License.
     </properties>
     <dependencies>
         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>fe-common</artifactId>
+            <groupId>org.apache.doris</groupId>
+            <artifactId>spark-load-common</artifactId>
+            <version>${revision}</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/commons-codec/commons-codec -->
         <dependency>
@@ -46,11 +47,7 @@ under the License.
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
-        <!-- <dependency> -->
-        <!--     <groupId>com.google.code.gson</groupId> -->
-        <!--     <artifactId>gson</artifactId> -->
-        <!-- </dependency> -->
+
         <!-- spark -->
         <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-core_2.12 -->
         <dependency>

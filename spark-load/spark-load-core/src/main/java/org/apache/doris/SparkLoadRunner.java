@@ -114,13 +114,9 @@ public class SparkLoadRunner {
             System.exit(-1);
         }
 
-        if (cmd.hasOption('c') || cmd.hasOption("config")) {
-            String configPath = cmd.getOptionValue("config");
-            boolean recovery = cmd.hasOption('r') || cmd.hasOption("recovery");
-            return new CommandLineOptions(configPath, recovery);
-        }
-
-        throw new IllegalArgumentException();
+        String configPath = cmd.getOptionValue("config");
+        boolean recovery = cmd.hasOption('r') || cmd.hasOption("recovery");
+        return new CommandLineOptions(configPath, recovery);
 
     }
 
@@ -144,6 +140,7 @@ public class SparkLoadRunner {
         Preconditions.checkArgument(StringUtils.isNoneBlank(jobConfig.getDatabase()), "database is empty");
         jobConfig.checkTaskInfo();
         jobConfig.checkSparkInfo();
+        jobConfig.checkHadoopProperties();
     }
 
 }

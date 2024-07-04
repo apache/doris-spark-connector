@@ -37,6 +37,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.apache.doris</groupId>
+            <artifactId>spark-load-common</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
@@ -78,10 +83,6 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.doris</groupId>
-            <artifactId>fe-common</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>

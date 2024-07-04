@@ -19,24 +19,14 @@ import java.util.Map;
  * |Short                |short
  * |Integer              |int
  * |Float                |float
- * |Long                 |long
+ * |Long                 |longFieldReflection
  * |Double               |double
+ * <p>
+ * Copied from Apache Doris
  */
 public class AutoType {
     private static final Map<Class<?>, Class<?>> PRIMITIVE_TO_WRAPPER = new HashMap();
     private static final Map<Class<?>, Class<?>> WRAPPER_TO_PRIMITIVE = new HashMap();
-
-    public static boolean isWrapperOfPrimitiveType(Class<?> type) {
-        return WRAPPER_TO_PRIMITIVE.containsKey(type);
-    }
-
-    public static Class<?> getPrimitiveType(Class<?> wrapperType) {
-        return WRAPPER_TO_PRIMITIVE.get(wrapperType);
-    }
-
-    public static Class<?> getWrapperType(Class<?> primitiveType) {
-        return PRIMITIVE_TO_WRAPPER.get(primitiveType);
-    }
 
     static {
         WRAPPER_TO_PRIMITIVE.put(Boolean.class, Boolean.TYPE);
@@ -56,5 +46,17 @@ public class AutoType {
         PRIMITIVE_TO_WRAPPER.put(Float.TYPE, Float.class);
         PRIMITIVE_TO_WRAPPER.put(Long.TYPE, Long.class);
         PRIMITIVE_TO_WRAPPER.put(Double.TYPE, Double.class);
+    }
+
+    public static boolean isWrapperOfPrimitiveType(Class<?> type) {
+        return WRAPPER_TO_PRIMITIVE.containsKey(type);
+    }
+
+    public static Class<?> getPrimitiveType(Class<?> wrapperType) {
+        return WRAPPER_TO_PRIMITIVE.get(wrapperType);
+    }
+
+    public static Class<?> getWrapperType(Class<?> primitiveType) {
+        return PRIMITIVE_TO_WRAPPER.get(primitiveType);
     }
 }

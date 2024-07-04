@@ -18,15 +18,15 @@
 package org.apache.doris.load.loadv2.etl;
 
 import org.apache.doris.common.jmockit.Deencapsulation;
-import org.apache.doris.sparkdpp.EtlJobConfig;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlColumn;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlColumnMapping;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlFileGroup;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlIndex;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlJobProperty;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlPartition;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlPartitionInfo;
-import org.apache.doris.sparkdpp.EtlJobConfig.EtlTable;
+import org.apache.doris.config.EtlJobConfig;
+import org.apache.doris.config.EtlJobConfig.EtlColumn;
+import org.apache.doris.config.EtlJobConfig.EtlColumnMapping;
+import org.apache.doris.config.EtlJobConfig.EtlFileGroup;
+import org.apache.doris.config.EtlJobConfig.EtlIndex;
+import org.apache.doris.config.EtlJobConfig.EtlJobProperty;
+import org.apache.doris.config.EtlJobConfig.EtlPartition;
+import org.apache.doris.config.EtlJobConfig.EtlPartitionInfo;
+import org.apache.doris.config.EtlJobConfig.EtlTable;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -68,9 +68,9 @@ public class SparkEtlJobTest {
         EtlColumn k1 = new EtlColumn("k1", "INT", false, true, "NONE", "0", 0, 0, 0);
         EtlColumn k2 = new EtlColumn("k2", "VARCHAR", false, true, "NONE", "0", 10, 0, 0);
         EtlColumn v1 = new EtlColumn("v1", "BIGINT", false, false, "NONE", "0", 0, 0, 0);
-        EtlIndex index1 = new EtlIndex(index1Id, Lists.newArrayList(k1, k2, v1), 666666, "DUPLICATE", true);
+        EtlIndex index1 = new EtlIndex(index1Id, Lists.newArrayList(k1, k2, v1), 666666, "DUPLICATE", true, 1);
         v1 = new EtlColumn("v1", "BIGINT", false, false, "SUM", "0", 0, 0, 0);
-        EtlIndex index2 = new EtlIndex(index2Id, Lists.newArrayList(k1, v1), 888888, "AGGREGATE", true);
+        EtlIndex index2 = new EtlIndex(index2Id, Lists.newArrayList(k1, v1), 888888, "AGGREGATE", true,1 );
         List<EtlIndex> indexes = Lists.newArrayList(index1, index2);
         // partition info
         List<EtlPartition> partitions = Lists.newArrayList();

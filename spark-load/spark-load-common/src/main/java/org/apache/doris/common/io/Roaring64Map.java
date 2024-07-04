@@ -27,6 +27,9 @@ import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+/**
+ * Copied from Apache Doris
+ */
 public class Roaring64Map {
 
     private static final boolean DEFAULT_ORDER_IS_SIGNED = false;
