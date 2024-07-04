@@ -220,4 +220,32 @@ public class JobConfig {
                 && StringUtils.isNoneBlank(uri.getHost()) && uri.getPort() != -1;
     }
 
+    public void checkHadoopProperties() {
+        if (hadoopProperties == null || hadoopProperties.isEmpty()) {
+            return;
+        }
+        if (!hadoopProperties.containsKey("fs.defaultFS")) {
+            throw new IllegalArgumentException("fs.defaultFS is empty");
+        }
+        // check auth
+        if (hadoopProperties.containsKey("hadoop.security.authentication")
+                && StringUtils.equalsIgnoreCase(hadoopProperties.get("hadoop.security.authentication"), "kerberos")) {
+            if (hadoopProperties.containsKey("hadoop.kerberos.principal")
+                    && hadoopProperties.containsKey("hadoop.kerberos.keytab")) {
+                if (!FileUtils.getFile(hadoopProperties.get("hadoop.kerberos.principal")).exists()) {
+                    throw new IllegalArgumentException("hadoop kerberos principal file is not exists, path: "
+                            + hadoopProperties.get("hadoop.kerberos.principal"));
+                }
+                if (!FileUtils.getFile(hadoopProperties.get("hadoop.kerberos.keytab")).exists()) {
+                    throw new IllegalArgumentException("hadoop kerberos keytab file is not exists, path: "
+                            + hadoopProperties.get("hadoop.kerberos.keytab"));
+                }
+            }
+        } else {
+            if (!hadoopProperties.containsKey("hadoop.username")) {
+                throw new IllegalArgumentException("hadoop username is empty");
+            }
+        }
+    }
+
 }

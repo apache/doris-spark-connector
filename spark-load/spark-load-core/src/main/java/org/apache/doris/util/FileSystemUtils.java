@@ -17,29 +17,33 @@
 
 package org.apache.doris.util;
 
+import org.apache.doris.common.Constants;
 import org.apache.doris.config.JobConfig;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 public class FileSystemUtils {
 
+    private static final Logger LOG = LogManager.getLogger(FileSystemUtils.class);
+
     private static FileSystem getFs(JobConfig config, Path path) throws IOException {
-        Configuration conf = new Configuration();
-        Map<String, String> props = config.getHadoopProperties();
-        props.forEach(conf::set);
-        return FileSystem.get(path.toUri(), conf);
+        return FileSystem.get(path.toUri(), getConf(config));
     }
 
     public static void createFile(JobConfig config, String content, String path, Boolean overwrite) throws IOException {
@@ -112,6 +116,31 @@ public class FileSystemUtils {
         try (FileSystem fs = getFs(config, p)) {
             fs.mkdirs(p, new FsPermission(644));
         }
+    }
+
+    public static void kerberosLogin(JobConfig jobConfig) throws IOException {
+        Configuration conf = getConf(jobConfig);
+        conf.set(CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHORIZATION, "true");
+        conf.set(CommonConfigurationKeysPublic.HADOOP_KERBEROS_KEYTAB_LOGIN_AUTORENEWAL_ENABLED, "true");
+        UserGroupInformation.setConfiguration(conf);
+        String keytab = jobConfig.getHadoopProperties().get(Constants.HADOOP_KERBEROS_KEYTAB);
+        String principal = jobConfig.getHadoopProperties().get(Constants.HADOOP_KERBEROS_PRINCIPAL);
+        try {
+            UserGroupInformation ugi = UserGroupInformation.getLoginUser();
+            if (ugi.hasKerberosCredentials() && StringUtils.equals(ugi.getUserName(), principal)) {
+                ugi.checkTGTAndReloginFromKeytab();
+                return;
+            }
+        } catch (IOException e) {
+            LOG.warn("A SecurityException occurs with kerberos, do login immediately.", e);
+        }
+        UserGroupInformation.loginUserFromKeytab(principal, keytab);
+    }
+
+    private static Configuration getConf(JobConfig jobConfig) {
+        Configuration conf = new Configuration();
+        jobConfig.getHadoopProperties().forEach(conf::set);
+        return conf;
     }
 
 }
