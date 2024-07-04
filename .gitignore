@@ -8,11 +8,6 @@ spark-doris-connector/output/
 spark-doris-connector/target/
 spark-doris-connector/.idea/
 
-spark-load/spark-dpp/dependency-reduced-pom.xml
-spark-load/spark-dpp/output/
-spark-load/spark-dpp/target/
-spark-load/spark-dpp/.idea/
-
 spark-load/target
 spark-load/spark-load-core/dependency-reduced-pom.xml
 spark-load/spark-load-core/output/

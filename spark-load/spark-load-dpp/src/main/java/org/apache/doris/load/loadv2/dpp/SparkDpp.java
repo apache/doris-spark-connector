@@ -17,9 +17,9 @@
 
 package org.apache.doris.load.loadv2.dpp;
 
+import org.apache.doris.common.DppResult;
 import org.apache.doris.common.SparkDppException;
-import org.apache.doris.sparkdpp.DppResult;
-import org.apache.doris.sparkdpp.EtlJobConfig;
+import org.apache.doris.config.EtlJobConfig;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
@@ -95,6 +95,8 @@ public final class SparkDpp implements java.io.Serializable {
     private static final String NULL_FLAG = "\\N";
     private static final String DPP_RESULT_FILE = "dpp_result.json";
     private static final String BITMAP_TYPE = "bitmap";
+    Map<Long, Set<String>> tableToBitmapDictColumns = new HashMap<>();
+    Map<Long, Set<String>> tableToBinaryBitmapColumns = new HashMap<>();
     private SparkSession spark = null;
     private EtlJobConfig etlJobConfig = null;
     private LongAccumulator abnormalRowAcc = null;
@@ -109,8 +111,6 @@ public final class SparkDpp implements java.io.Serializable {
     // we need to wrap it so that we can use it in executor.
     private SerializableConfiguration serializableHadoopConf;
     private DppResult dppResult = new DppResult();
-    Map<Long, Set<String>> tableToBitmapDictColumns = new HashMap<>();
-    Map<Long, Set<String>> tableToBinaryBitmapColumns = new HashMap<>();
 
     // just for ut
     public SparkDpp() {
@@ -252,6 +252,7 @@ public final class SparkDpp implements java.io.Serializable {
                             conf.setBoolean("spark.sql.parquet.int64AsTimestampMillis", false);
                             conf.setBoolean("spark.sql.parquet.int96AsTimestamp", true);
                             conf.setBoolean("spark.sql.parquet.binaryAsString", false);
+                            conf.setBoolean("spark.sql.parquet.fieldId.write.enabled", true);
                             conf.set("spark.sql.parquet.outputTimestampType", "INT96");
                             ParquetWriteSupport.setSchema(dstSchema, conf);
                             ParquetWriteSupport parquetWriteSupport = new ParquetWriteSupport();

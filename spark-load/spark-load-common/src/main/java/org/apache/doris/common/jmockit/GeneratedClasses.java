@@ -10,6 +10,8 @@ import java.lang.reflect.Proxy;
 /**
  * Modify from mockit.internal.util.GeneratedClasses JMockit v1.13
  * Helper class to return type of mocked-object
+ * <p>
+ * Copied from Apache Doris
  */
 public final class GeneratedClasses {
     private static final String IMPLCLASS_PREFIX = "$Impl_";
