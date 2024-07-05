@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.config;
+package org.apache.doris.common.enums;
 
 public enum TaskType {
 
