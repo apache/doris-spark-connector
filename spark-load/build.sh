@@ -17,7 +17,7 @@
 # under the License.
 
 ##############################################################
-# This script is used to compile Spark-Doris-Connector
+# This script is used to compile Spark-Load
 # Usage:
 #    sh build.sh
 #
