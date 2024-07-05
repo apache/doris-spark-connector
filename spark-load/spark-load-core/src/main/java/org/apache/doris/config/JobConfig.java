@@ -20,6 +20,7 @@ package org.apache.doris.config;
 import org.apache.doris.SparkLoadRunner;
 import org.apache.doris.common.Constants;
 import org.apache.doris.common.enums.LoadMode;
+import org.apache.doris.common.enums.TaskType;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
