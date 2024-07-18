@@ -147,9 +147,9 @@ private[spark] object SchemaUtils {
    * @return inner schema struct
    */
   def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc], settings: Settings): Schema = {
-    val readColumns = settings.getProperty(DORIS_READ_FIELD, "").split(",").map(_.replaceAll("`", ""))
-    val bitmapColumns = settings.getProperty(DORIS_BITMAP_COLUMNS, "").split(",")
-    val hllColumns = settings.getProperty(DORIS_HLL_COLUMNS, "").split(",")
+    val readColumns = settings.getProperty(DORIS_READ_FIELD, "").split(",").filter(_.nonEmpty).map(_.replaceAll("`", ""))
+    val bitmapColumns = settings.getProperty(DORIS_BITMAP_COLUMNS, "").split(",").filter(_.nonEmpty)
+    val hllColumns = settings.getProperty(DORIS_HLL_COLUMNS, "").split(",").filter(_.nonEmpty)
     val fieldList = fieldUnion(readColumns, bitmapColumns, hllColumns, tscanColumnDescs)
     val schema = new Schema(fieldList.length)
     fieldList.foreach(schema.put)
