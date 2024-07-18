@@ -17,13 +17,15 @@
 
 package org.apache.doris.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.gson.ExclusionStrategy;
+import com.google.gson.FieldAttributes;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
 import java.util.Comparator;
@@ -47,17 +49,17 @@ public class EtlJobConfig implements Serializable {
     private static final String ETL_OUTPUT_PATH_FORMAT = "%s/jobs/%d/%s/%d";
     private static final String ETL_OUTPUT_FILE_NAME_DESC_V1 =
             "version.label.tableId.partitionId.indexId.bucket.schemaHash.parquet";
-    @JsonProperty(value = "tables")
+    @SerializedName(value = "tables")
     public Map<Long, EtlTable> tables;
-    @JsonProperty(value = "outputPath")
+    @SerializedName(value = "outputPath")
     public String outputPath;
-    @JsonProperty(value = "outputFilePattern")
+    @SerializedName(value = "outputFilePattern")
     public String outputFilePattern;
-    @JsonProperty(value = "label")
+    @SerializedName(value = "label")
     public String label;
-    @JsonProperty(value = "properties")
+    @SerializedName(value = "properties")
     public EtlJobProperty properties;
-    @JsonProperty(value = "configVersion")
+    @SerializedName(value = "configVersion")
     public ConfigVersion configVersion;
 
     /**
@@ -113,9 +115,14 @@ public class EtlJobConfig implements Serializable {
         }
     }
 
-    public static EtlJobConfig configFromJson(String jsonConfig) throws JsonProcessingException {
-        JsonMapper mapper = JsonMapper.builder().build();
-        return mapper.readValue(jsonConfig, EtlJobConfig.class);
+    public static EtlJobConfig configFromJson(String jsonConfig) {
+        return new Gson().fromJson(jsonConfig, EtlJobConfig.class);
+    }
+
+    public String configToJson() {
+        Gson gson =
+                new GsonBuilder().addDeserializationExclusionStrategy(new HiddenAnnotationExclusionStrategy()).create();
+        return gson.toJson(this);
     }
 
     @Override
@@ -127,11 +134,6 @@ public class EtlJobConfig implements Serializable {
 
     public String getOutputPath() {
         return outputPath;
-    }
-
-    public String configToJson() throws JsonProcessingException {
-        JsonMapper mapper = JsonMapper.builder().build();
-        return mapper.writeValueAsString(this);
     }
 
     public enum ConfigVersion {
@@ -147,9 +149,9 @@ public class EtlJobConfig implements Serializable {
     }
 
     public static class EtlJobProperty implements Serializable {
-        @JsonProperty(value = "strictMode")
+        @SerializedName(value = "strictMode")
         public boolean strictMode;
-        @JsonProperty(value = "timezone")
+        @SerializedName(value = "timezone")
         public String timezone;
 
         @Override
@@ -159,11 +161,11 @@ public class EtlJobConfig implements Serializable {
     }
 
     public static class EtlTable implements Serializable {
-        @JsonProperty(value = "indexes")
+        @SerializedName(value = "indexes")
         public List<EtlIndex> indexes;
-        @JsonProperty(value = "partitionInfo")
+        @SerializedName(value = "partitionInfo")
         public EtlPartitionInfo partitionInfo;
-        @JsonProperty(value = "fileGroups")
+        @SerializedName(value = "fileGroups")
         public List<EtlFileGroup> fileGroups;
 
         /**
@@ -190,25 +192,25 @@ public class EtlJobConfig implements Serializable {
     }
 
     public static class EtlColumn implements Serializable {
-        @JsonProperty(value = "columnName")
+        @SerializedName(value = "columnName")
         public String columnName;
-        @JsonProperty(value = "columnType")
+        @SerializedName(value = "columnType")
         public String columnType;
-        @JsonProperty(value = "isAllowNull")
+        @SerializedName(value = "isAllowNull")
         public boolean isAllowNull;
-        @JsonProperty(value = "isKey")
+        @SerializedName(value = "isKey")
         public boolean isKey;
-        @JsonProperty(value = "aggregationType")
+        @SerializedName(value = "aggregationType")
         public String aggregationType;
-        @JsonProperty(value = "defaultValue")
+        @SerializedName(value = "defaultValue")
         public String defaultValue;
-        @JsonProperty(value = "stringLength")
+        @SerializedName(value = "stringLength")
         public int stringLength;
-        @JsonProperty(value = "precision")
+        @SerializedName(value = "precision")
         public int precision;
-        @JsonProperty(value = "scale")
+        @SerializedName(value = "scale")
         public int scale;
-        @JsonProperty(value = "defineExpr")
+        @SerializedName(value = "defineExpr")
         public String defineExpr;
 
         // for unit test
@@ -253,17 +255,17 @@ public class EtlJobConfig implements Serializable {
     }
 
     public static class EtlIndex implements Serializable {
-        @JsonProperty(value = "indexId")
+        @SerializedName(value = "indexId")
         public long indexId;
-        @JsonProperty(value = "columns")
+        @SerializedName(value = "columns")
         public List<EtlColumn> columns;
-        @JsonProperty(value = "schemaHash")
+        @SerializedName(value = "schemaHash")
         public int schemaHash;
-        @JsonProperty(value = "indexType")
+        @SerializedName(value = "indexType")
         public String indexType;
-        @JsonProperty(value = "isBaseIndex")
+        @SerializedName(value = "isBaseIndex")
         public boolean isBaseIndex;
-        @JsonProperty(value = "schemaVersion")
+        @SerializedName(value = "schemaVersion")
         public int schemaVersion;
 
         /**
@@ -300,13 +302,13 @@ public class EtlJobConfig implements Serializable {
     }
 
     public static class EtlPartitionInfo implements Serializable {
-        @JsonProperty(value = "partitionType")
+        @SerializedName(value = "partitionType")
         public String partitionType;
-        @JsonProperty(value = "partitionColumnRefs")
+        @SerializedName(value = "partitionColumnRefs")
         public List<String> partitionColumnRefs;
-        @JsonProperty(value = "distributionColumnRefs")
+        @SerializedName(value = "distributionColumnRefs")
         public List<String> distributionColumnRefs;
-        @JsonProperty(value = "partitions")
+        @SerializedName(value = "partitions")
         public List<EtlPartition> partitions;
 
         /**
@@ -332,15 +334,15 @@ public class EtlJobConfig implements Serializable {
     }
 
     public static class EtlPartition implements Serializable {
-        @JsonProperty(value = "partitionId")
+        @SerializedName(value = "partitionId")
         public long partitionId;
-        @JsonProperty(value = "startKeys")
+        @SerializedName(value = "startKeys")
         public List<Object> startKeys;
-        @JsonProperty(value = "endKeys")
+        @SerializedName(value = "endKeys")
         public List<Object> endKeys;
-        @JsonProperty(value = "isMaxPartition")
+        @SerializedName(value = "isMaxPartition")
         public boolean isMaxPartition;
-        @JsonProperty(value = "bucketNum")
+        @SerializedName(value = "bucketNum")
         public int bucketNum;
 
         /**
@@ -366,41 +368,37 @@ public class EtlJobConfig implements Serializable {
     }
 
     public static class EtlFileGroup implements Serializable {
-        @JsonProperty(value = "sourceType")
+        @SerializedName(value = "sourceType")
         public SourceType sourceType = SourceType.FILE;
-        @JsonProperty(value = "filePaths")
+        @SerializedName(value = "filePaths")
         public List<String> filePaths;
-        @JsonProperty(value = "fileFieldNames")
+        @SerializedName(value = "fileFieldNames")
         public List<String> fileFieldNames;
-        @JsonProperty(value = "columnsFromPath")
+        @SerializedName(value = "columnsFromPath")
         public List<String> columnsFromPath;
-        @JsonProperty(value = "columnSeparator")
+        @SerializedName(value = "columnSeparator")
         public String columnSeparator;
-        @JsonProperty(value = "lineDelimiter")
+        @SerializedName(value = "lineDelimiter")
         public String lineDelimiter;
-        @JsonProperty(value = "isNegative")
+        @SerializedName(value = "isNegative")
         public boolean isNegative;
-        @JsonProperty(value = "fileFormat")
+        @SerializedName(value = "fileFormat")
         public String fileFormat;
-        @JsonProperty(value = "columnMappings")
+        @SerializedName(value = "columnMappings")
         public Map<String, EtlColumnMapping> columnMappings;
-        @JsonProperty(value = "where")
+        @SerializedName(value = "where")
         public String where;
-        @JsonProperty(value = "partitions")
+        @SerializedName(value = "partitions")
         public List<Long> partitions;
-        @JsonProperty(value = "hiveDbTableName")
+        @SerializedName(value = "hiveDbTableName")
         public String hiveDbTableName;
-        @JsonProperty(value = "hiveTableProperties")
+        @SerializedName(value = "hiveTableProperties")
         public Map<String, String> hiveTableProperties;
 
         // hive db table used in dpp, not serialized
         // set with hiveDbTableName (no bitmap column) or IntermediateHiveTable (created by global dict builder)
         // in spark etl job
-        @JsonIgnore
         public String dppHiveDbTableName;
-
-        public EtlFileGroup() {
-        }
 
         // for data infile path
         public EtlFileGroup(SourceType sourceType, List<String> filePaths, List<String> fileFieldNames,
@@ -455,15 +453,12 @@ public class EtlJobConfig implements Serializable {
         private static Map<String, String> functionMap =
                 new ImmutableMap.Builder<String, String>().put("md5sum", "md5").build();
 
-        @JsonProperty(value = "functionName")
+        @SerializedName(value = "functionName")
         public String functionName;
-        @JsonProperty(value = "args")
+        @SerializedName(value = "args")
         public List<String> args;
-        @JsonProperty(value = "expr")
+        @SerializedName(value = "expr")
         public String expr;
-
-        public EtlColumnMapping() {
-        }
 
         public EtlColumnMapping(String functionName, List<String> args) {
             this.functionName = functionName;
@@ -501,6 +496,17 @@ public class EtlJobConfig implements Serializable {
         public String toString() {
             return "EtlColumnMapping{" + "functionName='" + functionName + '\'' + ", args=" + args + ", expr=" + expr
                     + '}';
+        }
+    }
+
+    public static class HiddenAnnotationExclusionStrategy implements ExclusionStrategy {
+        public boolean shouldSkipField(FieldAttributes f) {
+            return f.getAnnotation(SerializedName.class) == null;
+        }
+
+        @Override
+        public boolean shouldSkipClass(Class<?> clazz) {
+            return false;
         }
     }
 
