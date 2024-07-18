@@ -34,6 +34,7 @@ class TestUtils extends ExpectedExceptionTest {
     val inValueLengthLimit = 5
 
     val equalFilter = EqualTo("left", 5)
+    val notEqualFilter = Not(EqualTo("left", 5))
     val greaterThanFilter = GreaterThan("left", 5)
     val greaterThanOrEqualFilter = GreaterThanOrEqual("left", 5)
     val lessThanFilter = LessThan("left", 5)
@@ -41,15 +42,22 @@ class TestUtils extends ExpectedExceptionTest {
     val validInFilter = In("left", Array(1, 2, 3, 4))
     val emptyInFilter = In("left", Array.empty)
     val invalidInFilter = In("left", Array(1, 2, 3, 4, 5))
+    val notInFilter = Not(In("left", Array(1, 2, 3)))
     val isNullFilter = IsNull("left")
     val isNotNullFilter = IsNotNull("left")
-    val notSupportFilter = StringContains("left", "right")
     val validAndFilter = And(equalFilter, greaterThanFilter)
-    val invalidAndFilter = And(equalFilter, notSupportFilter)
+    val invalidAndFilter = And(equalFilter, invalidInFilter)
     val validOrFilter = Or(equalFilter, greaterThanFilter)
-    val invalidOrFilter = Or(equalFilter, notSupportFilter)
+    val invalidOrFilter = Or(equalFilter, invalidInFilter)
+    val stringContainsFilter = StringContains("left", "right")
+    val notStringContainsFilter = Not(StringContains("left", "right"))
+    val stringEndsWithFilter = StringEndsWith("left", "right")
+    val notStringEndsWithFilter = Not(StringEndsWith("left", "right"))
+    val stringStartsWithFilter = StringStartsWith("left", "right")
+    val notStringStartsWithFilter = Not(StringStartsWith("left", "right"))
 
     Assert.assertEquals("`left` = 5", Utils.compileFilter(equalFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals("`left` != 5", Utils.compileFilter(notEqualFilter, dialect, inValueLengthLimit).get)
     Assert.assertEquals("`left` > 5", Utils.compileFilter(greaterThanFilter, dialect, inValueLengthLimit).get)
     Assert.assertEquals("`left` >= 5", Utils.compileFilter(greaterThanOrEqualFilter, dialect, inValueLengthLimit).get)
     Assert.assertEquals("`left` < 5", Utils.compileFilter(lessThanFilter, dialect, inValueLengthLimit).get)
@@ -57,6 +65,7 @@ class TestUtils extends ExpectedExceptionTest {
     Assert.assertEquals("`left` in (1, 2, 3, 4)", Utils.compileFilter(validInFilter, dialect, inValueLengthLimit).get)
     Assert.assertTrue(Utils.compileFilter(emptyInFilter, dialect, inValueLengthLimit).isEmpty)
     Assert.assertTrue(Utils.compileFilter(invalidInFilter, dialect, inValueLengthLimit).isEmpty)
+    Assert.assertEquals("`left` not in (1, 2, 3)", Utils.compileFilter(notInFilter, dialect, inValueLengthLimit).get)
     Assert.assertEquals("`left` is null", Utils.compileFilter(isNullFilter, dialect, inValueLengthLimit).get)
     Assert.assertEquals("`left` is not null", Utils.compileFilter(isNotNullFilter, dialect, inValueLengthLimit).get)
     Assert.assertEquals("(`left` = 5) and (`left` > 5)",
@@ -65,6 +74,12 @@ class TestUtils extends ExpectedExceptionTest {
     Assert.assertEquals("(`left` = 5) or (`left` > 5)",
       Utils.compileFilter(validOrFilter, dialect, inValueLengthLimit).get)
     Assert.assertTrue(Utils.compileFilter(invalidOrFilter, dialect, inValueLengthLimit).isEmpty)
+    Assert.assertEquals("`left` like '%right%'", Utils.compileFilter(stringContainsFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals("`left` not like '%right%'", Utils.compileFilter(notStringContainsFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals("`left` like '%right'", Utils.compileFilter(stringEndsWithFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals("`left` not like '%right'", Utils.compileFilter(notStringEndsWithFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals("`left` like 'right%'", Utils.compileFilter(stringStartsWithFilter, dialect, inValueLengthLimit).get)
+    Assert.assertEquals("`left` not like 'right%'", Utils.compileFilter(notStringStartsWithFilter, dialect, inValueLengthLimit).get)
   }
 
   @Test

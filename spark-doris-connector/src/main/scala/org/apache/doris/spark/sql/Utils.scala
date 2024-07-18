@@ -51,6 +51,7 @@ private[spark] object Utils {
   def compileFilter(filter: Filter, dialect: JdbcDialect, inValueLengthLimit: Int): Option[String] = {
     Option(filter match {
       case EqualTo(attribute, value) => s"${quote(attribute)} = ${compileValue(value)}"
+      case Not(EqualTo(attribute, value)) => s"${quote(attribute)} != ${compileValue(value)}"
       case GreaterThan(attribute, value) => s"${quote(attribute)} > ${compileValue(value)}"
       case GreaterThanOrEqual(attribute, value) => s"${quote(attribute)} >= ${compileValue(value)}"
       case LessThan(attribute, value) => s"${quote(attribute)} < ${compileValue(value)}"
@@ -83,6 +84,12 @@ private[spark] object Utils {
         } else {
           null
         }
+      case StringContains(attribute, value) => s"${quote(attribute)} like '%$value%'"
+      case Not(StringContains(attribute, value)) => s"${quote(attribute)} not like '%$value%'"
+      case StringEndsWith(attribute, value) => s"${quote(attribute)} like '%$value'"
+      case Not(StringEndsWith(attribute, value)) => s"${quote(attribute)} not like '%$value'"
+      case StringStartsWith(attribute, value) => s"${quote(attribute)} like '$value%'"
+      case Not(StringStartsWith(attribute, value)) => s"${quote(attribute)} not like '$value%'"
       case _ => null
     })
   }
