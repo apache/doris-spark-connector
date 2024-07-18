@@ -35,7 +35,6 @@ under the License.
         <dependency>
             <groupId>org.apache.doris</groupId>
             <artifactId>spark-load-common</artifactId>
-            <version>${revision}</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/commons-codec/commons-codec -->
         <dependency>
@@ -182,7 +181,10 @@ under the License.
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-dynamodb</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <finalName>spark-load-dpp-${project.version}</finalName>
