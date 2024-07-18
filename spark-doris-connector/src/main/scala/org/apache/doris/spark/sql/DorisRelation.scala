@@ -70,6 +70,11 @@ private[sql] class DorisRelation(
           .map(filter => s"($filter)").mkString(" and ")
     }
 
+    val bitmapColumnStr = cfg.getProperty(SchemaUtils.DORIS_BITMAP_COLUMNS, "")
+    paramWithScan += (SchemaUtils.DORIS_BITMAP_COLUMNS -> bitmapColumnStr)
+    val hllColumnStr = cfg.getProperty(SchemaUtils.DORIS_HLL_COLUMNS, "")
+    paramWithScan += (SchemaUtils.DORIS_HLL_COLUMNS -> hllColumnStr)
+
     // required columns for column pruner
     if (requiredColumns != null && requiredColumns.length > 0) {
       paramWithScan += (ConfigurationOptions.DORIS_READ_FIELD ->

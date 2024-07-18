@@ -19,8 +19,9 @@ package org.apache.doris.spark.sql
 
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.doris.sdk.thrift.TScanColumnDesc
-import org.apache.doris.spark.cfg.ConfigurationOptions.{DORIS_IGNORE_TYPE, DORIS_READ_FIELD}
+import org.apache.commons.lang3.StringUtils
+import org.apache.doris.sdk.thrift.{TPrimitiveType, TScanColumnDesc}
+import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD
 import org.apache.doris.spark.cfg.Settings
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.RestService
@@ -38,6 +39,9 @@ private[spark] object SchemaUtils {
   private val logger = LoggerFactory.getLogger(SchemaUtils.getClass.getSimpleName.stripSuffix("$"))
   private val MAPPER = JsonMapper.builder().addModule(DefaultScalaModule).build()
 
+  val DORIS_BITMAP_COLUMNS = "doris.bitmap.columns"
+  val DORIS_HLL_COLUMNS = "doris.hll.columns"
+
   /**
    * discover Doris table schema from Doris FE.
    *
@@ -46,9 +50,12 @@ private[spark] object SchemaUtils {
    */
   def discoverSchema(cfg: Settings): StructType = {
     val schema = discoverSchemaFromFe(cfg)
+    val bitmapColumns = schema.getProperties.filter(_.getType.equalsIgnoreCase("BITMAP")).map(_.getName).mkString(",")
+    cfg.setProperty(DORIS_BITMAP_COLUMNS, bitmapColumns)
+    val hllColumns = schema.getProperties.filter(_.getType.equalsIgnoreCase("HLL")).map(_.getName).mkString(",")
+    cfg.setProperty(DORIS_HLL_COLUMNS, hllColumns)
     val dorisReadField = cfg.getProperty(DORIS_READ_FIELD)
-    val ignoreColumnType = cfg.getProperty(DORIS_IGNORE_TYPE)
-    convertToStruct(schema, dorisReadField, ignoreColumnType)
+    convertToStruct(schema, dorisReadField)
   }
 
   /**
@@ -67,20 +74,14 @@ private[spark] object SchemaUtils {
    * @param schema inner schema
    * @return Spark Catalyst StructType
    */
-  def convertToStruct(schema: Schema, dorisReadFields: String, ignoredTypes: String): StructType = {
+  def convertToStruct(schema: Schema, dorisReadFields: String): StructType = {
     val fieldList = if (dorisReadFields != null && dorisReadFields.nonEmpty) {
       dorisReadFields.split(",")
     } else {
       Array.empty[String]
     }
-    val ignoredTypeList = if (ignoredTypes != null && ignoredTypes.nonEmpty) {
-      ignoredTypes.split(",").map(t => t.trim.toUpperCase)
-    } else {
-      Array.empty[String]
-    }
     val fields = schema.getProperties
-      .filter(x => (fieldList.contains(x.getName) || fieldList.isEmpty)
-        && !ignoredTypeList.contains(x.getType))
+      .filter(x => fieldList.contains(x.getName) || fieldList.isEmpty)
       .map(f =>
         DataTypes.createStructField(
           f.getName,
@@ -132,8 +133,8 @@ private[spark] object SchemaUtils {
       case "VARIANT"         => DataTypes.StringType
       case "IPV4"            => DataTypes.StringType
       case "IPV6"            => DataTypes.StringType
-      case "HLL"             =>
-        throw new DorisException("Unsupported type " + dorisType)
+      case "BITMAP"          => DataTypes.StringType // Placeholder only, no support for reading
+      case "HLL"             => DataTypes.StringType // Placeholder only, no support for reading
       case _                             =>
         throw new DorisException("Unrecognized Doris type " + dorisType)
     }
@@ -145,10 +146,37 @@ private[spark] object SchemaUtils {
    * @param tscanColumnDescs Doris BE return schema
    * @return inner schema struct
    */
-  def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc]): Schema = {
-    val schema = new Schema(tscanColumnDescs.length)
-    tscanColumnDescs.foreach(desc => schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, "")))
+  def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc], settings: Settings): Schema = {
+    val readColumns = settings.getProperty(DORIS_READ_FIELD, "").split(",").map(_.replaceAll("`", ""))
+    val bitmapColumns = settings.getProperty(DORIS_BITMAP_COLUMNS, "").split(",")
+    val hllColumns = settings.getProperty(DORIS_HLL_COLUMNS, "").split(",")
+    val fieldList = fieldUnion(readColumns, bitmapColumns, hllColumns, tscanColumnDescs)
+    val schema = new Schema(fieldList.length)
+    fieldList.foreach(schema.put)
     schema
+  }
+
+  private def fieldUnion(readColumns: Array[String], bitmapColumns: Array[String], hllColumns: Array[String],
+                 tScanColumnDescSeq: Seq[TScanColumnDesc]): List[Field] = {
+    val fieldList = mutable.Buffer[Field]()
+    var rcIdx = 0;
+    var tsdIdx = 0;
+    while (rcIdx < readColumns.length || tsdIdx < tScanColumnDescSeq.length) {
+      if (rcIdx < readColumns.length) {
+        if (StringUtils.equals(readColumns(rcIdx), tScanColumnDescSeq(tsdIdx).getName)) {
+          fieldList += new Field(tScanColumnDescSeq(tsdIdx).getName, tScanColumnDescSeq(tsdIdx).getType.name, "", 0, 0, "")
+          rcIdx += 1
+          tsdIdx += 1
+        } else if (bitmapColumns.contains(readColumns(rcIdx)) || hllColumns.contains(readColumns(rcIdx))) {
+          fieldList += new Field(readColumns(rcIdx), TPrimitiveType.VARCHAR.name, "", 0, 0, "")
+          rcIdx += 1
+        }
+      } else {
+        fieldList += new Field(tScanColumnDescSeq(tsdIdx).getName, tScanColumnDescSeq(tsdIdx).getType.name, "", 0, 0, "")
+        tsdIdx += 1
+      }
+    }
+    fieldList.toList
   }
 
   def rowColumnValue(row: SpecializedGetters, ordinal: Int, dataType: DataType): Any = {

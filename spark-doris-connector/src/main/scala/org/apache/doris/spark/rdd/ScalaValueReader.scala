@@ -138,7 +138,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
   protected val openResult: TScanOpenResult = lockClient(_.openScanner(openParams))
   protected val contextId: String = openResult.getContextId
   protected val schema: Schema =
-    SchemaUtils.convertToSchema(openResult.getSelectedColumns)
+    SchemaUtils.convertToSchema(openResult.getSelectedColumns, settings)
 
   private[this] val asyncThread: Thread = new Thread {
     override def run(): Unit = {

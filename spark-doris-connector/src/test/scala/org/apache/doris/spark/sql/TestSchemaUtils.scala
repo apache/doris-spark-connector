@@ -18,8 +18,10 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.sdk.thrift.{TPrimitiveType, TScanColumnDesc}
+import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
 import org.apache.doris.spark.exception.DorisException
 import org.apache.doris.spark.rest.models.{Field, Schema}
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types._
 import org.hamcrest.core.StringStartsWith.startsWith
@@ -42,7 +44,7 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     fields :+= DataTypes.createStructField("k1", DataTypes.ByteType, true)
     fields :+= DataTypes.createStructField("k5", DataTypes.LongType, true)
     val expected = DataTypes.createStructType(fields.asJava)
-    Assert.assertEquals(expected, SchemaUtils.convertToStruct(schema, "k1,k5", null))
+    Assert.assertEquals(expected, SchemaUtils.convertToStruct(schema, "k1,k5"))
   }
 
   @Test
@@ -68,10 +70,8 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("STRING", 0, 0))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("JSON", 0, 0))
     Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("JSONB", 0, 0))
-
-    thrown.expect(classOf[DorisException])
-    thrown.expectMessage(startsWith("Unsupported type"))
-    SchemaUtils.getCatalystType("HLL", 0, 0)
+    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("BITMAP", 0, 0))
+    Assert.assertEquals(DataTypes.StringType, SchemaUtils.getCatalystType("HLL", 0, 0))
 
     thrown.expect(classOf[DorisException])
     thrown.expectMessage(startsWith("Unrecognized Doris type"))
@@ -80,6 +80,11 @@ class TestSchemaUtils extends ExpectedExceptionTest {
 
   @Test
   def testConvertToSchema(): Unit = {
+
+    val sparkConf = new SparkConf()
+    sparkConf.set(ConfigurationOptions.DORIS_READ_FIELD, "k1,k2")
+    val settings = new SparkSettings(sparkConf)
+
     val k1 = new TScanColumnDesc
     k1.setName("k1")
     k1.setType(TPrimitiveType.BOOLEAN)
@@ -95,26 +100,7 @@ class TestSchemaUtils extends ExpectedExceptionTest {
     expected.put(ek1)
     expected.put(ek2)
 
-    Assert.assertEquals(expected, SchemaUtils.convertToSchema(Seq(k1, k2)))
-  }
-
-  @Test
-  def testIgnoreTypes(): Unit = {
-
-    val schema = new Schema
-    schema.setStatus(200)
-    val col1 = new Field("col1", "TINYINT", "", 0, 0, "")
-    val col2 = new Field("col2", "BITMAP", "", 0, 0, "")
-    val col3 = new Field("col3", "HLL", "", 0, 0, "")
-    schema.put(col1)
-    schema.put(col2)
-    schema.put(col3)
-
-    var fields = List[StructField]()
-    fields :+= DataTypes.createStructField("col1", DataTypes.ByteType, true)
-    val expected = DataTypes.createStructType(fields.asJava)
-    Assert.assertEquals(expected, SchemaUtils.convertToStruct(schema, null, "bitmap,hll"))
-
+    Assert.assertEquals(expected, SchemaUtils.convertToSchema(Seq(k1, k2), settings))
   }
 
   @Test
