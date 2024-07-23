@@ -18,7 +18,7 @@
 
 if [ -z ${SPARK_LOAD_HOME} ]; then
   cur_dir=$(dirname "$0")/../
-  SPARK_LOAD_HOME=$(pwd ${cur_dir})
+  SPARK_LOAD_HOME=$(readlink -f ${cur_dir})
 fi
 
 export SPARK_LOAD_HOME
@@ -43,7 +43,7 @@ fi
 
 SPARK_LOAD_CORE_JAR=
 for f in "${SPARK_LOAD_HOME}/lib"/*.jar; do
-    if [[ "${f}" == "spark-load-core"*".jar" ]]; then
+    if [[ $(basename "${f}") == "spark-load-core"*".jar" ]]; then
         SPARK_LOAD_CORE_JAR="${f}"
         continue
     fi
