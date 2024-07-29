@@ -17,6 +17,11 @@
 
 package org.apache.doris.spark.serialization;
 
+import org.apache.doris.sdk.thrift.TScanBatchResult;
+import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.rest.models.Schema;
+import org.apache.doris.spark.util.IPUtils;
+
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
@@ -43,10 +48,6 @@ import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.doris.sdk.thrift.TScanBatchResult;
-import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.rest.models.Schema;
-import org.apache.doris.spark.util.IPUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,8 +72,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-
-import static org.apache.doris.spark.util.IPUtils.convertLongToIPv4Address;
 
 /**
  * row batch data container.
@@ -157,8 +156,7 @@ public class RowBatch {
 
     private void addValueToRow(int rowIndex, Object obj) {
         if (rowIndex > rowCountInOneBatch) {
-            String errMsg = "Get row offset: " + rowIndex + " larger than row size: " +
-                    rowCountInOneBatch;
+            String errMsg = "Get row offset: " + rowIndex + " larger than row size: " + rowCountInOneBatch;
             logger.error(errMsg);
             throw new NoSuchElementException(errMsg);
         }
@@ -261,7 +259,8 @@ public class RowBatch {
                             ipv4Vector = (UInt4Vector) curFieldVector;
                         }
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = ipv4Vector.isNull(rowIndex) ? null : convertLongToIPv4Address(ipv4Vector.getValueAsLong(rowIndex));
+                            Object fieldValue = ipv4Vector.isNull(rowIndex) ? null :
+                                    IPUtils.convertLongToIPv4Address(ipv4Vector.getValueAsLong(rowIndex));
                             addValueToRow(rowIndex, fieldValue);
                         }
                         break;

@@ -17,56 +17,21 @@
 
 package org.apache.doris.spark.rest;
 
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_BENODES;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_FENODES;
-import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_FILTER_QUERY;
-import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_READ_FIELD;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_REQUEST_AUTH_USER;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE_DEFAULT;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE_MIN;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLE_IDENTIFIER;
-import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_BENODES;
-import static org.apache.doris.spark.util.ErrorMessages.CONNECT_FAILED_MESSAGE;
 import static org.apache.doris.spark.util.ErrorMessages.ILLEGAL_ARGUMENT_MESSAGE;
 import static org.apache.doris.spark.util.ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE;
 import static org.apache.doris.spark.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.io.Serializable;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Base64;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.doris.spark.cfg.ConfigurationOptions;
 import org.apache.doris.spark.cfg.Settings;
 import org.apache.doris.spark.cfg.SparkSettings;
-import org.apache.doris.spark.exception.ConnectedFailedException;
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.IllegalArgumentException;
 import org.apache.doris.spark.exception.ShouldNeverHappenException;
@@ -76,23 +41,44 @@ import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.rest.models.Tablet;
+import org.apache.doris.spark.sql.SchemaUtils;
 import org.apache.doris.spark.util.HttpUtil;
 import org.apache.doris.spark.util.URLs;
+
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.config.RequestConfig;
+import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 
-import com.google.common.annotations.VisibleForTesting;
-import scala.collection.JavaConverters;
+import java.io.IOException;
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 /**
  * Service for communicate with Doris FE.
@@ -238,18 +224,33 @@ public class RestService implements Serializable {
      * @throws DorisException throw when find partition failed
      */
     public static List<PartitionDefinition> findPartitions(Settings cfg, Logger logger) throws DorisException {
-        String[] tableIdentifiers = parseIdentifier(cfg.getProperty(DORIS_TABLE_IDENTIFIER), logger);
-        String sql = "select " + cfg.getProperty(DORIS_READ_FIELD, "*") +
-                " from `" + tableIdentifiers[0] + "`.`" + tableIdentifiers[1] + "`";
-        if (!StringUtils.isEmpty(cfg.getProperty(DORIS_FILTER_QUERY))) {
-            sql += " where " + cfg.getProperty(DORIS_FILTER_QUERY);
+        String[] tableIdentifiers =
+                parseIdentifier(cfg.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER), logger);
+        String readFields = cfg.getProperty(ConfigurationOptions.DORIS_READ_FIELD, "*");
+        if (!"*".equals(readFields)) {
+            String[] readFieldArr = readFields.split(",");
+            String[] bitmapColumns = cfg.getProperty(SchemaUtils.DORIS_BITMAP_COLUMNS(), "").split(",");
+            String[] hllColumns = cfg.getProperty(SchemaUtils.DORIS_HLL_COLUMNS(), "").split(",");
+            for (int i = 0; i < readFieldArr.length; i++) {
+                String readFieldName = readFieldArr[i].replaceAll("`", "");
+                if (ArrayUtils.contains(bitmapColumns, readFieldName)
+                        || ArrayUtils.contains(hllColumns, readFieldName)) {
+                    readFieldArr[i] = "'READ UNSUPPORTED' AS " + readFieldArr[i];
+                }
+            }
+            readFields = StringUtils.join(readFieldArr, ",");
+        }
+        String sql = "select " + readFields + " from `" + tableIdentifiers[0] + "`.`" + tableIdentifiers[1] + "`";
+        if (!StringUtils.isEmpty(cfg.getProperty(ConfigurationOptions.DORIS_FILTER_QUERY))) {
+            sql += " where " + cfg.getProperty(ConfigurationOptions.DORIS_FILTER_QUERY);
         }
         logger.debug("Query SQL Sending to Doris FE is: '{}'.", sql);
 
         String finalSql = sql;
         String response = queryAllFrontends((SparkSettings) cfg, (frontend, enableHttps) -> {
-            HttpPost httpPost = new HttpPost(URLs.queryPlan(frontend, tableIdentifiers[0], tableIdentifiers[1], enableHttps));
-            String entity = "{\"sql\": \""+ finalSql +"\"}";
+            HttpPost httpPost =
+                    new HttpPost(URLs.queryPlan(frontend, tableIdentifiers[0], tableIdentifiers[1], enableHttps));
+            String entity = "{\"sql\": \"" + finalSql + "\"}";
             logger.debug("Post body Sending to Doris FE is: '{}'.", entity);
             StringEntity stringEntity = new StringEntity(entity, StandardCharsets.UTF_8);
             stringEntity.setContentEncoding("UTF-8");
@@ -630,10 +631,11 @@ public class RestService implements Serializable {
                 String user = settings.getProperty(DORIS_REQUEST_AUTH_USER, "");
                 String password = settings.getProperty(DORIS_REQUEST_AUTH_PASSWORD, "");
                 logger.info("Send request to Doris FE '{}' with user '{}'.", request.getURI(), user);
-                request.setHeader(HttpHeaders.AUTHORIZATION, "Basic " +
-                        Base64.getEncoder().encodeToString((user + ":" + password).getBytes(StandardCharsets.UTF_8)));
+                request.setHeader(HttpHeaders.AUTHORIZATION, "Basic "
+                        + Base64.getEncoder().encodeToString((user + ":" + password).getBytes(StandardCharsets.UTF_8)));
                 CloseableHttpResponse response = client.execute(request);
-                if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                StatusLine statusLine = response.getStatusLine();
+                if (statusLine.getStatusCode() == HttpStatus.SC_OK) {
                     String resStr = EntityUtils.toString(response.getEntity());
                     Map<String, Object> resMap = MAPPER.readValue(resStr,
                             new TypeReference<Map<String, Object>>() {
@@ -643,6 +645,8 @@ public class RestService implements Serializable {
                     }
                     return resStr;
                 }
+                logger.warn("Request for {} get a bad status, code: {}, msg: {}", request.getURI().toString(),
+                        statusLine.getStatusCode(), statusLine.getReasonPhrase());
             } catch (IOException e) {
                 logger.error("Doris FE node {} is unavailable, Request the next Doris FE node. Err: {}", frontend, e.getMessage());
             }
