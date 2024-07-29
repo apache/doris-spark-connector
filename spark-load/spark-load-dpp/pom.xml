@@ -35,6 +35,7 @@ under the License.
         <dependency>
             <groupId>org.apache.doris</groupId>
             <artifactId>spark-load-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/commons-codec/commons-codec -->
         <dependency>
