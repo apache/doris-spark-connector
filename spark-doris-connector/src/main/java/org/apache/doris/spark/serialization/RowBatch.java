@@ -22,6 +22,7 @@ import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.util.IPUtils;
 
+import avro.shaded.com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
@@ -36,6 +37,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -47,6 +49,7 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
@@ -78,38 +81,21 @@ import java.util.Objects;
  */
 public class RowBatch {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
+    private static final ZoneId DEFAULT_ZONE_ID = ZoneId.systemDefault();
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
             .appendPattern("yyyy-MM-dd HH:mm:ss")
             .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
             .toFormatter();
-
-    public static class Row {
-        private final List<Object> cols;
-
-        Row(int colCount) {
-            this.cols = new ArrayList<>(colCount);
-        }
-
-        List<Object> getCols() {
-            return cols;
-        }
-
-        public void put(Object o) {
-            cols.add(o);
-        }
-    }
-
+    private final List<Row> rowBatch = new ArrayList<>();
+    private final ArrowStreamReader arrowStreamReader;
+    private final RootAllocator rootAllocator;
+    private final Schema schema;
     // offset for iterate the rowBatch
     private int offsetInRowBatch = 0;
     private int rowCountInOneBatch = 0;
     private int readRowCount = 0;
-    private final List<Row> rowBatch = new ArrayList<>();
-    private final ArrowStreamReader arrowStreamReader;
     private List<FieldVector> fieldVectors;
-    private final RootAllocator rootAllocator;
-    private final Schema schema;
-
     public RowBatch(TScanBatchResult nextResult, Schema schema) throws DorisException {
         this.schema = schema;
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
@@ -358,9 +344,11 @@ public class RowBatch {
                         break;
                     case "DATETIME":
                     case "DATETIMEV2":
-                        Preconditions.checkArgument(mt.equals(Types.MinorType.VARCHAR)
-                                        || mt.equals(Types.MinorType.TIMESTAMPMICRO),
-                                typeMismatchMessage(currentType, mt));
+
+                        Preconditions.checkArgument(mt.equals(Types.MinorType.TIMESTAMPMICRO) || mt.equals(MinorType.VARCHAR) ||
+                                mt.equals(MinorType.TIMESTAMPMILLI) || mt.equals(MinorType.TIMESTAMPSEC), typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(currentType, mt);
+
                         if (mt.equals(Types.MinorType.VARCHAR)) {
                             VarCharVector varCharVector = (VarCharVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
@@ -371,26 +359,19 @@ public class RowBatch {
                                 String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
                                 addValueToRow(rowIndex, value);
                             }
-                        } else {
-                            TimeStampMicroVector vector = (TimeStampMicroVector) curFieldVector;
+                        } else if (curFieldVector instanceof TimeStampVector) {
+                            TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
+
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                                if (vector.isNull(rowIndex)) {
+                                if (timeStampVector.isNull(rowIndex)) {
+
                                     addValueToRow(rowIndex, null);
                                     continue;
                                 }
-                                long time = vector.get(rowIndex);
-                                Instant instant;
-                                if (time / 10000000000L == 0) { // datetime(0)
-                                    instant = Instant.ofEpochSecond(time);
-                                } else if (time / 10000000000000L == 0) { // datetime(3)
-                                    instant = Instant.ofEpochMilli(time);
-                                } else { // datetime(6)
-                                    instant = Instant.ofEpochSecond(time / 1000000, time % 1000000 * 1000);
-                                }
-                                LocalDateTime dateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
-                                String formatted = DATE_TIME_FORMATTER.format(dateTime);
-                                addValueToRow(rowIndex, formatted);
+                                LocalDateTime dateTime = getDateTime(rowIndex, timeStampVector);
+                                addValueToRow(rowIndex, dateTime);
                             }
+
                         }
                         break;
                     case "CHAR":
@@ -509,6 +490,48 @@ public class RowBatch {
             }
         } catch (IOException ioe) {
             // do nothing
+        }
+    }
+
+     @VisibleForTesting
+    public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector) {
+        TimeStampVector vector = (TimeStampVector) fieldVector;
+        if (vector.isNull(rowIndex)) {
+            return null;
+        }
+        // todo: Currently, the scale of doris's arrow datetimev2 is hardcoded to 6,
+        // and there is also a time zone problem in arrow, so use timestamp to convert first
+        long time = vector.get(rowIndex);
+        return longToLocalDateTime(time);
+    }
+
+     @VisibleForTesting
+    public static LocalDateTime longToLocalDateTime(long time) {
+        Instant instant;
+        // Determine the timestamp accuracy and process it
+        if (time < 10_000_000_000L) { // Second timestamp
+            instant = Instant.ofEpochSecond(time);
+        } else if (time < 10_000_000_000_000L) { // milli second
+            instant = Instant.ofEpochMilli(time);
+        } else { // micro second
+            instant = Instant.ofEpochSecond(time / 1_000_000, (time % 1_000_000) * 1_000);
+        }
+        return LocalDateTime.ofInstant(instant, DEFAULT_ZONE_ID);
+    }
+
+    public static class Row {
+        private final List<Object> cols;
+
+        Row(int colCount) {
+            this.cols = new ArrayList<>(colCount);
+        }
+
+        List<Object> getCols() {
+            return cols;
+        }
+
+        public void put(Object o) {
+            cols.add(o);
         }
     }
 }
