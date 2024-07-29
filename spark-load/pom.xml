@@ -27,10 +27,10 @@
     <version>${revision}</version>
     <packaging>pom</packaging>
     <modules>
+        <module>spark-load-common</module>
         <module>spark-load-core</module>
         <module>spark-load-dpp</module>
         <module>spark-load-dist</module>
-        <module>spark-load-common</module>
     </modules>
 
     <properties>
@@ -348,9 +348,9 @@
                 <version>${gson.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.apache.doris</groupId>
+                <groupId>${project.groupId}</groupId>
                 <artifactId>spark-load-common</artifactId>
-                <version>${revision}</version>
+                <version>${project.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
