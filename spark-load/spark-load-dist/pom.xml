@@ -41,12 +41,12 @@
         <dependency>
             <groupId>org.apache.doris</groupId>
             <artifactId>spark-load-core</artifactId>
-            <version>${revision}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.doris</groupId>
             <artifactId>spark-load-dpp</artifactId>
-            <version>${revision}</version>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 
