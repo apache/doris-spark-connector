@@ -20,10 +20,10 @@ package org.apache.doris.load.loadv2.dpp;
 import org.apache.doris.common.DppResult;
 import org.apache.doris.common.SparkDppException;
 import org.apache.doris.config.EtlJobConfig;
+import org.apache.doris.util.JsonUtils;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
-import com.google.gson.Gson;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -1076,6 +1076,7 @@ public final class SparkDpp implements java.io.Serializable {
             for (Map.Entry<Long, EtlJobConfig.EtlTable> entry : etlJobConfig.tables.entrySet()) {
                 Long tableId = entry.getKey();
                 EtlJobConfig.EtlTable etlTable = entry.getValue();
+                LOG.info("etlTable:" + etlTable);
                 Set<String> dictBitmapColumnSet = tableToBitmapDictColumns.getOrDefault(tableId, new HashSet<>());
                 Set<String> binaryBitmapColumnSet = tableToBinaryBitmapColumns.getOrDefault(tableId, new HashSet<>());
 
@@ -1188,8 +1189,7 @@ public final class SparkDpp implements java.io.Serializable {
         FileSystem fs = FileSystem.get(new Path(outputPath).toUri(), serializableHadoopConf.value());
         Path filePath = new Path(resultFilePath);
         FSDataOutputStream outputStream = fs.create(filePath);
-        Gson gson = new Gson();
-        outputStream.write(gson.toJson(dppResult).getBytes());
+        outputStream.write(JsonUtils.writeValueAsBytes(dppResult));
         outputStream.write('\n');
         outputStream.close();
     }
