@@ -22,7 +22,7 @@ import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.util.IPUtils;
 
-import avro.shaded.com.google.common.annotations.VisibleForTesting;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
@@ -36,7 +36,6 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
-import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt4Vector;
@@ -96,6 +95,7 @@ public class RowBatch {
     private int rowCountInOneBatch = 0;
     private int readRowCount = 0;
     private List<FieldVector> fieldVectors;
+
     public RowBatch(TScanBatchResult nextResult, Schema schema) throws DorisException {
         this.schema = schema;
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
@@ -130,6 +130,20 @@ public class RowBatch {
         } finally {
             close();
         }
+    }
+
+    @VisibleForTesting
+    public static LocalDateTime longToLocalDateTime(long time) {
+        Instant instant;
+        // Determine the timestamp accuracy and process it
+        if (time < 10_000_000_000L) { // Second timestamp
+            instant = Instant.ofEpochSecond(time);
+        } else if (time < 10_000_000_000_000L) { // milli second
+            instant = Instant.ofEpochMilli(time);
+        } else { // micro second
+            instant = Instant.ofEpochSecond(time / 1_000_000, (time % 1_000_000) * 1_000);
+        }
+        return LocalDateTime.ofInstant(instant, DEFAULT_ZONE_ID);
     }
 
     public boolean hasNext() {
@@ -345,9 +359,11 @@ public class RowBatch {
                     case "DATETIME":
                     case "DATETIMEV2":
 
-                        Preconditions.checkArgument(mt.equals(Types.MinorType.TIMESTAMPMICRO) || mt.equals(MinorType.VARCHAR) ||
-                                mt.equals(MinorType.TIMESTAMPMILLI) || mt.equals(MinorType.TIMESTAMPSEC), typeMismatchMessage(currentType, mt));
-                                typeMismatchMessage(currentType, mt);
+                        Preconditions.checkArgument(
+                                mt.equals(Types.MinorType.TIMESTAMPMICRO) || mt.equals(MinorType.VARCHAR) ||
+                                        mt.equals(MinorType.TIMESTAMPMILLI) || mt.equals(MinorType.TIMESTAMPSEC),
+                                typeMismatchMessage(currentType, mt));
+                        typeMismatchMessage(currentType, mt);
 
                         if (mt.equals(Types.MinorType.VARCHAR)) {
                             VarCharVector varCharVector = (VarCharVector) curFieldVector;
@@ -493,7 +509,7 @@ public class RowBatch {
         }
     }
 
-     @VisibleForTesting
+    @VisibleForTesting
     public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector) {
         TimeStampVector vector = (TimeStampVector) fieldVector;
         if (vector.isNull(rowIndex)) {
@@ -503,20 +519,6 @@ public class RowBatch {
         // and there is also a time zone problem in arrow, so use timestamp to convert first
         long time = vector.get(rowIndex);
         return longToLocalDateTime(time);
-    }
-
-     @VisibleForTesting
-    public static LocalDateTime longToLocalDateTime(long time) {
-        Instant instant;
-        // Determine the timestamp accuracy and process it
-        if (time < 10_000_000_000L) { // Second timestamp
-            instant = Instant.ofEpochSecond(time);
-        } else if (time < 10_000_000_000_000L) { // milli second
-            instant = Instant.ofEpochMilli(time);
-        } else { // micro second
-            instant = Instant.ofEpochSecond(time / 1_000_000, (time % 1_000_000) * 1_000);
-        }
-        return LocalDateTime.ofInstant(instant, DEFAULT_ZONE_ID);
     }
 
     public static class Row {
