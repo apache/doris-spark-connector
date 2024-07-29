@@ -81,10 +81,13 @@ public class RowBatch {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
     private static final ZoneId DEFAULT_ZONE_ID = ZoneId.systemDefault();
 
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
-            .appendPattern("yyyy-MM-dd HH:mm:ss")
-            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
-            .toFormatter();
+    private static final String DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    private static final String DATETIMEV2_PATTERN = "yyyy-MM-dd HH:mm:ss.SSSSSS";
+    private final DateTimeFormatter dateTimeFormatter =
+            DateTimeFormatter.ofPattern(DATETIME_PATTERN);
+    private final DateTimeFormatter dateTimeV2Formatter =
+            DateTimeFormatter.ofPattern(DATETIMEV2_PATTERN);
+    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private final List<Row> rowBatch = new ArrayList<>();
     private final ArrowStreamReader arrowStreamReader;
     private final RootAllocator rootAllocator;
@@ -371,7 +374,9 @@ public class RowBatch {
                                     continue;
                                 }
                                 String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
-                                addValueToRow(rowIndex, value);
+                                 value = completeMilliseconds(value);
+                                LocalDateTime parse = LocalDateTime.parse(value, dateTimeV2Formatter);
+                                addValueToRow(rowIndex, parse);
                             }
                         } else if (curFieldVector instanceof TimeStampVector) {
                             TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
@@ -516,6 +521,25 @@ public class RowBatch {
         // and there is also a time zone problem in arrow, so use timestamp to convert first
         long time = vector.get(rowIndex);
         return longToLocalDateTime(time);
+    }
+
+    public static String completeMilliseconds(String stringValue) {
+        if (stringValue.length() == DATETIMEV2_PATTERN.length()) {
+            return stringValue;
+        }
+
+        if (stringValue.length() < DATETIME_PATTERN.length()) {
+            return stringValue;
+        }
+
+        StringBuilder sb = new StringBuilder(stringValue);
+        if (stringValue.length() == DATETIME_PATTERN.length()) {
+            sb.append(".");
+        }
+        while (sb.toString().length() < DATETIMEV2_PATTERN.length()) {
+            sb.append(0);
+        }
+        return sb.toString();
     }
 
     public static class Row {

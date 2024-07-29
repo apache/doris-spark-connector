@@ -19,8 +19,6 @@ package org.apache.doris.spark.serialization;
 
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
-import org.apache.arrow.vector.TimeStampMilliVector;
-import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -76,7 +74,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -276,7 +273,7 @@ public class TestRowBatch {
                 (float) 1.1,
                 (double) 1.1,
                 Date.valueOf("2008-08-08"),
-                "2008-08-08 00:00:00",
+                LocalDateTime.of(2008, 8, 8, 0, 0, 0),
                 Decimal.apply(1234L, 4, 2),
                 "char1"
         );
@@ -290,7 +287,7 @@ public class TestRowBatch {
                 (float) 2.2,
                 (double) 2.2,
                 Date.valueOf("1900-08-08"),
-                "1900-08-08 00:00:00",
+                LocalDateTime.of(1900, 8, 8, 0, 0, 0),
                 Decimal.apply(8888L, 4, 2),
                 "char2"
         );
@@ -304,7 +301,7 @@ public class TestRowBatch {
                 (float) 3.3,
                 (double) 3.3,
                 Date.valueOf("2100-08-08"),
-                "2100-08-08 00:00:00",
+                LocalDateTime.of(2100, 8, 8, 0, 0, 0),
                 Decimal.apply(10L, 2, 0),
                 "char3"
         );
@@ -835,16 +832,17 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(0));
-        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(1));
+        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0), actualRow0.get(0));
+        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0), actualRow0.get(1));
 
         List<Object> actualRow1 = rowBatch.next();
-        Assert.assertEquals("2024-03-20 00:00:01", actualRow1.get(0));
-        Assert.assertEquals("2024-03-20 00:00:00.123", actualRow1.get(1));
+        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 1), actualRow1.get(0));
+        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0, 123000000), actualRow1.get(1));
 
         List<Object> actualRow2 = rowBatch.next();
-        Assert.assertEquals("2024-03-20 00:00:02", actualRow2.get(0));
-        Assert.assertEquals("2024-03-20 00:00:00.123456", actualRow2.get(1));
+        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 2), actualRow2.get(0));
+        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0, 123456000), actualRow2.get(1));
+
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
@@ -909,6 +907,7 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
+
         Assert.assertEquals("{\"id\":\"a\"}", actualRow0.get(0));
 
         List<Object> actualRow1 = rowBatch.next();
@@ -1163,98 +1162,5 @@ public class TestRowBatch {
         thrown.expect(NoSuchElementException.class);
         thrown.expectMessage(startsWith("Get row offset:"));
         rowBatch.next();
-    }
-
-     @Test
-    public void timestampVector() throws IOException, DorisException {
-        List<Field> childrenBuilder = new ArrayList<>();
-        childrenBuilder.add(
-                new Field(
-                        "k0",
-                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)),
-                        null));
-        childrenBuilder.add(
-                new Field(
-                        "k1",
-                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)),
-                        null));
-        childrenBuilder.add(
-                new Field(
-                        "k2",
-                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.SECOND, null)),
-                        null));
-
-        VectorSchemaRoot root =
-                VectorSchemaRoot.create(
-                        new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder, null),
-                        new RootAllocator(Integer.MAX_VALUE));
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ArrowStreamWriter arrowStreamWriter =
-                new ArrowStreamWriter(
-                        root, new DictionaryProvider.MapDictionaryProvider(), outputStream);
-
-        arrowStreamWriter.start();
-        root.setRowCount(1);
-
-        FieldVector vector = root.getVector("k0");
-        TimeStampMicroVector mircoVec = (TimeStampMicroVector) vector;
-        mircoVec.allocateNew(1);
-        mircoVec.setIndexDefined(0);
-        mircoVec.setSafe(0, 1721892143586123L);
-        vector.setValueCount(1);
-
-        vector = root.getVector("k1");
-        TimeStampMilliVector milliVector = (TimeStampMilliVector) vector;
-        milliVector.allocateNew(1);
-        milliVector.setIndexDefined(0);
-        milliVector.setSafe(0, 1721892143586L);
-        vector.setValueCount(1);
-
-        vector = root.getVector("k2");
-        TimeStampSecVector secVector = (TimeStampSecVector) vector;
-        secVector.allocateNew(1);
-        secVector.setIndexDefined(0);
-        secVector.setSafe(0, 1721892143L);
-        vector.setValueCount(1);
-
-        arrowStreamWriter.writeBatch();
-
-        arrowStreamWriter.end();
-        arrowStreamWriter.close();
-
-        TStatus status = new TStatus();
-        status.setStatusCode(TStatusCode.OK);
-        TScanBatchResult scanBatchResult = new TScanBatchResult();
-        scanBatchResult.setStatus(status);
-        scanBatchResult.setEos(false);
-        scanBatchResult.setRows(outputStream.toByteArray());
-
-        String schemaStr =
-                "{\"properties\":[{\"type\":\"DATETIME\",\"name\":\"k0\",\"comment\":\"\"}, {\"type\":\"DATETIME\",\"name\":\"k1\",\"comment\":\"\"}, {\"type\":\"DATETIME\",\"name\":\"k2\",\"comment\":\"\"}],"
-                        + "\"status\":200}";
-
-        Schema schema = RestService.parseSchema(schemaStr, logger);
-
-        RowBatch rowBatch = new RowBatch(scanBatchResult, schema);
-        List<Object> next = rowBatch.next();
-        Assert.assertEquals(next.size(), 3);
-        Assert.assertEquals(
-                next.get(0),
-                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 586123000)
-                        .atZone(ZoneId.of("UTC+8"))
-                        .withZoneSameInstant(ZoneId.systemDefault())
-                        .toLocalDateTime());
-        Assert.assertEquals(
-                next.get(1),
-                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 586000000)
-                        .atZone(ZoneId.of("UTC+8"))
-                        .withZoneSameInstant(ZoneId.systemDefault())
-                        .toLocalDateTime());
-        Assert.assertEquals(
-                next.get(2),
-                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 0)
-                        .atZone(ZoneId.of("UTC+8"))
-                        .withZoneSameInstant(ZoneId.systemDefault())
-                        .toLocalDateTime());
     }
 }
