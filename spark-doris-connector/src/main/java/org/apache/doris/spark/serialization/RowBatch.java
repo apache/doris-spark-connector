@@ -22,7 +22,6 @@ import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.util.IPUtils;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
@@ -132,7 +131,6 @@ public class RowBatch {
         }
     }
 
-    @VisibleForTesting
     public static LocalDateTime longToLocalDateTime(long time) {
         Instant instant;
         // Determine the timestamp accuracy and process it
@@ -509,7 +507,6 @@ public class RowBatch {
         }
     }
 
-    @VisibleForTesting
     public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector) {
         TimeStampVector vector = (TimeStampVector) fieldVector;
         if (vector.isNull(rowIndex)) {
