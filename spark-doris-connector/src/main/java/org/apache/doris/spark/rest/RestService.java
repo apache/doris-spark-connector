@@ -42,6 +42,7 @@ import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.rest.models.Tablet;
 import org.apache.doris.spark.sql.SchemaUtils;
+import org.apache.doris.spark.sql.Utils;
 import org.apache.doris.spark.util.HttpUtil;
 import org.apache.doris.spark.util.URLs;
 
@@ -51,7 +52,6 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
@@ -64,6 +64,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
+import scala.Option;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -227,23 +228,11 @@ public class RestService implements Serializable {
         String[] tableIdentifiers =
                 parseIdentifier(cfg.getProperty(ConfigurationOptions.DORIS_TABLE_IDENTIFIER), logger);
         String readFields = cfg.getProperty(ConfigurationOptions.DORIS_READ_FIELD, "*");
-        if (!"*".equals(readFields)) {
-            String[] readFieldArr = readFields.split(",");
-            String[] bitmapColumns = cfg.getProperty(SchemaUtils.DORIS_BITMAP_COLUMNS(), "").split(",");
-            String[] hllColumns = cfg.getProperty(SchemaUtils.DORIS_HLL_COLUMNS(), "").split(",");
-            for (int i = 0; i < readFieldArr.length; i++) {
-                String readFieldName = readFieldArr[i].replaceAll("`", "");
-                if (ArrayUtils.contains(bitmapColumns, readFieldName)
-                        || ArrayUtils.contains(hllColumns, readFieldName)) {
-                    readFieldArr[i] = "'READ UNSUPPORTED' AS " + readFieldArr[i];
-                }
-            }
-            readFields = StringUtils.join(readFieldArr, ",");
-        }
-        String sql = "select " + readFields + " from `" + tableIdentifiers[0] + "`.`" + tableIdentifiers[1] + "`";
-        if (!StringUtils.isEmpty(cfg.getProperty(ConfigurationOptions.DORIS_FILTER_QUERY))) {
-            sql += " where " + cfg.getProperty(ConfigurationOptions.DORIS_FILTER_QUERY);
-        }
+        String[] bitmapColumns = cfg.getProperty(SchemaUtils.DORIS_BITMAP_COLUMNS(), "").split(",");
+        String[] hllColumns = cfg.getProperty(SchemaUtils.DORIS_HLL_COLUMNS(), "").split(",");
+        String sql = Utils.generateQueryStatement(readFields.split(","), bitmapColumns, hllColumns,
+                "`" + tableIdentifiers[0] + "`.`" + tableIdentifiers[1] + "`",
+                cfg.getProperty(ConfigurationOptions.DORIS_FILTER_QUERY, ""), Option.empty());
         logger.debug("Query SQL Sending to Doris FE is: '{}'.", sql);
 
         String finalSql = sql;

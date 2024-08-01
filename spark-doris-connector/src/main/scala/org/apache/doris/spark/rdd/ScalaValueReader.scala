@@ -45,15 +45,13 @@ import scala.util.control.Breaks
  * @param partition Doris RDD partition
  * @param settings request configuration
  */
-class ScalaValueReader(partition: PartitionDefinition, settings: Settings) extends Logging {
+class ScalaValueReader(partition: PartitionDefinition, settings: Settings) extends AbstractValueReader with Logging {
 
   private[this] lazy val client = new BackendClient(new Routing(partition.getBeAddress), settings)
 
   private[this] var offset = 0
 
   private[this] val eos: AtomicBoolean = new AtomicBoolean(false)
-
-  protected var rowBatch: RowBatch = _
 
   // flag indicate if support deserialize Arrow to RowBatch asynchronously
   private[this] lazy val deserializeArrowToRowBatchAsync: Boolean = Try {
@@ -173,7 +171,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
    * read data and cached in rowBatch.
    * @return true if hax next value
    */
-  def hasNext: Boolean = {
+  override def hasNext: Boolean = {
     var hasNext = false
     if (deserializeArrowToRowBatchAsync && asyncThreadStarted) {
       // support deserialize Arrow to RowBatch asynchronously
@@ -219,7 +217,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
    * get next value.
    * @return next value
    */
-  def next: AnyRef = {
+  override def next: AnyRef = {
     if (!hasNext) {
       logError(SHOULD_NOT_HAPPEN_MESSAGE)
       throw new ShouldNeverHappenException
@@ -227,7 +225,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
     rowBatch.next
   }
 
-  def close(): Unit = {
+  override def close(): Unit = {
     val closeParams = new TScanCloseParams
     closeParams.setContextId(contextId)
     lockClient(_.closeScanner(closeParams))

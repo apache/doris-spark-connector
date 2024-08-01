@@ -18,10 +18,9 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_VALUE_READER_CLASS
-import org.apache.doris.spark.cfg.Settings
+import org.apache.doris.spark.cfg.{ConfigurationOptions, Settings}
 import org.apache.doris.spark.rdd.{AbstractDorisRDD, AbstractDorisRDDIterator, DorisPartition}
 import org.apache.doris.spark.rest.PartitionDefinition
-
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
@@ -43,8 +42,13 @@ private[spark] class ScalaDorisRowRDDIterator(
   struct: StructType)
   extends AbstractDorisRDDIterator[Row](context, partition) {
 
-  override def initReader(settings: Settings) = {
-    settings.setProperty(DORIS_VALUE_READER_CLASS, classOf[ScalaDorisRowValueReader].getName)
+  override def initReader(settings: Settings): Unit = {
+    settings.getProperty(ConfigurationOptions.DORIS_READ_MODE,
+      ConfigurationOptions.DORIS_READ_MODE_DEFAULT).toUpperCase match {
+      case "THRIFT" => settings.setProperty (DORIS_VALUE_READER_CLASS, classOf[ScalaDorisRowValueReader].getName)
+      case "ARROW" => settings.setProperty (DORIS_VALUE_READER_CLASS, classOf[ScalaDorisRowADBCValueReader].getName)
+      case mode: String => throw new IllegalArgumentException(s"Unsupported read mode: $mode")
+    }
   }
 
   override def createValue(value: Object): Row = {

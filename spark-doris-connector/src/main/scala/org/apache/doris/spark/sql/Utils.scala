@@ -20,6 +20,7 @@ package org.apache.doris.spark.sql
 import org.apache.commons.lang3.StringUtils
 import org.apache.doris.spark.cfg.ConfigurationOptions
 import org.apache.doris.spark.exception.DorisException
+import org.apache.doris.spark.rest.PartitionDefinition
 import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.sql.sources._
 import org.slf4j.Logger
@@ -28,6 +29,7 @@ import java.sql.{Date, Timestamp}
 import java.time.{Duration, LocalDate}
 import java.util.concurrent.locks.LockSupport
 import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
@@ -201,4 +203,32 @@ private[spark] object Utils {
       case Failure(exception) => Failure(exception)
     }
   }
+
+  def generateQueryStatement(readColumns: Array[String], bitmapColumns: Array[String], hllColumns: Array[String],
+                             tableName: String, queryFilter: String, partitionOpt: Option[PartitionDefinition] = None): String = {
+
+    val columns = {
+      val finalReadColumns = readColumns.clone()
+      if (finalReadColumns(0) != "*" && bitmapColumns.nonEmpty && hllColumns.nonEmpty) {
+        for (i <- finalReadColumns.indices) {
+          finalReadColumns(i)
+          val readFieldName = finalReadColumns(i).replaceAll("`", "")
+          if (bitmapColumns.contains(readFieldName) || hllColumns.contains(readFieldName)) {
+            finalReadColumns(i) = "'READ UNSUPPORTED' AS " + finalReadColumns(i)
+          }
+        }
+      }
+      finalReadColumns.mkString(",")
+    }
+
+    val tabletClause = partitionOpt match {
+      case Some(partition) => s"TABLET(${partition.getTabletIds.asScala.mkString(",")})"
+      case None => ""
+    }
+    val whereClause = if (queryFilter.isEmpty) "" else s"WHERE $queryFilter"
+
+    s"SELECT $columns FROM $tableName $tabletClause $whereClause".trim
+
+  }
+
 }

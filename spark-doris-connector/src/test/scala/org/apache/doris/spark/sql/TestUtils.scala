@@ -17,13 +17,16 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.cfg.ConfigurationOptions
+import org.apache.doris.spark.cfg.{ConfigurationOptions, PropertiesSettings, Settings}
 import org.apache.doris.spark.exception.DorisException
+import org.apache.doris.spark.rest.PartitionDefinition
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sources._
 import org.hamcrest.core.StringStartsWith.startsWith
 import org.junit._
 import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConverters._
 
 class TestUtils extends ExpectedExceptionTest {
   private lazy val logger = LoggerFactory.getLogger(classOf[TestUtils])
@@ -132,4 +135,26 @@ class TestUtils extends ExpectedExceptionTest {
     thrown.expectMessage(startsWith(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource,"))
     Utils.params(parameters6, logger)
   }
+
+  @Test
+  def testGenerateQueryStatement(): Unit = {
+
+    val readColumns = Array[String]("*")
+
+    val partition = new PartitionDefinition("db", "tbl1", new PropertiesSettings(), "127.0.0.1:8060", Set[java.lang.Long](1L).asJava, "")
+    Assert.assertEquals("SELECT * FROM `db`.`tbl1` TABLET(1)",
+      Utils.generateQueryStatement(readColumns, Array[String](), Array[String](), "`db`.`tbl1`", "", Some(partition)))
+
+    val readColumns1 = Array[String]("`c1`","`c2`","`c3`")
+
+    val bitmapColumns = Array[String]("c2")
+    val hllColumns = Array[String]("c3")
+
+    val where = "c1 = 10"
+
+    Assert.assertEquals("SELECT `c1`,'READ UNSUPPORTED' AS `c2`,'READ UNSUPPORTED' AS `c3` FROM `db`.`tbl1`  WHERE c1 = 10",
+      Utils.generateQueryStatement(readColumns1, bitmapColumns, hllColumns, "`db`.`tbl1`", where))
+
+  }
+
 }
