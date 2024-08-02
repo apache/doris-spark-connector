@@ -138,6 +138,8 @@ public class SparkLoadRunner {
         Preconditions.checkArgument(StringUtils.isNoneBlank(jobConfig.getUser()), "user is empty");
         Preconditions.checkArgument(jobConfig.getPassword() != null, "password cannot be null");
         Preconditions.checkArgument(StringUtils.isNoneBlank(jobConfig.getDatabase()), "database is empty");
+        Preconditions.checkArgument(StringUtils.isNoneBlank(jobConfig.getWorkingDir()),
+                "spark config item workingDir is empty");
         jobConfig.checkTaskInfo();
         jobConfig.checkSparkInfo();
         jobConfig.checkHadoopProperties();
