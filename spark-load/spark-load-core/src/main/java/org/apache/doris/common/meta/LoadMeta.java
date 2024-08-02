@@ -95,7 +95,7 @@ public class LoadMeta {
         EtlJobConfig.EtlJobProperty properties = new EtlJobConfig.EtlJobProperty();
         EtlJobConfig etlJobConfig = new EtlJobConfig(tables, outputFilePattern, label, properties);
         etlJobConfig.outputPath =
-                EtlJobConfig.getOutputPath(jobConfig.getSpark().getWorkingDir(), getDbId(), label,
+                EtlJobConfig.getOutputPath(jobConfig.getWorkingDir(), getDbId(), label,
                         getSignature());
         return etlJobConfig;
     }
