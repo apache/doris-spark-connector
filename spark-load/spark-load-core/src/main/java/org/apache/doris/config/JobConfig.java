@@ -54,6 +54,9 @@ public class JobConfig {
     private String database;
 
     @JsonProperty(required = true)
+    private String workingDir;
+
+    @JsonProperty(required = true)
     private Map<String, TaskInfo> loadTasks;
 
     @JsonProperty(required = true)
@@ -86,7 +89,7 @@ public class JobConfig {
 
         private String columnFromPath;
 
-        private String fieldSep;
+        private String fieldSep = "\t";
 
         private String lineDelim = "\n";
 
@@ -120,8 +123,6 @@ public class JobConfig {
                 SparkLoadRunner.SPARK_LOAD_HOME + "/app/spark-load-dpp-1.0-SNAPSHOT.jar";
 
         private String sparkHome;
-
-        private String workingDir;
 
         private String master;
 
@@ -188,8 +189,6 @@ public class JobConfig {
         SparkInfo sparkInfo = getSpark();
         Preconditions.checkArgument(StringUtils.isNoneBlank(sparkInfo.getSparkHome()),
                 "spark config item sparkHome is empty");
-        Preconditions.checkArgument(StringUtils.isNoneBlank(sparkInfo.getWorkingDir()),
-                "spark config item workingDir is empty");
         Preconditions.checkArgument(checkSparkMaster(sparkInfo.getMaster()),
                 "spark master only supports yarn or standalone or local ");
         Preconditions.checkArgument(
