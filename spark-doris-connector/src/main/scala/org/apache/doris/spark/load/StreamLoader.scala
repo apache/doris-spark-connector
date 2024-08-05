@@ -255,7 +255,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
     addCommonHeader(put)
 
 
-    if (label != null && !StringUtils.isNotBlank(label)) {
+    if (label != null && StringUtils.isNotBlank(label)) {
       put.setHeader("label", label)
     }
 
