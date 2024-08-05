@@ -140,4 +140,11 @@ public interface ConfigurationOptions {
     String LOAD_MODE = "doris.sink.load.mode";
     String DEFAULT_LOAD_MODE = "stream_load";
 
+    /**
+     * Group commit
+     */
+    String GROUP_COMMIT = "group_commit";
+    String GROUP_COMMIT_SYNC_MODE = "sync_mode";
+    String GROUP_COMMIT_ASYNC_MODE = "async_mode";
+    String GROUP_COMMIT_OFF_MODE = "off_mode";
 }

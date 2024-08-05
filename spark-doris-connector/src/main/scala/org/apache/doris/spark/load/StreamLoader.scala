@@ -81,6 +81,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
   private val enableHttps: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_ENABLE_HTTPS,
     ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT) && autoRedirect
 
+  private val enableGroupCommit: Boolean = streamLoadProps.contains(ConfigurationOptions.GROUP_COMMIT)
   /**
    * execute stream load
    *
@@ -205,6 +206,14 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       props += "read_json_by_line" -> "true"
       props.remove("strip_outer_array")
     }
+
+    //get group commit mode
+    val groupCommitMode = props.getOrElse(ConfigurationOptions.GROUP_COMMIT, ConfigurationOptions.GROUP_COMMIT_OFF_MODE)
+    if (!groupCommitMode.equalsIgnoreCase(ConfigurationOptions.GROUP_COMMIT_SYNC_MODE)
+      && !groupCommitMode.equalsIgnoreCase(ConfigurationOptions.GROUP_COMMIT_ASYNC_MODE)) {
+      props.remove("group_commit");
+    }
+
     props.remove("columns")
     props.toMap
   }
@@ -245,7 +254,10 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
     val put = new HttpPut(currentLoadUrl)
     addCommonHeader(put)
 
-    put.setHeader("label", label)
+
+    if (label != null && !StringUtils.isNotBlank(label)) {
+      put.setHeader("label", label)
+    }
 
     val columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS)
     if (StringUtils.isNotBlank(columns)) {
@@ -355,6 +367,9 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    * @return load label
    */
   private def generateLoadLabel(): String = {
+    if (enableGroupCommit) {
+      return null;
+    }
     val calendar = Calendar.getInstance
     "spark_streamload_" +
       f"${calendar.get(Calendar.YEAR)}${calendar.get(Calendar.MONTH) + 1}%02d${calendar.get(Calendar.DAY_OF_MONTH)}%02d" +
