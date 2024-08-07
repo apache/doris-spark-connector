@@ -116,11 +116,19 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
       DORIS_EXEC_MEM_LIMIT_DEFAULT
     }
 
+    val keepAliveMin = Try {
+      settings.getProperty(DORIS_KEEP_ALIVE_MIN, DORIS_KEEP_ALIVE_MIN_DEFAULT.toString).toShort
+    } getOrElse {
+      logWarning(String.format(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_KEEP_ALIVE_MIN, settings.getProperty(DORIS_KEEP_ALIVE_MIN)))
+      DORIS_KEEP_ALIVE_MIN_DEFAULT
+    }
+
     params.setBatchSize(batchSize)
     params.setQueryTimeout(queryDorisTimeout)
     params.setMemLimit(execMemLimit)
     params.setUser(settings.getProperty(DORIS_REQUEST_AUTH_USER, ""))
     params.setPasswd(settings.getProperty(DORIS_REQUEST_AUTH_PASSWORD, ""))
+    params.setKeepAliveMin(keepAliveMin);
 
     logDebug(s"Open scan params is, " +
         s"cluster: ${params.getCluster}, " +
@@ -128,6 +136,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
         s"table: ${params.getTable}, " +
         s"tabletId: ${params.getTabletIds}, " +
         s"batch size: $batchSize, " +
+        s"keep alive minute: $keepAliveMin, " +
         s"query timeout: $queryDorisTimeout, " +
         s"execution memory limit: $execMemLimit, " +
         s"user: ${params.getUser}, " +
