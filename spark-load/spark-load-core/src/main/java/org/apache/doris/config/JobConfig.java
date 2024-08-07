@@ -175,7 +175,7 @@ public class JobConfig {
                             StringUtils.equalsAnyIgnoreCase(taskInfo.getFormat(), "parquet", "orc", "csv"),
                             "format only support parquet or orc or csv");
                     if ("csv".equalsIgnoreCase(taskInfo.getFormat())) {
-                        Preconditions.checkArgument(StringUtils.isNoneBlank(taskInfo.getFieldSep()),
+                        Preconditions.checkArgument(StringUtils.isNoneEmpty(taskInfo.getFieldSep()),
                                 "field separator is empty");
                     }
                     break;
@@ -190,19 +190,19 @@ public class JobConfig {
         Preconditions.checkArgument(StringUtils.isNoneBlank(sparkInfo.getSparkHome()),
                 "spark config item sparkHome is empty");
         Preconditions.checkArgument(checkSparkMaster(sparkInfo.getMaster()),
-                "spark master only supports yarn or standalone or local ");
+                "spark master only supports yarn or standalone or local");
         Preconditions.checkArgument(
                 StringUtils.equalsAnyIgnoreCase(sparkInfo.getDeployMode(), "cluster", "client"),
-                "spark deployMode only supports cluster or client ");
+                "spark deployMode only supports cluster or client");
         if (!"yarn".equalsIgnoreCase(sparkInfo.getMaster())) {
             Preconditions.checkArgument("client".equalsIgnoreCase(sparkInfo.getDeployMode()),
                     "standalone and local master only supports client mode");
         }
         if (LoadMode.PULL == getLoadMode()) {
-            if (StringUtils.isBlank(getSpark().getDppJarPath())) {
-                throw new IllegalArgumentException("dpp jar file path is empty ");
+            if (StringUtils.isBlank(sparkInfo.getDppJarPath())) {
+                throw new IllegalArgumentException("dpp jar file path is empty");
             }
-            if (!new File(getSpark().getDppJarPath()).exists()) {
+            if (!new File(sparkInfo.getDppJarPath()).exists()) {
                 throw new IllegalArgumentException("dpp jar file is not exists, path: " + getSpark().getDppJarPath());
             }
         }
@@ -230,17 +230,20 @@ public class JobConfig {
         // check auth
         if (hadoopProperties.containsKey("hadoop.security.authentication")
                 && StringUtils.equalsIgnoreCase(hadoopProperties.get("hadoop.security.authentication"), "kerberos")) {
-            if (hadoopProperties.containsKey("hadoop.kerberos.principal")
-                    && hadoopProperties.containsKey("hadoop.kerberos.keytab")) {
-                if (!FileUtils.getFile(hadoopProperties.get("hadoop.kerberos.principal")).exists()) {
-                    throw new IllegalArgumentException("hadoop kerberos principal file is not exists, path: "
-                            + hadoopProperties.get("hadoop.kerberos.principal"));
+            if (hadoopProperties.containsKey("hadoop.kerberos.principal")) {
+                if (StringUtils.isBlank(hadoopProperties.get("hadoop.kerberos.principal"))) {
+                    throw new IllegalArgumentException("hadoop kerberos principal is empty");
                 }
-                if (!FileUtils.getFile(hadoopProperties.get("hadoop.kerberos.keytab")).exists()) {
-                    throw new IllegalArgumentException("hadoop kerberos keytab file is not exists, path: "
-                            + hadoopProperties.get("hadoop.kerberos.keytab"));
+                if (hadoopProperties.containsKey("hadoop.kerberos.keytab")) {
+                    if (!FileUtils.getFile(hadoopProperties.get("hadoop.kerberos.keytab")).exists()) {
+                        throw new IllegalArgumentException("hadoop kerberos keytab file is not exists, path: "
+                                + hadoopProperties.get("hadoop.kerberos.keytab"));
+                    }
+                    return;
                 }
+                throw new IllegalArgumentException("hadoop.kerberos.keytab is not set");
             }
+            throw new IllegalArgumentException("hadoop.kerberos.principal is not set");
         } else {
             if (!hadoopProperties.containsKey("hadoop.username")) {
                 throw new IllegalArgumentException("hadoop username is empty");

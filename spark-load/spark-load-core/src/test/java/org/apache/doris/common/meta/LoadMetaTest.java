@@ -19,12 +19,11 @@ package org.apache.doris.common.meta;
 
 
 import org.apache.doris.config.EtlJobConfig;
+import org.apache.doris.config.JobConfig;
 import org.apache.doris.exception.SparkLoadException;
 
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,9 +32,6 @@ import java.util.List;
 import java.util.Map;
 
 public class LoadMetaTest {
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     @Test
     public void checkMapping() throws SparkLoadException {
@@ -59,16 +55,24 @@ public class LoadMetaTest {
 
         Map<String, EtlJobConfig.EtlColumnMapping> columnMappingMap = new HashMap<>();
         columnMappingMap.put("c2", new EtlJobConfig.EtlColumnMapping("to_bitmap(c1)"));
-        Assert.assertThrows(SparkLoadException.class, () -> loadMeta.checkMapping(etlTable, columnMappingMap));
+        Assertions.assertThrows(SparkLoadException.class, () -> loadMeta.checkMapping(etlTable, columnMappingMap));
 
         Map<String, EtlJobConfig.EtlColumnMapping> columnMappingMap1 = new HashMap<>();
         columnMappingMap1.put("c1", new EtlJobConfig.EtlColumnMapping("hll_hash(c1)"));
-        Assert.assertThrows(SparkLoadException.class, () -> loadMeta.checkMapping(etlTable, columnMappingMap1));
+        Assertions.assertThrows(SparkLoadException.class, () -> loadMeta.checkMapping(etlTable, columnMappingMap1));
 
         Map<String, EtlJobConfig.EtlColumnMapping> columnMappingMap2 = new HashMap<>();
         columnMappingMap2.put("c1", new EtlJobConfig.EtlColumnMapping("hll_hash(c1)"));
         columnMappingMap2.put("c2", new EtlJobConfig.EtlColumnMapping("to_bitmap(c1)"));
         loadMeta.checkMapping(etlTable, columnMappingMap2);
 
+    }
+
+
+    @Test
+    void getEtlJobConfig() throws SparkLoadException {
+        JobConfig jobConfig = new JobConfig();
+        LoadMeta loadMeta = new LoadMeta();
+        loadMeta.getEtlJobConfig(jobConfig);
     }
 }

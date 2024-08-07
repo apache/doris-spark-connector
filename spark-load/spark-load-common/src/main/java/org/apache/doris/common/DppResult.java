@@ -17,6 +17,7 @@
 
 package org.apache.doris.common;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
@@ -26,35 +27,25 @@ import java.io.Serializable;
  */
 public class DppResult implements Serializable {
 
-    @JsonProperty(value = "is_success", required = true)
     public boolean isSuccess;
 
-    @JsonProperty(value = "failed_reason", required = true)
     public String failedReason;
 
-    @JsonProperty(value = "scanned_rows", required = true)
     public long scannedRows;
 
-    @JsonProperty(value = "file_number", required = true)
     public long fileNumber;
 
-    @JsonProperty(value = "file_size", required = true)
     public long fileSize;
 
-    @JsonProperty(value = "normal_rows", required = true)
     public long normalRows;
 
-    @JsonProperty(value = "abnormal_rows", required = true)
     public long abnormalRows;
 
-    @JsonProperty(value = "unselect_rows", required = true)
     public long unselectRows;
 
     // only part of abnormal rows will be returned
-    @JsonProperty("partial_abnormal_rows")
     public String partialAbnormalRows;
 
-    @JsonProperty("scanned_bytes")
     public long scannedBytes;
 
     public DppResult() {
@@ -68,6 +59,29 @@ public class DppResult implements Serializable {
         unselectRows = 0;
         partialAbnormalRows = "";
         scannedBytes = 0;
+    }
+
+    @JsonCreator
+    public DppResult(@JsonProperty(value = "is_success", required = true) boolean isSuccess,
+                              @JsonProperty(value = "failed_reason", required = true) String failedReason,
+                              @JsonProperty(value = "scanned_rows", required = true) long scannedRows,
+                              @JsonProperty(value = "file_number", required = true) long fileNumber,
+                              @JsonProperty(value = "file_size", required = true) long fileSize,
+                              @JsonProperty(value = "normal_rows", required = true) long normalRows,
+                              @JsonProperty(value = "abnormal_rows", required = true) long abnormalRows,
+                              @JsonProperty(value = "unselect_rows", required = true) long unselectRows,
+                              @JsonProperty("partial_abnormal_rows") String partialAbnormalRows,
+                              @JsonProperty("scanned_bytes") long scannedBytes) {
+        this.isSuccess = isSuccess;
+        this.failedReason = failedReason;
+        this.scannedRows = scannedRows;
+        this.fileNumber = fileNumber;
+        this.fileSize = fileSize;
+        this.normalRows = normalRows;
+        this.abnormalRows = abnormalRows;
+        this.unselectRows = unselectRows;
+        this.partialAbnormalRows = partialAbnormalRows;
+        this.scannedBytes = scannedBytes;
     }
 
 }
