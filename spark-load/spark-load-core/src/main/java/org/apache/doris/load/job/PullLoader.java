@@ -255,7 +255,7 @@ public class PullLoader extends Loader implements Recoverable {
                                             || oldIndex.schemaVersion != index.schemaVersion) {
                                         LOG.info("index " + index.indexId + " has changed, "
                                                 + "old schemaHash: " + oldIndex.schemaHash + " and schemaVersion: "
-                                                + oldIndex.schemaVersion + "current schemaHash: "
+                                                + oldIndex.schemaVersion + " current schemaHash: "
                                                 + index.schemaHash + " and schemaVersion: "
                                                 + index.schemaVersion + ", cannot be recovered");
                                         return false;
