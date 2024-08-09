@@ -81,6 +81,11 @@ public class RowBatch {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
     private static final ZoneId DEFAULT_ZONE_ID = ZoneId.systemDefault();
 
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+            .toFormatter();
+
     private static final String DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
     private static final String DATETIMEV2_PATTERN = "yyyy-MM-dd HH:mm:ss.SSSSSS";
     private final DateTimeFormatter dateTimeFormatter =
@@ -374,9 +379,7 @@ public class RowBatch {
                                     continue;
                                 }
                                 String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
-                                 value = completeMilliseconds(value);
-                                LocalDateTime parse = LocalDateTime.parse(value, dateTimeV2Formatter);
-                                addValueToRow(rowIndex, parse);
+                                addValueToRow(rowIndex, value);
                             }
                         } else if (curFieldVector instanceof TimeStampVector) {
                             TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
@@ -388,7 +391,8 @@ public class RowBatch {
                                     continue;
                                 }
                                 LocalDateTime dateTime = getDateTime(rowIndex, timeStampVector);
-                                addValueToRow(rowIndex, dateTime);
+                                String formatted = DATE_TIME_FORMATTER.format(dateTime);
+                                addValueToRow(rowIndex, formatted);
                             }
 
                         }
