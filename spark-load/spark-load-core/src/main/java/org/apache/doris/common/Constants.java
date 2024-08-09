@@ -26,4 +26,6 @@ public interface Constants {
     String HADOOP_KERBEROS_PRINCIPAL = "hadoop.kerberos.principal";
     String HADOOP_KERBEROS_KEYTAB = "hadoop.kerberos.keytab";
 
+    String DEFAULT_CATALOG = "internal";
+
 }
