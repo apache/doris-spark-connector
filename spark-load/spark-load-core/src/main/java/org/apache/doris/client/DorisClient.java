@@ -17,6 +17,7 @@
 
 package org.apache.doris.client;
 
+import org.apache.doris.common.Constants;
 import org.apache.doris.common.LoadInfo;
 import org.apache.doris.common.ResponseEntity;
 import org.apache.doris.common.meta.LoadInfoResponse;
@@ -67,7 +68,7 @@ public class DorisClient {
 
         public static final String BASE_URL = "http://%s%s";
 
-        public static final String INGESTION_LOAD_URL_PATTERN = "/api/ingestion_load/%s/%s";
+        public static final String INGESTION_LOAD_URL_PATTERN = "/api/ingestion_load/%s/%s/%s";
 
         public static final String CREATE_ACTION = "_create";
 
@@ -99,7 +100,7 @@ public class DorisClient {
         public LoadMeta createIngestionLoad(String db, Map<String, List<String>> tableToPartition, String label,
                                             Map<String, String> properties) throws SparkLoadException {
             try {
-                String path = String.format(INGESTION_LOAD_URL_PATTERN, db, CREATE_ACTION);
+                String path = String.format(INGESTION_LOAD_URL_PATTERN, Constants.DEFAULT_CATALOG, db, CREATE_ACTION);
                 HttpPost httpPost = new HttpPost();
                 addCommonHeaders(httpPost);
                 Map<String, Object> params = new HashMap<>();
@@ -156,7 +157,7 @@ public class DorisClient {
         public void updateIngestionLoad(String db, Long loadId, Map<String, String> statusInfo)
                 throws SparkLoadException {
 
-            String path = String.format(INGESTION_LOAD_URL_PATTERN, db, UPDATE_ACTION);
+            String path = String.format(INGESTION_LOAD_URL_PATTERN, Constants.DEFAULT_CATALOG, db, UPDATE_ACTION);
             HttpPost httpPost = new HttpPost();
             addCommonHeaders(httpPost);
             Map<String, Object> params = new HashMap<>();
