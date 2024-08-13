@@ -102,16 +102,12 @@ public class RowBatch {
     private final DateTimeFormatter dateTimeV2Formatter =
             DateTimeFormatter.ofPattern(DATETIMEV2_PATTERN);
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private final List<Row> rowBatch = new ArrayList<>();
-    private final ArrowReader arrowReader;
-    private final RootAllocator rootAllocator;
-    private final Schema schema;
+    private RootAllocator rootAllocator = null;
     // offset for iterate the rowBatch
     private int offsetInRowBatch = 0;
     private int rowCountInOneBatch = 0;
     private int readRowCount = 0;
     private List<FieldVector> fieldVectors;
-    private RootAllocator rootAllocator = null;
 
     public RowBatch(TScanBatchResult nextResult, Schema schema) throws DorisException {
 
@@ -573,22 +569,6 @@ public class RowBatch {
             sb.append(0);
         }
         return sb.toString();
-    }
-
-    public static class Row {
-        private final List<Object> cols;
-
-        Row(int colCount) {
-            this.cols = new ArrayList<>(colCount);
-        }
-
-        List<Object> getCols() {
-            return cols;
-        }
-
-        public void put(Object o) {
-            cols.add(o);
-        }
     }
 
     public static class Row {

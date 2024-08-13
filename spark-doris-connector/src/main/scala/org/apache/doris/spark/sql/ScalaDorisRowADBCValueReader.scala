@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 class ScalaDorisRowADBCValueReader(partition: PartitionDefinition, settings: Settings)
   extends ScalaADBCValueReader(partition, settings) {
 
-  private val logger: Logger = LoggerFactory.getLogger(classOf[ScalaDorisRowValueReader].getName)
+  private val logger: Logger = LoggerFactory.getLogger(classOf[ScalaDorisRowADBCValueReader].getName)
 
   val rowOrder: Seq[String] = settings.getProperty(DORIS_READ_FIELD).split(",")
 
