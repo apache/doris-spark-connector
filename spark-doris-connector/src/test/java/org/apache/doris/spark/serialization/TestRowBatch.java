@@ -273,7 +273,7 @@ public class TestRowBatch {
                 (float) 1.1,
                 (double) 1.1,
                 Date.valueOf("2008-08-08"),
-                LocalDateTime.of(2008, 8, 8, 0, 0, 0),
+                "2008-08-08 00:00:00",
                 Decimal.apply(1234L, 4, 2),
                 "char1"
         );
@@ -287,7 +287,7 @@ public class TestRowBatch {
                 (float) 2.2,
                 (double) 2.2,
                 Date.valueOf("1900-08-08"),
-                LocalDateTime.of(1900, 8, 8, 0, 0, 0),
+                "1900-08-08 00:00:00",
                 Decimal.apply(8888L, 4, 2),
                 "char2"
         );
@@ -301,7 +301,7 @@ public class TestRowBatch {
                 (float) 3.3,
                 (double) 3.3,
                 Date.valueOf("2100-08-08"),
-                LocalDateTime.of(2100, 8, 8, 0, 0, 0),
+                "2100-08-08 00:00:00",
                 Decimal.apply(10L, 2, 0),
                 "char3"
         );
