@@ -832,16 +832,16 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0), actualRow0.get(0));
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0), actualRow0.get(1));
+        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(1));
 
         List<Object> actualRow1 = rowBatch.next();
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 1), actualRow1.get(0));
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0, 123000000), actualRow1.get(1));
+        Assert.assertEquals("2024-03-20 00:00:01", actualRow1.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00.123", actualRow1.get(1));
 
         List<Object> actualRow2 = rowBatch.next();
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 2), actualRow2.get(0));
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0, 123456000), actualRow2.get(1));
+        Assert.assertEquals("2024-03-20 00:00:02", actualRow2.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00.123456", actualRow2.get(1));
 
 
         Assert.assertFalse(rowBatch.hasNext());
