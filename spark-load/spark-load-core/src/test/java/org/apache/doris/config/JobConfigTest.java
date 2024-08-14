@@ -1,8 +1,12 @@
 package org.apache.doris.config;
 
 
+import org.apache.doris.client.DorisClient;
 import org.apache.doris.common.enums.TaskType;
+import org.apache.doris.exception.SparkLoadException;
 
+import mockit.Mock;
+import mockit.MockUp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -46,11 +50,20 @@ public class JobConfigTest {
     public void checkTaskInfo() {
 
         JobConfig jobConfig = new JobConfig();
+        jobConfig.setFeAddresses("127.0.0.1:8030");
 
         jobConfig.setLoadTasks(new HashMap<>());
         IllegalArgumentException e1 =
                 Assertions.assertThrows(IllegalArgumentException.class, jobConfig::checkTaskInfo);
         Assertions.assertEquals("loadTasks is empty", e1.getMessage());
+
+        new MockUp<DorisClient.FeClient>(DorisClient.FeClient.class) {
+            @Mock
+            public String getDDL(String db, String table) throws SparkLoadException {
+                return "create table tbl1 (col1 int, col2 int, col3 int, col4 int) unique key (col1) properties (" +
+                        "\"enable_unique_key_merge_on_write\" = \"false\")";
+            }
+        };
 
         Map<String, JobConfig.TaskInfo> loadTasks1 = new HashMap<>();
         JobConfig.TaskInfo taskInfo1 = new JobConfig.TaskInfo();
@@ -89,6 +102,16 @@ public class JobConfigTest {
 
         taskInfo3.setHiveTable("tbl");
         Assertions.assertDoesNotThrow(jobConfig::checkTaskInfo);
+
+        new MockUp<DorisClient.FeClient>(DorisClient.FeClient.class) {
+            @Mock
+            public String getDDL(String db, String table) throws SparkLoadException {
+                return "create table tbl1 (col1 int, col2 int, col3 int, col4 int) unique key (col1) properties (" +
+                        "\"enable_unique_key_merge_on_write\" = \"true\")";
+            }
+        };
+        IllegalArgumentException e5 =
+                Assertions.assertThrows(IllegalArgumentException.class, jobConfig::checkTaskInfo);
 
     }
 

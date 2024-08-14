@@ -41,10 +41,18 @@ class DorisClientTest {
 
     @Test
     public void getFeClient() {
-        Assertions.assertThrows(IllegalArgumentException.class, () -> DorisClient.getFeClient("", "", ""));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> DorisClient.getFeClient("127.0.0.1", "", ""));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> DorisClient.getFeClient("127.0.0.1:", "", ""));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> DorisClient.getFeClient(":8030", "", ""));
+        IllegalArgumentException e1 =
+                Assertions.assertThrows(IllegalArgumentException.class, () -> DorisClient.getFeClient("", "", ""));
+        Assertions.assertEquals("feAddresses is empty", e1.getMessage());
+        IllegalArgumentException e2 = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> DorisClient.getFeClient("127.0.0.1", "", ""));
+        Assertions.assertEquals("feAddresses contains invalid format, 127.0.0.1", e2.getMessage());
+        IllegalArgumentException e3 = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> DorisClient.getFeClient("127.0.0.1:", "", ""));
+        Assertions.assertEquals("feAddresses contains invalid format, 127.0.0.1:", e3.getMessage());
+        IllegalArgumentException e4 =
+                Assertions.assertThrows(IllegalArgumentException.class, () -> DorisClient.getFeClient(":8030", "", ""));
+        Assertions.assertEquals("feAddresses contains invalid format, :8030", e4.getMessage());
         Assertions.assertDoesNotThrow(() -> DorisClient.getFeClient("127.0.0.1:8030", "", ""));
     }
 
@@ -223,6 +231,73 @@ class DorisClientTest {
         Assertions.assertEquals("{\"dbName\":\"db\",\"tblNames\":[\"tbl1\"],\"label\":\"test\"," +
                 "\"clusterName\":\"default\",\"state\":\"FINISHED\",\"failMsg\":\"\",\"trackingUrl\":\"\"}",
                 JsonUtils.writeValueAsString(feClient.getLoadInfo("db", "test")));
+
+    }
+
+    @Test
+    public void getDDL() {
+
+        DorisClient.FeClient feClient = new DorisClient.FeClient("127.0.0.1:8030", "", "");
+
+        new MockUp<CloseableHttpClient>(CloseableHttpClient.class) {
+            @Mock
+            public CloseableHttpResponse execute(
+                    final HttpUriRequest request) throws IOException, ClientProtocolException {
+                MockedCloseableHttpResponse response = new MockedCloseableHttpResponse();
+                response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
+                return response;
+            }
+        };
+        SparkLoadException e1 =
+                Assertions.assertThrows(SparkLoadException.class, () -> feClient.getDDL("db", "test"));
+        Assertions.assertEquals("request get ddl failed, path: /api/_get_ddl", e1.getMessage());
+
+        new MockUp<CloseableHttpClient>(CloseableHttpClient.class) {
+            @Mock
+            public CloseableHttpResponse execute(
+                    final HttpUriRequest request) throws IOException, ClientProtocolException {
+                MockedCloseableHttpResponse response = new MockedCloseableHttpResponse();
+                response.setStatusCode(HttpStatus.SC_OK);
+                response.setEntity(new StringEntity("{\"code\":1,\"msg\":\"\",\"data\":{},\"count\":0}"));
+                return response;
+            }
+        };
+        SparkLoadException e2 =
+                Assertions.assertThrows(SparkLoadException.class, () -> feClient.getDDL("db", "test"));
+        Assertions.assertEquals("get ddl failed, status: 1, msg: , data: {}", e2.getMessage());
+
+        new MockUp<CloseableHttpClient>(CloseableHttpClient.class) {
+            @Mock
+            public CloseableHttpResponse execute(
+                    final HttpUriRequest request) throws IOException, ClientProtocolException {
+                MockedCloseableHttpResponse response = new MockedCloseableHttpResponse();
+                response.setStatusCode(HttpStatus.SC_OK);
+                response.setEntity(new StringEntity("{\"code\":0,\"msg\":\"\",\"data\":{},\"count\":0}"));
+                return response;
+            }
+        };
+        SparkLoadException e3 =
+                Assertions.assertThrows(SparkLoadException.class, () -> feClient.getDDL("db", "test"));
+        Assertions.assertEquals("get ddl failed, status: 0, msg: , data: {}", e3.getMessage());
+
+        new MockUp<CloseableHttpClient>(CloseableHttpClient.class) {
+            @Mock
+            public CloseableHttpResponse execute(
+                    final HttpUriRequest request) throws IOException, ClientProtocolException {
+                MockedCloseableHttpResponse response = new MockedCloseableHttpResponse();
+                response.setStatusCode(HttpStatus.SC_OK);
+                response.setEntity(new StringEntity("{\"code\":0,\"msg\":\"\"," +
+                        "\"data\":{\"create_table\": [\"CREATE TABLE `tbl1` (\\n  `k1` int(11) NULL " +
+                        "COMMENT \\\"\\\",\\n  `k2` int(11) NULL COMMENT \\\"\\\"\\n) ENGINE=OLAP\\n" +
+                        "DUPLICATE KEY(`k1`, `k2`)\\nCOMMENT \\\"OLAP\\\"\\nDISTRIBUTED BY HASH(`k1`) BUCKETS 1\\n" +
+                        "PROPERTIES (\\n\\\"replication_num\\\" = \\\"1\\\",\\n\\\"version_info\\\" = \\\"1,0\\\",\\n" +
+                        "\\\"in_memory\\\" = \\\"false\\\",\\n\\\"storage_format\\\" = \\\"DEFAULT\\\"\\n);\"]\n}," +
+                        "\"count\":0}"));
+                return response;
+            }
+        };
+        Assertions.assertDoesNotThrow(() -> feClient.getDDL("db", "test"));
+
 
     }
 
