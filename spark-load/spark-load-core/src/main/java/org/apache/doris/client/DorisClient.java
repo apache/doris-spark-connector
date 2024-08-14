@@ -86,8 +86,12 @@ public class DorisClient {
         }
 
         private List<String> parseFeNodes(String feAddresses) {
+            if (StringUtils.isBlank(feAddresses)) {
+                throw new IllegalArgumentException();
+            }
             String[] feArr = feAddresses.split(",");
-            if (feArr.length == 0) {
+            if (Arrays.stream(feArr).map(x -> x.split(":"))
+                    .anyMatch(x -> x.length != 2 || x[0].isEmpty() || x[1].isEmpty())) {
                 throw new IllegalArgumentException();
             }
             return Arrays.stream(feArr).collect(Collectors.toList());
@@ -142,7 +146,6 @@ public class DorisClient {
                     try {
                         res = client.execute(req);
                     } catch (IOException e) {
-
                         continue;
                     }
                     if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
@@ -166,6 +169,9 @@ public class DorisClient {
             try {
                 httpPost.setEntity(new StringEntity(JsonUtils.writeValueAsString(params)));
                 String content = executeRequest(httpPost, path, null);
+                if (StringUtils.isBlank(content)) {
+                    throw new SparkLoadException(String.format("request update load failed, path: %s", path));
+                }
                 ResponseEntity res = JsonUtils.readValue(content, ResponseEntity.class);
                 if (res.getCode() != 0) {
                     throw new SparkLoadException(String.format("update load failed, code: %d, msg: %s, reason: %s",
@@ -186,6 +192,9 @@ public class DorisClient {
                 Map<String, String> params = new HashMap<>();
                 params.put("label", label);
                 String content = executeRequest(httpGet, path, params);
+                if (StringUtils.isBlank(content)) {
+                    throw new SparkLoadException(String.format("request get load info failed, path: %s", path));
+                }
                 LoadInfoResponse res = JsonUtils.readValue(content, LoadInfoResponse.class);
                 if (!"ok".equalsIgnoreCase(res.getStatus())) {
                     throw new SparkLoadException(String.format("get load info failed, status: %s, msg: %s, jobInfo: %s",
