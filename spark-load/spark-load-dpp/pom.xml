@@ -107,11 +107,11 @@ under the License.
             <scope>test</scope>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.junit.vintage/junit-vintage-engine -->
-        <dependency>
-            <groupId>org.junit.vintage</groupId>
-            <artifactId>junit-vintage-engine</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- <dependency> -->
+        <!--     <groupId>org.junit.vintage</groupId> -->
+        <!--     <artifactId>junit-vintage-engine</artifactId> -->
+        <!--     <scope>test</scope> -->
+        <!-- </dependency> -->
         <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-params -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

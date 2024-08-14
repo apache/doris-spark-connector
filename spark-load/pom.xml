@@ -49,7 +49,7 @@
         <jackson.version>2.14.2</jackson.version>
         <lombok.veresion>1.18.30</lombok.veresion>
         <commons-cli.version>1.4</commons-cli.version>
-        <httpclient5.version>5.2.1</httpclient5.version>
+        <httpclient.version>4.5.13</httpclient.version>
         <junit.version>5.8.2</junit.version>
         <jmockit.version>1.49</jmockit.version>
         <log4j.version>2.17.1</log4j.version>
@@ -269,9 +269,9 @@
             </dependency>
             <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
             <dependency>
-                <groupId>org.apache.httpcomponents.client5</groupId>
-                <artifactId>httpclient5</artifactId>
-                <version>${httpclient5.version}</version>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpclient.version}</version>
             </dependency>
 
             <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine -->
