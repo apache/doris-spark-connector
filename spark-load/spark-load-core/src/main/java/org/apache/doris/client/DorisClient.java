@@ -76,6 +76,8 @@ public class DorisClient {
 
         public static final String GET_LOAD_INFO = "/api/%s/_load_info";
 
+        public static final String GET_DDL = "/api/_get_ddl";
+
         private final List<String> feNodes;
 
         private final String auth;
@@ -87,12 +89,12 @@ public class DorisClient {
 
         private List<String> parseFeNodes(String feAddresses) {
             if (StringUtils.isBlank(feAddresses)) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("feAddresses is empty");
             }
             String[] feArr = feAddresses.split(",");
             if (Arrays.stream(feArr).map(x -> x.split(":"))
                     .anyMatch(x -> x.length != 2 || x[0].isEmpty() || x[1].isEmpty())) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("feAddresses contains invalid format, " + feAddresses);
             }
             return Arrays.stream(feArr).collect(Collectors.toList());
         }
@@ -178,7 +180,7 @@ public class DorisClient {
                             res.getCode(), res.getMsg(), res.getData().isNull() ? null : res.getData().asText()));
                 }
             } catch (IOException | URISyntaxException e) {
-                throw new SparkLoadException("update spark load failed", e);
+                throw new SparkLoadException("update load failed", e);
             }
 
         }
@@ -202,7 +204,32 @@ public class DorisClient {
                 }
                 return res.getJobInfo();
             } catch (IOException | URISyntaxException e) {
-                throw new SparkLoadException("update spark load failed", e);
+                throw new SparkLoadException("get load info failed", e);
+            }
+
+        }
+
+        public String getDDL(String db, String table) throws SparkLoadException {
+
+            HttpGet httpGet = new HttpGet();
+            addCommonHeaders(httpGet);
+            try {
+                Map<String, String> params = new HashMap<>();
+                params.put("db", db);
+                params.put("table", table);
+                String content = executeRequest(httpGet, GET_DDL, params);
+                if (StringUtils.isBlank(content)) {
+                    throw new SparkLoadException(String.format("request get ddl failed, path: %s", GET_DDL));
+                }
+                ResponseEntity res = JsonUtils.readValue(content, ResponseEntity.class);
+                if (res.getCode() != 0 || !res.getData().has("create_table")
+                        || res.getData().get("create_table").isEmpty()) {
+                    throw new SparkLoadException(String.format("get ddl failed, status: %s, msg: %s, data: %s",
+                            res.getCode(), res.getMsg(), JsonUtils.writeValueAsString(res.getData())));
+                }
+                return res.getData().get("create_table").get(0).asText();
+            } catch (IOException | URISyntaxException e) {
+                throw new SparkLoadException("get ddl failed", e);
             }
 
         }

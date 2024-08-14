@@ -18,9 +18,11 @@
 package org.apache.doris.config;
 
 import org.apache.doris.SparkLoadRunner;
+import org.apache.doris.client.DorisClient;
 import org.apache.doris.common.Constants;
 import org.apache.doris.common.enums.LoadMode;
 import org.apache.doris.common.enums.TaskType;
+import org.apache.doris.exception.SparkLoadException;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
@@ -30,6 +32,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.net.URI;
+import java.sql.DriverManager;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -160,6 +163,16 @@ public class JobConfig {
         Map<String, TaskInfo> tasks = getLoadTasks();
         Preconditions.checkArgument(!tasks.isEmpty(), "loadTasks is empty");
         for (Map.Entry<String, TaskInfo> entry : tasks.entrySet()) {
+            String table = entry.getKey();
+            try {
+                DorisClient.FeClient feClient = DorisClient.getFeClient(feAddresses, user, password);
+                String ddl = feClient.getDDL(database, table);
+                if (StringUtils.isNoneBlank(ddl) && ddl.contains("\"enable_unique_key_merge_on_write\" = \"true\"")) {
+                    throw new IllegalArgumentException("Merge On Write is not supported");
+                }
+            } catch (SparkLoadException e) {
+                throw new IllegalArgumentException("check table failed", e);
+            }
             TaskInfo taskInfo = entry.getValue();
             switch (taskInfo.getType()) {
                 case HIVE:
