@@ -273,7 +273,7 @@ public class TestRowBatch {
                 (float) 1.1,
                 (double) 1.1,
                 Date.valueOf("2008-08-08"),
-                LocalDateTime.of(2008, 8, 8, 0, 0, 0),
+                "2008-08-08 00:00:00",
                 Decimal.apply(1234L, 4, 2),
                 "char1"
         );
@@ -287,7 +287,7 @@ public class TestRowBatch {
                 (float) 2.2,
                 (double) 2.2,
                 Date.valueOf("1900-08-08"),
-                LocalDateTime.of(1900, 8, 8, 0, 0, 0),
+                "1900-08-08 00:00:00",
                 Decimal.apply(8888L, 4, 2),
                 "char2"
         );
@@ -301,7 +301,7 @@ public class TestRowBatch {
                 (float) 3.3,
                 (double) 3.3,
                 Date.valueOf("2100-08-08"),
-                LocalDateTime.of(2100, 8, 8, 0, 0, 0),
+                "2100-08-08 00:00:00",
                 Decimal.apply(10L, 2, 0),
                 "char3"
         );
@@ -832,16 +832,16 @@ public class TestRowBatch {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0), actualRow0.get(0));
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0), actualRow0.get(1));
+        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(1));
 
         List<Object> actualRow1 = rowBatch.next();
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 1), actualRow1.get(0));
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0, 123000000), actualRow1.get(1));
+        Assert.assertEquals("2024-03-20 00:00:01", actualRow1.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00.123", actualRow1.get(1));
 
         List<Object> actualRow2 = rowBatch.next();
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 2), actualRow2.get(0));
-        Assert.assertEquals(LocalDateTime.of(2024, 3, 20, 0, 0, 0, 123456000), actualRow2.get(1));
+        Assert.assertEquals("2024-03-20 00:00:02", actualRow2.get(0));
+        Assert.assertEquals("2024-03-20 00:00:00.123456", actualRow2.get(1));
 
 
         Assert.assertFalse(rowBatch.hasNext());
