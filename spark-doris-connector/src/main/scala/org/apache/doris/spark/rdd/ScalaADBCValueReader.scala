@@ -1,10 +1,28 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.doris.spark.rdd
 
 import org.apache.arrow.adbc.core.{AdbcConnection, AdbcDriver, AdbcStatement}
 import org.apache.arrow.adbc.driver.flightsql.FlightSqlDriver
 import org.apache.arrow.flight.Location
-import org.apache.arrow.memory.RootAllocator
+import org.apache.arrow.memory.{BufferAllocator, RootAllocator}
 import org.apache.arrow.vector.ipc.ArrowReader
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.doris.spark.cfg.{ConfigurationOptions, Settings, SparkSettings}
 import org.apache.doris.spark.exception.ShouldNeverHappenException
 import org.apache.doris.spark.rest.{PartitionDefinition, RestService}
@@ -24,7 +42,19 @@ class ScalaADBCValueReader(partition: PartitionDefinition, settings: Settings) e
   private lazy val schema = RestService.getSchema(SparkSettings.fromProperties(settings.asProperties()), log)
 
   private lazy val conn: AdbcConnection = {
-    val allocator = new RootAllocator(Integer.MAX_VALUE)
+    // val loader = ClassLoader.getSystemClassLoader
+    // val classesField = classOf[ClassLoader].getDeclaredField("classes")
+    // classesField.setAccessible(true)
+    // val classes = classesField.get(loader).asInstanceOf[java.util.Vector[Any]]
+    // classes.forEach(clazz => println(clazz.asInstanceOf[Class[_]].getName))
+    // Class.forName("org.apache.doris.shaded.org.apache.arrow.memory.RootAllocator")
+    var allocator: BufferAllocator = null
+    try {
+      allocator = new RootAllocator()
+    } catch {
+      case e: Throwable => println(ExceptionUtils.getStackTrace(e))
+        throw e;
+    }
     val driver = new FlightSqlDriver(allocator)
     val params = mutable.HashMap[String, AnyRef]().asJava
     AdbcDriver.PARAM_URI.set(params, Location.forGrpcInsecure(
