@@ -17,6 +17,11 @@
 
 package org.apache.doris.spark.cfg;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 public interface ConfigurationOptions {
     // doris fe node address
     String DORIS_FENODES = "doris.fenodes";
@@ -141,10 +146,19 @@ public interface ConfigurationOptions {
     String DEFAULT_LOAD_MODE = "stream_load";
 
     /**
+     * partial_columns
+     */
+
+    String PARTIAL_COLUMNS= "partial_columns";
+
+    /**
      * Group commit
      */
     String GROUP_COMMIT = "group_commit";
-    String GROUP_COMMIT_SYNC_MODE = "sync_mode";
-    String GROUP_COMMIT_ASYNC_MODE = "async_mode";
-    String GROUP_COMMIT_OFF_MODE = "off_mode";
+    Set<String> immutableGroupMode = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "sync_mode",
+            "async_mode",
+            "off_mode"
+    )));
+
 }

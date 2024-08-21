@@ -147,7 +147,9 @@ class TestConnectorWriteDoris {
       .option("sink.batch.size", 2)
       .option("sink.max-retries", 2)
       .option("sink.properties.format", "json")
-      .option("sink.properties.group_commit", "sync_mode")
+      .option("sink.properties.group_commit", "async_mode")
+      .option("doris.sink.enable-2pc","false")
+      .option("sink.properties.partial_columns","false")
       .save()
     spark.stop()
   }
