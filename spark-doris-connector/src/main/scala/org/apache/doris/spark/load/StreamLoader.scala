@@ -24,7 +24,7 @@ import org.apache.commons.io.IOUtils
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
-import org.apache.doris.spark.exception.{IllegalArgumentException, StreamLoadException}
+import org.apache.doris.spark.exception.{DorisException, IllegalArgumentException, StreamLoadException}
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.BackendV2.BackendRowV2
 import org.apache.doris.spark.rest.models.RespContent
@@ -47,6 +47,7 @@ import java.util.concurrent.ExecutionException
 import java.util.zip.GZIPOutputStream
 import java.util.{Base64, Calendar, Collections, UUID}
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 case class StreamLoadResponse(code: Int, msg: String, content: String)
@@ -81,6 +82,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
   private val enableHttps: Boolean = settings.getBooleanProperty(ConfigurationOptions.DORIS_ENABLE_HTTPS,
     ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT) && autoRedirect
 
+  private val enableGroupCommit: Boolean = streamLoadProps.contains(ConfigurationOptions.GROUP_COMMIT)
   /**
    * execute stream load
    *
@@ -205,8 +207,37 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       props += "read_json_by_line" -> "true"
       props.remove("strip_outer_array")
     }
+
+    //get group commit mode
+    if (!validateGroupCommitMode(props)) {
+      props.remove(ConfigurationOptions.GROUP_COMMIT)
+    }
+
     props.remove("columns")
     props.toMap
+  }
+
+
+  private def validateGroupCommitMode(props: mutable.Map[String, String]): Boolean = {
+    if (!props.contains(ConfigurationOptions.GROUP_COMMIT)) {
+      return false;
+    }
+
+    val value = props(ConfigurationOptions.GROUP_COMMIT)
+    val normalizedValue = value.trim().toLowerCase();
+    if (!ConfigurationOptions.immutableGroupMode.contains(normalizedValue)) {
+      throw new DorisException(
+        "The value of group commit mode is an illegal parameter, illegal value="
+          + value);
+    } else if (enableTwoPhaseCommit) {
+      throw new DorisException(
+        "When group commit is enabled, you should disable two phase commit!");
+    } else if (props.contains(ConfigurationOptions.PARTIAL_COLUMNS)
+      && props(ConfigurationOptions.PARTIAL_COLUMNS).equalsIgnoreCase("true")) {
+      throw new DorisException(
+        "When group commit is enabled,you can not load data with partial column update.");
+    }
+    true;
   }
 
   /**
@@ -245,7 +276,10 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
     val put = new HttpPut(currentLoadUrl)
     addCommonHeader(put)
 
-    put.setHeader("label", label)
+
+    if (label != null && StringUtils.isNotBlank(label)) {
+      put.setHeader("label", label)
+    }
 
     val columns = settings.getProperty(ConfigurationOptions.DORIS_WRITE_FIELDS)
     if (StringUtils.isNotBlank(columns)) {
@@ -355,6 +389,9 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    * @return load label
    */
   private def generateLoadLabel(): String = {
+    if (enableGroupCommit) {
+      return null;
+    }
     val calendar = Calendar.getInstance
     "spark_streamload_" +
       f"${calendar.get(Calendar.YEAR)}${calendar.get(Calendar.MONTH) + 1}%02d${calendar.get(Calendar.DAY_OF_MONTH)}%02d" +
