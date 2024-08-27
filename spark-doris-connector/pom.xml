@@ -26,8 +26,9 @@
         <version>29</version>
     </parent>
     <groupId>org.apache.doris</groupId>
-    <artifactId>spark-doris-connector-${spark.major.version}_${scala.major.version}</artifactId>
+    <artifactId>spark-doris-connector</artifactId>
     <version>${revision}</version>
+    <packaging>pom</packaging>
     <name>Spark Doris Connector</name>
     <url>https://doris.apache.org/</url>
 
@@ -38,6 +39,13 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+    <modules>
+        <module>spark-doris-connector-base</module>
+        <module>spark-doris-connector-shims</module>
+        <module>spark-doris-connector-shims/spark-doris-connector-shims_spark-2.4</module>
+        <module>spark-doris-connector-shims/spark-doris-connector-shims_spark-3-base</module>
+        <module>spark-doris-connector-shims/spark-doris-connector-shims_spark-base</module>
+    </modules>
 
     <scm>
         <connection>scm:git:https://git@github.com/apache/doris-spark-connector.git</connection>
