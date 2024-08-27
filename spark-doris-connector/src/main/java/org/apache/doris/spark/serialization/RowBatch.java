@@ -81,10 +81,6 @@ import java.util.Objects;
 public class RowBatch {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
 
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
-            .appendPattern("yyyy-MM-dd HH:mm:ss")
-            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
-            .toFormatter();
     private final List<Row> rowBatch = new ArrayList<>();
     private final ArrowReader arrowReader;
     private final Schema schema;
