@@ -33,14 +33,14 @@ private[spark] abstract class AbstractDorisRDDIterator[T](
   private var closed = false
 
   // the reader obtain data from Doris BE
-  private lazy val reader = {
+  private lazy val reader: AbstractValueReader = {
     initialized = true
     val settings = partition.settings()
     initReader(settings)
     val valueReaderName = settings.getProperty(DORIS_VALUE_READER_CLASS)
-    logger.debug(s"Use value reader '$valueReaderName'.")
+    logger.info(s"Use value reader '$valueReaderName'.")
     val cons = Class.forName(valueReaderName).getDeclaredConstructor(classOf[PartitionDefinition], classOf[Settings])
-    cons.newInstance(partition, settings).asInstanceOf[ScalaValueReader]
+    cons.newInstance(partition, settings).asInstanceOf[AbstractValueReader]
   }
 
   context.addTaskCompletionListener(new TaskCompletionListener() {

@@ -18,29 +18,32 @@
 package org.apache.doris.spark.rdd
 
 import scala.reflect.ClassTag
-
 import org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_VALUE_READER_CLASS
-import org.apache.doris.spark.cfg.Settings
+import org.apache.doris.spark.cfg.{ConfigurationOptions, Settings}
 import org.apache.doris.spark.rest.PartitionDefinition
-
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 private[spark] class ScalaDorisRDD[T: ClassTag](
-    sc: SparkContext,
-    params: Map[String, String] = Map.empty)
-    extends AbstractDorisRDD[T](sc, params) {
+                                                 sc: SparkContext,
+                                                 params: Map[String, String] = Map.empty)
+  extends AbstractDorisRDD[T](sc, params) {
   override def compute(split: Partition, context: TaskContext): ScalaDorisRDDIterator[T] = {
     new ScalaDorisRDDIterator(context, split.asInstanceOf[DorisPartition].dorisPartition)
   }
 }
 
 private[spark] class ScalaDorisRDDIterator[T](
-    context: TaskContext,
-    partition: PartitionDefinition)
-    extends AbstractDorisRDDIterator[T](context, partition) {
+                                               context: TaskContext,
+                                               partition: PartitionDefinition)
+  extends AbstractDorisRDDIterator[T](context, partition) {
 
   override def initReader(settings: Settings): Unit = {
-    settings.setProperty(DORIS_VALUE_READER_CLASS, classOf[ScalaValueReader].getName)
+    settings.getProperty(ConfigurationOptions.DORIS_READ_MODE,
+      ConfigurationOptions.DORIS_READ_MODE_DEFAULT).toUpperCase match {
+      case "THRIFT" => settings.setProperty(DORIS_VALUE_READER_CLASS, classOf[ScalaValueReader].getName)
+      case "ARROW" => settings.setProperty(DORIS_VALUE_READER_CLASS, classOf[ScalaADBCValueReader].getName)
+      case mode: String => throw new IllegalArgumentException(s"Unsupported read mode: $mode")
+    }
   }
 
   override def createValue(value: Object): T = {

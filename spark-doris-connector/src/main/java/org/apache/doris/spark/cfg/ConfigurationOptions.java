@@ -161,4 +161,9 @@ public interface ConfigurationOptions {
             "off_mode"
     )));
 
+    String DORIS_READ_MODE = "doris.read.mode";
+    String DORIS_READ_MODE_DEFAULT = "thrift";
+
+    String DORIS_ARROW_FLIGHT_SQL_PORT = "doris.arrow-flight-sql.port";
+
 }
