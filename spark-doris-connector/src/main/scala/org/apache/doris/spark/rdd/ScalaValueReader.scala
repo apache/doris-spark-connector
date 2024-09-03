@@ -96,7 +96,6 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
 
     // max row number of one read batch
     val batchSize = Try {
-      //
       Math.min(settings.getProperty(DORIS_BATCH_SIZE, DORIS_BATCH_SIZE_DEFAULT.toString).toInt, DORIS_BATCH_SIZE_MAX)
     } getOrElse {
       logWarning(String.format(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_BATCH_SIZE, settings.getProperty(DORIS_BATCH_SIZE)))
