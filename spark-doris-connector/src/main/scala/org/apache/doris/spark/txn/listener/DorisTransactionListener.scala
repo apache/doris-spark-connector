@@ -26,19 +26,28 @@ import org.apache.spark.util.CollectionAccumulator
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-class DorisTransactionListener(txnAcc: CollectionAccumulator[CommitMessage], txnHandler: TransactionHandler)
+class DorisTransactionListener(txnAcc: CollectionAccumulator[(String, CommitMessage)], txnHandler: TransactionHandler)
   extends SparkListener with Logging {
 
+  private val jobToStages = mutable.HashMap[Int, List[Int]]()
+
+  override def onJobStart(jobStart: SparkListenerJobStart): Unit = {
+    jobToStages += jobStart.jobId -> jobStart.stageIds.toList
+  }
+
   override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
-    val messages: mutable.Buffer[CommitMessage] = txnAcc.value.asScala
+    val stageIds = jobToStages.get(jobEnd.jobId)
+    val messages: mutable.Buffer[CommitMessage] = txnAcc.value.asScala.filter(item => {
+      stageIds.nonEmpty && stageIds.get.contains(item._1.toInt)
+    }).map(_._2)
     jobEnd.jobResult match {
       // if job succeed, commit all transactions
       case JobSucceeded =>
         if (messages.isEmpty) {
-          log.debug("job run succeed, but there is no pre-committed txn ids")
+          log.debug(s"job ${jobEnd.jobId} run succeed, but there is no pre-committed txn ids")
           return
         }
-        log.info("job run succeed, start committing transactions")
+        log.info(s"job ${jobEnd.jobId} run succeed, start committing transactions")
         try txnHandler.commitTransactions(messages.toList)
         catch {
           case e: Exception => throw e
@@ -48,10 +57,10 @@ class DorisTransactionListener(txnAcc: CollectionAccumulator[CommitMessage], txn
       // if job failed, abort all pre committed transactions
       case _ =>
         if (messages.isEmpty) {
-          log.debug("job run failed, but there is no pre-committed txn ids")
+          log.debug(s"job ${jobEnd.jobId} run failed, but there is no pre-committed txn ids")
           return
         }
-        log.info("job run failed, start aborting transactions")
+        log.info(s"job ${jobEnd.jobId} run failed, start aborting transactions")
         try txnHandler.abortTransactions(messages.toList)
         catch {
           case e: Exception => throw e

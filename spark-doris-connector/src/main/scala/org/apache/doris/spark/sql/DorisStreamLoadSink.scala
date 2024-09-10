@@ -31,7 +31,7 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
   @volatile private var latestBatchId = -1L
 
   // accumulator for transaction handling
-  private val acc = sqlContext.sparkContext.collectionAccumulator[CommitMessage]("StreamTxnAcc")
+  private val acc = sqlContext.sparkContext.collectionAccumulator[(String, CommitMessage)]("StreamTxnAcc")
   private val writer = new DorisWriter(settings, acc, true)
 
   // add listener for structured streaming
@@ -41,7 +41,8 @@ private[sql] class DorisStreamLoadSink(sqlContext: SQLContext, settings: SparkSe
     if (batchId <= latestBatchId) {
       logger.info(s"Skipping already committed batch $batchId")
     } else {
-      writer.write(data)
+      val runId = sqlContext.streams.active.head.runId.toString
+      writer.write(data, Some(runId))
       latestBatchId = batchId
     }
   }
