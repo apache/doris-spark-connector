@@ -62,6 +62,9 @@ public interface ConfigurationOptions {
     int DORIS_BATCH_SIZE_DEFAULT = 4064;
     int DORIS_BATCH_SIZE_MAX = 65535;
 
+    String DORIS_KEEP_ALIVE_MIN = "doris.keep.alive.min";
+    short DORIS_KEEP_ALIVE_MIN_DEFAULT = 5;
+
     String DORIS_EXEC_MEM_LIMIT = "doris.exec.mem.limit";
     long DORIS_EXEC_MEM_LIMIT_DEFAULT = 8L * 1024 * 1024 * 1024;
 
