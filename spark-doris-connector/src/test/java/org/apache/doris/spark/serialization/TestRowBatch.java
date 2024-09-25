@@ -1190,17 +1190,17 @@ public class TestRowBatch {
         childrenBuilder.add(
                 new Field(
                         "k3",
-                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, "UTC+8")),
+                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, "UTC")),
                         null));
         childrenBuilder.add(
                 new Field(
                         "k4",
-                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC+8")),
+                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")),
                         null));
         childrenBuilder.add(
                 new Field(
                         "k5",
-                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.SECOND, "UTC+8")),
+                        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.SECOND, "UTC")),
                         null));
 
         VectorSchemaRoot root =
