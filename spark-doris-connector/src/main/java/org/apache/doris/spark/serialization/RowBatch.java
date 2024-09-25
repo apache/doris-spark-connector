@@ -405,10 +405,8 @@ public class RowBatch {
                                 addValueToRow(rowIndex, formatted);
                             }
                         } else {
-                            logger.error(
-                                    "Unsupported type for DATETIMEV2, minorType {}, class is {}",
-                                    mt.name(),
-                                    curFieldVector.getClass());
+                            String errMsg = String.format("Unsupported type for DATETIMEV2, minorType %s, class is %s", mt.name(), curFieldVector.getClass());
+                            throw new java.lang.IllegalArgumentException(errMsg);
                         }
                         break;
                     case "CHAR":

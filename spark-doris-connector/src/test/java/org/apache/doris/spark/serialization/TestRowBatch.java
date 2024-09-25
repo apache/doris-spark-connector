@@ -1296,4 +1296,57 @@ public class TestRowBatch {
                 next.get(5),
                 "2024-07-25 15:22:23");
     }
+
+    @Test
+    public void timestampTypeNotMatch() throws IOException, DorisException {
+        List<Field> childrenBuilder = new ArrayList<>();
+        childrenBuilder.add(
+                new Field(
+                        "k0",
+                        FieldType.nullable(new ArrowType.Int(32, false)),
+                        null));
+
+        VectorSchemaRoot root =
+                VectorSchemaRoot.create(
+                        new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder, null),
+                        new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter =
+                new ArrowStreamWriter(
+                        root, new DictionaryProvider.MapDictionaryProvider(), outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        FieldVector vector = root.getVector("k0");
+        UInt4Vector uInt4Vector = (UInt4Vector) vector;
+        uInt4Vector.setInitialCapacity(1);
+        uInt4Vector.allocateNew();
+        uInt4Vector.setIndexDefined(0);
+        uInt4Vector.setSafe(0, 0);
+
+        vector.setValueCount(1);
+        arrowStreamWriter.writeBatch();
+
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr =
+                "{\"properties\":["
+                        + "{\"type\":\"DATETIMEV2\",\"name\":\"k0\",\"comment\":\"\"}"
+                        + "], \"status\":200}";
+
+        Schema schema = RestService.parseSchema(schemaStr, logger);
+        thrown.expect(DorisException.class);
+        thrown.expectMessage(startsWith("Unsupported type for DATETIMEV2"));
+        new RowBatch(scanBatchResult, schema);
+    }
+
 }
