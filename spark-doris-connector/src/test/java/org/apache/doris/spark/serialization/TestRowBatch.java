@@ -78,6 +78,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -1288,13 +1289,22 @@ public class TestRowBatch {
                 "2024-07-25 15:22:23");
         Assert.assertEquals(
                 next.get(3),
-                "2024-07-25 15:22:23.586123");
+                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 586123000)
+                        .atZone(ZoneId.of("UTC+8"))
+                        .withZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")));
         Assert.assertEquals(
                 next.get(4),
-                "2024-07-25 15:22:23.586");
+                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 586000000)
+                        .atZone(ZoneId.of("UTC+8"))
+                        .withZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
         Assert.assertEquals(
                 next.get(5),
-                "2024-07-25 15:22:23");
+                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 0)
+                        .atZone(ZoneId.of("UTC+8"))
+                        .withZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
     }
 
     @Test
