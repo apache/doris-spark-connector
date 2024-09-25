@@ -1280,13 +1280,22 @@ public class TestRowBatch {
         Assert.assertEquals(next.size(), 6);
         Assert.assertEquals(
                 next.get(0),
-                "2024-07-25 15:22:23.586123");
+                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 586123000)
+                        .atZone(ZoneId.of("UTC+8"))
+                        .withZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")));
         Assert.assertEquals(
                 next.get(1),
-                "2024-07-25 15:22:23.586");
+                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 586000000)
+                        .atZone(ZoneId.of("UTC+8"))
+                        .withZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
         Assert.assertEquals(
                 next.get(2),
-                "2024-07-25 15:22:23");
+                LocalDateTime.of(2024, 7, 25, 15, 22, 23, 0)
+                        .atZone(ZoneId.of("UTC+8"))
+                        .withZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         Assert.assertEquals(
                 next.get(3),
                 LocalDateTime.of(2024, 7, 25, 15, 22, 23, 586123000)
