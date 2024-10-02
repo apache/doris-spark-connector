@@ -8,6 +8,16 @@ spark-doris-connector/output/
 spark-doris-connector/target/
 spark-doris-connector/.idea/
 
+spark-load/target
+spark-load/spark-load-core/dependency-reduced-pom.xml
+spark-load/spark-load-core/output/
+spark-load/spark-load-core/target/
+spark-load/spark-load-core/.idea/
+spark-load/spark-load-dist/dependency-reduced-pom.xml
+spark-load/spark-load-dist/target/
+spark-load/spark-load-dpp/dependency-reduced-pom.xml
+spark-load/spark-load-dpp/target/
+
 
 ### Java template
 # Compiled class file
