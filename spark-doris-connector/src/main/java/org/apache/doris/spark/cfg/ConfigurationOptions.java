@@ -167,4 +167,7 @@ public interface ConfigurationOptions {
 
     String DORIS_ARROW_FLIGHT_SQL_PORT = "doris.arrow-flight-sql.port";
 
+    String DORIS_THRIFT_MAX_MESSAGE_SIZE = "doris.thrift.max.message.size";
+    int DORIS_THRIFT_MAX_MESSAGE_SIZE_DEFAULT = Integer.MAX_VALUE;
+
 }
