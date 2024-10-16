@@ -41,7 +41,7 @@ import org.apache.doris.spark.rest.models.BackendV2;
 import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.rest.models.Tablet;
-import org.apache.doris.spark.sql.SchemaUtils;
+// import org.apache.doris.spark.sql.SchemaUtils;
 import org.apache.doris.spark.util.HttpUtil;
 import org.apache.doris.spark.util.URLs;
 
@@ -229,15 +229,15 @@ public class RestService implements Serializable {
         String readFields = cfg.getProperty(ConfigurationOptions.DORIS_READ_FIELD, "*");
         if (!"*".equals(readFields)) {
             String[] readFieldArr = readFields.split(",");
-            String[] bitmapColumns = cfg.getProperty(SchemaUtils.DORIS_BITMAP_COLUMNS(), "").split(",");
-            String[] hllColumns = cfg.getProperty(SchemaUtils.DORIS_HLL_COLUMNS(), "").split(",");
-            for (int i = 0; i < readFieldArr.length; i++) {
-                String readFieldName = readFieldArr[i].replaceAll("`", "");
-                if (ArrayUtils.contains(bitmapColumns, readFieldName)
-                        || ArrayUtils.contains(hllColumns, readFieldName)) {
-                    readFieldArr[i] = "'READ UNSUPPORTED' AS " + readFieldArr[i];
-                }
-            }
+            // String[] bitmapColumns = cfg.getProperty(SchemaUtils.DORIS_BITMAP_COLUMNS(), "").split(",");
+            // String[] hllColumns = cfg.getProperty(SchemaUtils.DORIS_HLL_COLUMNS(), "").split(",");
+            // for (int i = 0; i < readFieldArr.length; i++) {
+            //     String readFieldName = readFieldArr[i].replaceAll("`", "");
+            //     if (ArrayUtils.contains(bitmapColumns, readFieldName)
+            //             || ArrayUtils.contains(hllColumns, readFieldName)) {
+            //         readFieldArr[i] = "'READ UNSUPPORTED' AS " + readFieldArr[i];
+            //     }
+            // }
             readFields = StringUtils.join(readFieldArr, ",");
         }
         String sql = "select " + readFields + " from `" + tableIdentifiers[0] + "`.`" + tableIdentifiers[1] + "`";

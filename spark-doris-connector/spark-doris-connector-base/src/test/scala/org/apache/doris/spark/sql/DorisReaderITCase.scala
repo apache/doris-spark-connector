@@ -24,7 +24,7 @@ import org.junit.Test
 
 import java.sql.Statement
 
-class DorisReaderITCase extends DorisTestBase {
+abstract class DorisReaderITCaseBase extends DorisTestBase {
 
   val DATABASE: String = "test"
   val TABLE_READ: String = "tbl_read"

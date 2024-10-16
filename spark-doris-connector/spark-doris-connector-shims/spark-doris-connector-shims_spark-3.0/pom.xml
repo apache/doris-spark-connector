@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.apache.doris</groupId>
+        <artifactId>spark-doris-connector-shims</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <packaging>jar</packaging>
+
+    <artifactId>spark-doris-connector-shims_spark-3.0</artifactId>
+
+    <properties>
+        <spark.version>3.0.3</spark.version>
+        <spark.major.version>3.0</spark.major.version>
+        <scala.version>2.12.18</scala.version>
+        <scala.major.version>2.12</scala.major.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.doris</groupId>
+            <artifactId>spark-doris-connector-shims_spark-3-base</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_${scala.major.version}</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+</project>

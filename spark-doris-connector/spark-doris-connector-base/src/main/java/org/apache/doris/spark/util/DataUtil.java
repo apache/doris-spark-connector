@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.module.scala.DefaultScalaModule;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+// import org.apache.doris.spark.sql.SchemaUtils;
 import org.apache.doris.spark.sql.SchemaUtils;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.StructField;
@@ -65,6 +66,7 @@ public class DataUtil {
         Map<String, Object> rowMap = new HashMap<>(row.numFields());
         for (int i = 0; i < fields.length; i++) {
             rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
+            // rowMap.put(fields[i].name(), null);
         }
         return MAPPER.writeValueAsBytes(rowMap);
     }
@@ -73,7 +75,8 @@ public class DataUtil {
         StructField[] fields = schema.fields();
         Map<String, Object> rowMap = new HashMap<>(row.numFields());
         for (int i = 0; i < fields.length; i++) {
-            rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
+            // rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
+            rowMap.put(fields[i].name(), null);
         }
         return MAPPER.writeValueAsString(rowMap);
     }

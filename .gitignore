@@ -8,6 +8,9 @@ spark-doris-connector/output/
 spark-doris-connector/target/
 spark-doris-connector/.idea/
 
+dependency-reduced-pom.xml
+target
+.flattened-pom.xml
 
 ### Java template
 # Compiled class file

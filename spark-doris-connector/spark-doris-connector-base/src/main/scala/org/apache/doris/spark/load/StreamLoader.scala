@@ -28,7 +28,6 @@ import org.apache.doris.spark.exception.{DorisException, IllegalArgumentExceptio
 import org.apache.doris.spark.rest.RestService
 import org.apache.doris.spark.rest.models.BackendV2.BackendRowV2
 import org.apache.doris.spark.rest.models.RespContent
-import org.apache.doris.spark.sql.Utils
 import org.apache.doris.spark.util.{HttpUtil, ResponseUtil, URLs}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpRequestBase, HttpUriRequest}
 import org.apache.http.entity.{BufferedHttpEntity, ByteArrayEntity, InputStreamEntity}
@@ -285,7 +284,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
     if (StringUtils.isNotBlank(columns)) {
       put.setHeader("columns", columns)
     } else if (schema != null && schema.nonEmpty) {
-      put.setHeader("columns", schema.fieldNames.map(Utils.quote).mkString(","))
+      put.setHeader("columns", schema.fieldNames.map(name => s"`$name`").mkString(","))
     }
 
     val maxFilterRatio = settings.getProperty(ConfigurationOptions.DORIS_MAX_FILTER_RATIO)
@@ -342,6 +341,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       case Success(node) => address = node
       case Failure(e: ExecutionException) => throw new StreamLoadException("get backends info fail", e)
       case Failure(e: IllegalArgumentException) => throw new StreamLoadException("get frontend info fail", e)
+      case Failure(exception) => throw new StreamLoadException(exception)
     }
 
     address.get
@@ -479,17 +479,15 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
   @throws[IOException]
   def compressByGZ(content: String): Array[Byte] = {
     var compressedData: Array[Byte] = null
+    val baos = new ByteArrayOutputStream
+    val gzipOutputStream = new GZIPOutputStream(baos)
     try {
-      val baos = new ByteArrayOutputStream
-      val gzipOutputStream = new GZIPOutputStream(baos)
-      try {
-        gzipOutputStream.write(content.getBytes("UTF-8"))
-        gzipOutputStream.finish()
-        compressedData = baos.toByteArray
-      } finally {
-        if (baos != null) baos.close()
-        if (gzipOutputStream != null) gzipOutputStream.close()
-      }
+      gzipOutputStream.write(content.getBytes("UTF-8"))
+      gzipOutputStream.finish()
+      compressedData = baos.toByteArray
+    } finally {
+      if (baos != null) baos.close()
+      if (gzipOutputStream != null) gzipOutputStream.close()
     }
     compressedData
   }
@@ -504,17 +502,15 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
   @throws[IOException]
   def compressByGZ(contentInputStream: InputStream): Array[Byte] = {
     var compressedData: Array[Byte] = null
+    val baos = new ByteArrayOutputStream
+    val gzipOutputStream = new GZIPOutputStream(baos)
     try {
-      val baos = new ByteArrayOutputStream
-      val gzipOutputStream = new GZIPOutputStream(baos)
-      try {
-        IOUtils.copy(contentInputStream, gzipOutputStream)
-        gzipOutputStream.finish()
-        compressedData = baos.toByteArray
-      } finally {
-        if (baos != null) baos.close()
-        if (gzipOutputStream != null) gzipOutputStream.close()
-      }
+      IOUtils.copy(contentInputStream, gzipOutputStream)
+      gzipOutputStream.finish()
+      compressedData = baos.toByteArray
+    } finally {
+      if (baos != null) baos.close()
+      if (gzipOutputStream != null) gzipOutputStream.close()
     }
     compressedData
   }

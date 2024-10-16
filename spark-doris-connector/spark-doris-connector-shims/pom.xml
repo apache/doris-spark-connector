@@ -6,22 +6,29 @@
     <parent>
         <groupId>org.apache.doris</groupId>
         <artifactId>spark-doris-connector</artifactId>
-        <version>1.4.0-SNAPSHOT</version>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
+    <packaging>pom</packaging>
 
     <artifactId>spark-doris-connector-shims</artifactId>
-    <packaging>pom</packaging>
+
     <modules>
-        <module>spark-doris-connector-shims_spark-base</module>
-        <module>spark-doris-connector-shims_spark-2.4</module>
-        <module>spark-doris-connector-shims_spark-3-base</module>
+        <module>spark-doris-connector-shims_spark-3.0</module>
         <module>spark-doris-connector-shims_spark-3.1</module>
+        <module>spark-doris-connector-shims_spark-3.2</module>
+        <module>spark-doris-connector-shims_spark-3.3</module>
+        <module>spark-doris-connector-shims_spark-3.4</module>
+        <module>spark-doris-connector-shims_spark-3.5</module>
+        <module>spark-doris-connector-shims_spark-3-base</module>
     </modules>
 
-    <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_${scala.major.version}</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 
 </project>

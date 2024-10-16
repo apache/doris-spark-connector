@@ -241,17 +241,15 @@ class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Load
   @throws[IOException]
   def compressByGZ(content: String): Array[Byte] = {
     var compressedData: Array[Byte] = null
+    val baos = new ByteArrayOutputStream
+    val gzipOutputStream = new GZIPOutputStream(baos)
     try {
-      val baos = new ByteArrayOutputStream
-      val gzipOutputStream = new GZIPOutputStream(baos)
-      try {
-        gzipOutputStream.write(content.getBytes("UTF-8"))
-        gzipOutputStream.finish()
-        compressedData = baos.toByteArray
-      } finally {
-        if (baos != null) baos.close()
-        if (gzipOutputStream != null) gzipOutputStream.close()
-      }
+      gzipOutputStream.write(content.getBytes("UTF-8"))
+      gzipOutputStream.finish()
+      compressedData = baos.toByteArray
+    } finally {
+      if (baos != null) baos.close()
+      if (gzipOutputStream != null) gzipOutputStream.close()
     }
     compressedData
   }

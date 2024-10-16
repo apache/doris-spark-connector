@@ -106,7 +106,7 @@ object ArrowUtils {
           val dt = fromArrowField(child)
           StructField(child.getName, dt, child.isNullable)
         }
-        StructType(fields.toSeq)
+        StructType(fields)
       case arrowType => fromArrowType(arrowType)
     }
   }
