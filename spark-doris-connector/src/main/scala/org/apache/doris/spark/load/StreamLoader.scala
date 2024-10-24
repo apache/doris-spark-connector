@@ -312,7 +312,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    *
    * if load data to be directly, check node available will be done before return.
    *
-   * @throws [       [       org.apache.doris.spark.exception.StreamLoadException]]
+   * @throws [ [ org.apache.doris.spark.exception.StreamLoadException]]
    * @return address
    */
   @throws[StreamLoadException]
