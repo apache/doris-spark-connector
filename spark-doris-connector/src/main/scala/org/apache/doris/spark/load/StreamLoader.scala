@@ -394,7 +394,8 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       return null;
     }
     val calendar = Calendar.getInstance
-    val labelPrefix = streamLoadProps.getOrElse("label_prefix", "spark_streamload")
+    val labelPrefix = settings.getProperty(ConfigurationOptions.DORIS_SINK_LABEL_PREFIX,
+      ConfigurationOptions.DORIS_SINK_LABEL_PREFIX_DEFAULT)
     labelPrefix + "_" +
       f"${calendar.get(Calendar.YEAR)}${calendar.get(Calendar.MONTH) + 1}%02d${calendar.get(Calendar.DAY_OF_MONTH)}%02d" +
       f"_${calendar.get(Calendar.HOUR_OF_DAY)}%02d${calendar.get(Calendar.MINUTE)}%02d${calendar.get(Calendar.SECOND)}%02d" +

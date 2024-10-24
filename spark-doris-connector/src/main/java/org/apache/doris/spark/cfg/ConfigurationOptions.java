@@ -126,6 +126,9 @@ public interface ConfigurationOptions {
     String DORIS_SINK_AUTO_REDIRECT = "doris.sink.auto-redirect";
     boolean DORIS_SINK_AUTO_REDIRECT_DEFAULT = true;
 
+    String DORIS_SINK_LABEL_PREFIX = "doris.sink.label.prefix";
+    String DORIS_SINK_LABEL_PREFIX_DEFAULT = "spark_streamload";
+
     /**
      * compress_type
      */
