@@ -22,6 +22,7 @@ import org.apache.doris.spark.load.{CommitMessage, CopyIntoLoader, Loader, Strea
 import org.apache.doris.spark.sql.Utils
 import org.apache.doris.spark.txn.TransactionHandler
 import org.apache.doris.spark.txn.listener.DorisTransactionListener
+import org.apache.spark.TaskContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.StructType
@@ -35,13 +36,13 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success}
 
 class DorisWriter(settings: SparkSettings,
-                  txnAcc: CollectionAccumulator[CommitMessage],
+                  txnAcc: CollectionAccumulator[(String, CommitMessage)],
                   isStreaming: Boolean) extends Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
   private val sinkTaskPartitionSize: Integer = settings.getIntegerProperty(ConfigurationOptions.DORIS_SINK_TASK_PARTITION_SIZE)
-  private val loadMode: String = settings.getProperty(ConfigurationOptions.LOAD_MODE,ConfigurationOptions.DEFAULT_LOAD_MODE)
+  private val loadMode: String = settings.getProperty(ConfigurationOptions.LOAD_MODE, ConfigurationOptions.DEFAULT_LOAD_MODE)
   private val sinkTaskUseRepartition: Boolean = settings.getProperty(ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION,
     ConfigurationOptions.DORIS_SINK_TASK_USE_REPARTITION_DEFAULT.toString).toBoolean
 
@@ -74,11 +75,11 @@ class DorisWriter(settings: SparkSettings,
    *
    * @param dataFrame source dataframe
    */
-  def write(dataFrame: DataFrame): Unit = {
-    doWrite(dataFrame, loader.load)
+  def write(dataFrame: DataFrame, id: Option[String] = None): Unit = {
+    doWrite(dataFrame, loader.load, id)
   }
 
-  private def doWrite(dataFrame: DataFrame, loadFunc: (Iterator[InternalRow], StructType) => Option[CommitMessage]): Unit = {
+  private def doWrite(dataFrame: DataFrame, loadFunc: (Iterator[InternalRow], StructType) => Option[CommitMessage], id: Option[String]): Unit = {
     // do not add spark listener when job is streaming mode
     if (enable2PC && !isStreaming) {
       dataFrame.sparkSession.sparkContext.addSparkListener(new DorisTransactionListener(txnAcc, txnHandler))
@@ -92,12 +93,13 @@ class DorisWriter(settings: SparkSettings,
     val schema = resultDataFrame.schema
 
     resultRdd.foreachPartition(iterator => {
+      val accId = if (id.isEmpty) TaskContext.get().stageId().toString else id.get
       while (iterator.hasNext) {
         val batchIterator = new BatchIterator(iterator, batchSize, maxRetryTimes > 0)
         val retry = Utils.retry[Option[CommitMessage], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
         retry(loadFunc(batchIterator, schema))(batchIterator.reset()) match {
           case Success(msg) =>
-            if (enable2PC) handleLoadSuccess(msg, txnAcc)
+            if (enable2PC) handleLoadSuccess(accId, msg, txnAcc)
             batchIterator.close()
           case Failure(e) =>
             if (enable2PC) handleLoadFailure(txnAcc)
@@ -110,11 +112,11 @@ class DorisWriter(settings: SparkSettings,
 
   }
 
-  private def handleLoadSuccess(msg: Option[CommitMessage], acc: CollectionAccumulator[CommitMessage]): Unit = {
-    acc.add(msg.get)
+  private def handleLoadSuccess(id: String, msg: Option[CommitMessage], acc: CollectionAccumulator[(String, CommitMessage)]): Unit = {
+    acc.add((id, msg.get))
   }
 
-  private def handleLoadFailure(acc: CollectionAccumulator[CommitMessage]): Unit = {
+  private def handleLoadFailure(acc: CollectionAccumulator[(String, CommitMessage)]): Unit = {
     // if task run failed, acc value will not be returned to driver,
     // should abort all pre committed transactions inside the task
     logger.info("load task failed, start aborting previously pre-committed transactions")
@@ -123,7 +125,7 @@ class DorisWriter(settings: SparkSettings,
       return
     }
 
-    try txnHandler.abortTransactions(acc.value.asScala.toList)
+    try txnHandler.abortTransactions(acc.value.asScala.map(_._2).toList)
     catch {
       case e: Exception => throw e
     }

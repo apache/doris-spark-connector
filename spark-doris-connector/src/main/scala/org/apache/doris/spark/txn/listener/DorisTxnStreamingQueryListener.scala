@@ -24,17 +24,23 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.streaming.StreamingQueryListener
 import org.apache.spark.util.CollectionAccumulator
 
+import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-class DorisTxnStreamingQueryListener(txnAcc: CollectionAccumulator[CommitMessage], txnHandler: TransactionHandler)
+class DorisTxnStreamingQueryListener(txnAcc: CollectionAccumulator[(String, CommitMessage)], txnHandler: TransactionHandler)
   extends StreamingQueryListener with Logging {
 
-  override def onQueryStarted(event: StreamingQueryListener.QueryStartedEvent): Unit = {}
+  override def onQueryStarted(event: StreamingQueryListener.QueryStartedEvent): Unit = {
+
+  }
 
   override def onQueryProgress(event: StreamingQueryListener.QueryProgressEvent): Unit = {
+
     // do commit transaction when each batch ends
     val messages: mutable.Buffer[CommitMessage] = txnAcc.value.asScala
+      .filter(item => UUID.fromString(item._1) equals event.progress.runId)
+      .map(_._2)
     if (messages.isEmpty) {
       log.warn("job run succeed, but there is no pre-committed txn")
       return
@@ -49,7 +55,7 @@ class DorisTxnStreamingQueryListener(txnAcc: CollectionAccumulator[CommitMessage
 
 
   override def onQueryTerminated(event: StreamingQueryListener.QueryTerminatedEvent): Unit = {
-    val messages: mutable.Buffer[CommitMessage] = txnAcc.value.asScala
+    val messages: mutable.Buffer[CommitMessage] = txnAcc.value.asScala.map(_._2)
     // if job failed, abort all pre committed transactions
     if (event.exception.nonEmpty) {
       if (messages.isEmpty) {
