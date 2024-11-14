@@ -40,6 +40,7 @@ import java.util.Iterator;
 /**
  * InputStream for batch load
  */
+@Deprecated
 public class RecordBatchInputStream extends InputStream {
 
     public static final Logger LOG = LoggerFactory.getLogger(RecordBatchInputStream.class);

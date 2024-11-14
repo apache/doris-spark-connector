@@ -43,6 +43,7 @@ import scala.util.control.Breaks
  * @param partition Doris RDD partition
  * @param settings request configuration
  */
+@deprecated
 class ScalaValueReader(partition: PartitionDefinition, settings: Settings) extends Logging {
 
   private[this] lazy val client = new BackendClient(new Routing(partition.getBeAddress), settings)

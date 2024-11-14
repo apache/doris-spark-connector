@@ -1,8 +1,8 @@
 package org.apache.doris.spark.write
 
 import org.apache.commons.lang3.StringUtils
-import org.apache.doris.spark.client.{DorisWriter, StreamLoadProcessor}
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.write.{DorisWriter, StreamLoadProcessor}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.util.Retry
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
@@ -15,18 +15,18 @@ import scala.util.{Failure, Success}
 
 class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int, taskId: Long, epochId: Long = -1) extends DataWriter[InternalRow] with Logging {
 
-  private val writer: DorisWriter[InternalRow] = config.getValue(DorisConfigOptions.LOAD_MODE) match {
+  private val writer: DorisWriter[InternalRow] = config.getValue(DorisOptions.LOAD_MODE) match {
     case "stream_load" => new StreamLoadProcessor(config, schema)
     case _ => throw new IllegalArgumentException()
   }
 
-  private val batchSize = config.getValue(DorisConfigOptions.DORIS_SINK_BATCH_SIZE)
+  private val batchSize = config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE)
 
-  private val batchIntervalMs = config.getValue(DorisConfigOptions.DORIS_SINK_BATCH_INTERVAL_MS)
+  private val batchIntervalMs = config.getValue(DorisOptions.DORIS_SINK_BATCH_INTERVAL_MS)
 
-  private val retries = config.getValue(DorisConfigOptions.DORIS_SINK_MAX_RETRIES)
+  private val retries = config.getValue(DorisOptions.DORIS_SINK_MAX_RETRIES)
 
-  private val twoPhaseCommitEnabled = config.getValue(DorisConfigOptions.DORIS_SINK_ENABLE_2PC)
+  private val twoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC)
 
   private var currentBatchCount = 0
 

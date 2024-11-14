@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
+@deprecated(since = "24.0.0")
 private[spark] object SchemaUtils {
   private val logger = LoggerFactory.getLogger(SchemaUtils.getClass.getSimpleName.stripSuffix("$"))
   private val MAPPER = JsonMapper.builder().addModule(DefaultScalaModule).build()
@@ -48,6 +49,7 @@ private[spark] object SchemaUtils {
    * @param cfg configuration
    * @return Spark Catalyst StructType
    */
+  @deprecated
   def discoverSchema(cfg: Settings): StructType = {
     val schema = discoverSchemaFromFe(cfg)
     val bitmapColumns = schema.getProperties.filter(_.getType.equalsIgnoreCase("BITMAP")).map(_.getName).mkString(",")
@@ -64,9 +66,8 @@ private[spark] object SchemaUtils {
    * @param cfg configuration
    * @return inner schema struct
    */
-  def discoverSchemaFromFe(cfg: Settings): Schema = {
-    RestService.getSchema(cfg, logger)
-  }
+  @deprecated
+  def discoverSchemaFromFe(cfg: Settings): Schema = RestService.getSchema(cfg, logger)
 
   /**
    * convert inner schema struct to Spark Catalyst StructType
@@ -75,11 +76,7 @@ private[spark] object SchemaUtils {
    * @return Spark Catalyst StructType
    */
   def convertToStruct(schema: Schema, dorisReadFields: String): StructType = {
-    val fieldList = if (dorisReadFields != null && dorisReadFields.nonEmpty) {
-      dorisReadFields.split(",")
-    } else {
-      Array.empty[String]
-    }
+    val fieldList = if (dorisReadFields != null && dorisReadFields.nonEmpty) dorisReadFields.split(",") else Array.empty[String]
     val fields = schema.getProperties
       .filter(x => fieldList.contains(x.getName) || fieldList.isEmpty)
       .map(f =>
@@ -100,44 +97,42 @@ private[spark] object SchemaUtils {
    * @param scale     decimal scale
    * @return Spark Catalyst type
    */
-  def getCatalystType(dorisType: String, precision: Int, scale: Int): DataType = {
-    dorisType match {
-      case "NULL_TYPE"       => DataTypes.NullType
-      case "BOOLEAN"         => DataTypes.BooleanType
-      case "TINYINT"         => DataTypes.ByteType
-      case "SMALLINT"        => DataTypes.ShortType
-      case "INT"             => DataTypes.IntegerType
-      case "BIGINT"          => DataTypes.LongType
-      case "FLOAT"           => DataTypes.FloatType
-      case "DOUBLE"          => DataTypes.DoubleType
-      case "DATE"            => DataTypes.DateType
-      case "DATEV2"          => DataTypes.DateType
-      case "DATETIME"        => DataTypes.StringType
-      case "DATETIMEV2"      => DataTypes.StringType
-      case "BINARY"          => DataTypes.BinaryType
-      case "DECIMAL"         => DecimalType(precision, scale)
-      case "CHAR"            => DataTypes.StringType
-      case "LARGEINT"        => DecimalType(38,0)
-      case "VARCHAR"         => DataTypes.StringType
-      case "JSON"            => DataTypes.StringType
-      case "JSONB"           => DataTypes.StringType
-      case "DECIMALV2"       => DecimalType(precision, scale)
-      case "DECIMAL32"       => DecimalType(precision, scale)
-      case "DECIMAL64"       => DecimalType(precision, scale)
-      case "DECIMAL128"      => DecimalType(precision, scale)
-      case "TIME"            => DataTypes.DoubleType
-      case "STRING"          => DataTypes.StringType
-      case "ARRAY"           => DataTypes.StringType
-      case "MAP"             => MapType(DataTypes.StringType, DataTypes.StringType)
-      case "STRUCT"          => DataTypes.StringType
-      case "VARIANT"         => DataTypes.StringType
-      case "IPV4"            => DataTypes.StringType
-      case "IPV6"            => DataTypes.StringType
-      case "BITMAP"          => DataTypes.StringType // Placeholder only, no support for reading
-      case "HLL"             => DataTypes.StringType // Placeholder only, no support for reading
-      case _                             =>
-        throw new DorisException("Unrecognized Doris type " + dorisType)
-    }
+  def getCatalystType(dorisType: String, precision: Int, scale: Int): DataType = dorisType match {
+    case "NULL_TYPE"       => DataTypes.NullType
+    case "BOOLEAN"         => DataTypes.BooleanType
+    case "TINYINT"         => DataTypes.ByteType
+    case "SMALLINT"        => DataTypes.ShortType
+    case "INT"             => DataTypes.IntegerType
+    case "BIGINT"          => DataTypes.LongType
+    case "FLOAT"           => DataTypes.FloatType
+    case "DOUBLE"          => DataTypes.DoubleType
+    case "DATE"            => DataTypes.DateType
+    case "DATEV2"          => DataTypes.DateType
+    case "DATETIME"        => DataTypes.StringType
+    case "DATETIMEV2"      => DataTypes.StringType
+    case "BINARY"          => DataTypes.BinaryType
+    case "DECIMAL"         => DecimalType(precision, scale)
+    case "CHAR"            => DataTypes.StringType
+    case "LARGEINT"        => DecimalType(38,0)
+    case "VARCHAR"         => DataTypes.StringType
+    case "JSON"            => DataTypes.StringType
+    case "JSONB"           => DataTypes.StringType
+    case "DECIMALV2"       => DecimalType(precision, scale)
+    case "DECIMAL32"       => DecimalType(precision, scale)
+    case "DECIMAL64"       => DecimalType(precision, scale)
+    case "DECIMAL128"      => DecimalType(precision, scale)
+    case "TIME"            => DataTypes.DoubleType
+    case "STRING"          => DataTypes.StringType
+    case "ARRAY"           => DataTypes.StringType
+    case "MAP"             => MapType(DataTypes.StringType, DataTypes.StringType)
+    case "STRUCT"          => DataTypes.StringType
+    case "VARIANT"         => DataTypes.StringType
+    case "IPV4"            => DataTypes.StringType
+    case "IPV6"            => DataTypes.StringType
+    case "BITMAP"          => DataTypes.StringType // Placeholder only, no support for reading
+    case "HLL"             => DataTypes.StringType // Placeholder only, no support for reading
+    case _                             =>
+      throw new DorisException("Unrecognized Doris type " + dorisType)
   }
 
   /**
@@ -157,83 +152,71 @@ private[spark] object SchemaUtils {
   }
 
   private def fieldUnion(readColumns: Array[String], bitmapColumns: Array[String], hllColumns: Array[String],
-                 tScanColumnDescSeq: Seq[TScanColumnDesc]): List[Field] = {
+                 tScanColumnDescSeq: Seq[TScanColumnDesc]) = {
     val fieldList = mutable.Buffer[Field]()
-    var rcIdx = 0;
-    var tsdIdx = 0;
-    while (rcIdx < readColumns.length || tsdIdx < tScanColumnDescSeq.length) {
-      if (rcIdx < readColumns.length) {
-        if (StringUtils.equals(readColumns(rcIdx), tScanColumnDescSeq(tsdIdx).getName)) {
-          fieldList += new Field(tScanColumnDescSeq(tsdIdx).getName, tScanColumnDescSeq(tsdIdx).getType.name, "", 0, 0, "")
-          rcIdx += 1
-          tsdIdx += 1
-        } else if (bitmapColumns.contains(readColumns(rcIdx)) || hllColumns.contains(readColumns(rcIdx))) {
-          fieldList += new Field(readColumns(rcIdx), TPrimitiveType.VARCHAR.name, "", 0, 0, "")
-          rcIdx += 1
-        }
-      } else {
+    var rcIdx = 0
+    var tsdIdx = 0
+    while (rcIdx < readColumns.length || tsdIdx < tScanColumnDescSeq.length) if (rcIdx < readColumns.length) if (StringUtils.equals(readColumns(rcIdx), tScanColumnDescSeq(tsdIdx).getName)) {
         fieldList += new Field(tScanColumnDescSeq(tsdIdx).getName, tScanColumnDescSeq(tsdIdx).getType.name, "", 0, 0, "")
+        rcIdx += 1
         tsdIdx += 1
-      }
+      } else if (bitmapColumns.contains(readColumns(rcIdx)) || hllColumns.contains(readColumns(rcIdx))) {
+        fieldList += new Field(readColumns(rcIdx), TPrimitiveType.VARCHAR.name, "", 0, 0, "")
+        rcIdx += 1
+      } else {
+      fieldList += new Field(tScanColumnDescSeq(tsdIdx).getName, tScanColumnDescSeq(tsdIdx).getType.name, "", 0, 0, "")
+      tsdIdx += 1
     }
     fieldList.toList
   }
 
-  def rowColumnValue(row: SpecializedGetters, ordinal: Int, dataType: DataType): Any = {
-
-    if (row.isNullAt(ordinal)) null
-    else {
-      dataType match {
-        case NullType => DataUtil.NULL_VALUE
-        case BooleanType => row.getBoolean(ordinal)
-        case ByteType => row.getByte(ordinal)
-        case ShortType => row.getShort(ordinal)
-        case IntegerType => row.getInt(ordinal)
-        case LongType => row.getLong(ordinal)
-        case FloatType => row.getFloat(ordinal)
-        case DoubleType => row.getDouble(ordinal)
-        case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(DataUtil.NULL_VALUE)
-        case TimestampType =>
-          DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
-        case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
-        case BinaryType => row.getBinary(ordinal)
-        case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
-        case at: ArrayType =>
-          val arrayData = row.getArray(ordinal)
-          if (arrayData == null) DataUtil.NULL_VALUE
-          else {
-            (0 until arrayData.numElements()).map(i => {
-              if (arrayData.isNullAt(i)) null else rowColumnValue(arrayData, i, at.elementType)
-            }).mkString("[", ",", "]")
-          }
-        case mt: MapType =>
-          val mapData = row.getMap(ordinal)
-          if (mapData.numElements() == 0) "{}"
-          else {
-            val keys = mapData.keyArray()
-            val values = mapData.valueArray()
-            val map = mutable.HashMap[Any, Any]()
-            var i = 0
-            while (i < keys.numElements()) {
-              map += rowColumnValue(keys, i, mt.keyType) -> rowColumnValue(values, i, mt.valueType)
-              i += 1
-            }
-            MAPPER.writeValueAsString(map)
-          }
-        case st: StructType =>
-          val structData = row.getStruct(ordinal, st.length)
-          val map = new java.util.TreeMap[String, Any]()
+  def rowColumnValue(row: SpecializedGetters, ordinal: Int, dataType: DataType): Any = if (row.isNullAt(ordinal)) null
+  else dataType match {
+      case NullType => DataUtil.NULL_VALUE
+      case BooleanType => row.getBoolean(ordinal)
+      case ByteType => row.getByte(ordinal)
+      case ShortType => row.getShort(ordinal)
+      case IntegerType => row.getInt(ordinal)
+      case LongType => row.getLong(ordinal)
+      case FloatType => row.getFloat(ordinal)
+      case DoubleType => row.getDouble(ordinal)
+      case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(DataUtil.NULL_VALUE)
+      case TimestampType =>
+        DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
+      case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
+      case BinaryType => row.getBinary(ordinal)
+      case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
+      case at: ArrayType =>
+        val arrayData = row.getArray(ordinal)
+        if (arrayData == null) DataUtil.NULL_VALUE
+        else (0 until arrayData.numElements()).map(i => {
+            if (arrayData.isNullAt(i)) null else rowColumnValue(arrayData, i, at.elementType)
+          }).mkString("[", ",", "]")
+      case mt: MapType =>
+        val mapData = row.getMap(ordinal)
+        if (mapData.numElements() == 0) "{}"
+        else {
+          val keys = mapData.keyArray()
+          val values = mapData.valueArray()
+          val map = mutable.HashMap[Any, Any]()
           var i = 0
-          while (i < structData.numFields) {
-            val field = st.get(i)
-            map.put(field.name, rowColumnValue(structData, i, field.dataType))
+          while (i < keys.numElements()) {
+            map += rowColumnValue(keys, i, mt.keyType) -> rowColumnValue(values, i, mt.valueType)
             i += 1
           }
           MAPPER.writeValueAsString(map)
-        case _ => throw new DorisException(s"Unsupported spark type: ${dataType.typeName}")
-      }
+        }
+      case st: StructType =>
+        val structData = row.getStruct(ordinal, st.length)
+        val map = new java.util.TreeMap[String, Any]()
+        var i = 0
+        while (i < structData.numFields) {
+          val field = st.get(i)
+          map.put(field.name, rowColumnValue(structData, i, field.dataType))
+          i += 1
+        }
+        MAPPER.writeValueAsString(map)
+      case _ => throw new DorisException(s"Unsupported spark type: ${dataType.typeName}")
     }
-
-  }
 
 }

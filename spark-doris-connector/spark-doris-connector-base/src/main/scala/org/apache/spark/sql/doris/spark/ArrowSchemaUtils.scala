@@ -20,7 +20,7 @@ package org.apache.spark.sql.doris.spark
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.spark.sql.types.StructType
 
-@deprecated(since = "1.4.0")
+@deprecated(since = "24.0.0")
 object ArrowSchemaUtils {
   var classArrowUtils: Option[Class[_]] = None: Option[Class[_]]
 

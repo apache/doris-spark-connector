@@ -23,6 +23,7 @@ import org.apache.spark.sql.types.StructType
 /**
  * Loader, interface class for write data to doris
  */
+@deprecated
 trait Loader extends Serializable {
 
   /**

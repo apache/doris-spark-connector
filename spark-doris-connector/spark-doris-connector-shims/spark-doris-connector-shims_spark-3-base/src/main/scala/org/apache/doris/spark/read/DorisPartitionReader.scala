@@ -1,6 +1,7 @@
 package org.apache.doris.spark.read
 
-import org.apache.doris.spark.client.{DorisReader, DorisReaderPartition, DorisThriftReader}
+import org.apache.doris.spark.client.read.{DorisReader, DorisThriftReader}
+import org.apache.doris.spark.client.DorisReaderPartition
 import org.apache.doris.spark.config.DorisConfig
 import org.apache.doris.spark.util.RowConvertors
 import org.apache.spark.sql.catalyst.InternalRow

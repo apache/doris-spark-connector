@@ -43,6 +43,7 @@ import scala.util.{Failure, Success, Try}
 
 case class CopyIntoResponse(code: Int, msg: String, content: String)
 
+@deprecated
 class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader {
 
   private final val LOG: Logger = LoggerFactory.getLogger(classOf[CopyIntoLoader])

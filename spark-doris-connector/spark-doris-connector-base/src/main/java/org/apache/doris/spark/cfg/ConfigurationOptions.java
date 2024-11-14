@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+@Deprecated
 public interface ConfigurationOptions {
     // doris fe node address
     String DORIS_FENODES = "doris.fenodes";

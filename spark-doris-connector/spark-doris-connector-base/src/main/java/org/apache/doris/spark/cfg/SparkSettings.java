@@ -27,6 +27,7 @@ import scala.Option;
 import scala.Serializable;
 import scala.Tuple2;
 
+@Deprecated
 public class SparkSettings extends Settings implements Serializable {
 
     private final SparkConf cfg;

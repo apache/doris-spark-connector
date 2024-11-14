@@ -15,12 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.spark.client
+package org.apache.doris.spark.client.write
 
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.{DorisFrontend, StreamLoadResponse, URLs}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.util.HttpUtils
 import org.apache.http.client.entity.GzipCompressingEntity
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpRequestBase}
@@ -37,23 +38,21 @@ import java.util.concurrent.{Callable, Executors, Future, ThreadFactory}
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: DorisConfig) extends DorisWriter[R] with DorisCommitter {
+protected[spark] abstract class AbstractStreamLoadProcessor[R: ClassTag](config: DorisConfig) extends DorisWriter[R] with DorisCommitter {
 
   protected val log: Logger = LoggerFactory.getLogger(this.getClass.getName.stripSuffix("$"))
 
-  private val MAPPER = JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).addModule(DefaultScalaModule).build()
-
-  private lazy val httpClient: CloseableHttpClient = HttpUtils.getHttpClient(config)
+  private lazy val frontend: DorisFrontend = DorisFrontend(config)
 
   private lazy val (db, table): (String, String) = {
-    val tableIdentifier = config.getValue(DorisConfigOptions.DORIS_TABLE_IDENTIFIER)
+    val tableIdentifier = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)
     val dbTableArr = tableIdentifier.split("\\.")
     (dbTableArr(0).replaceAll("`", "").trim, dbTableArr(1).replaceAll("`", "").trim)
   }
 
   private val STREAM_LOAD_SUCCESS_STATUS: Array[String] = Array("Success", "Publish Timeout")
 
-  private val twoPhaseCommitEnabled = config.getValue(DorisConfigOptions.DORIS_SINK_ENABLE_2PC)
+  private val twoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC)
 
   private var properties: Map[String, String] = config.getSinkProperties
 
@@ -65,7 +64,7 @@ protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: 
 
   private val gzipCompressEnabled: Boolean = properties.contains("compress_type") && properties("compress_type") == "gzip"
 
-  private val httpsEnabled: Boolean = config.getValue(DorisConfigOptions.DORIS_ENABLE_HTTPS)
+  private val httpsEnabled: Boolean = config.getValue(DorisOptions.DORIS_ENABLE_HTTPS)
 
   /**
    * partial_columns
@@ -113,14 +112,10 @@ protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: 
 
   private var requestFuture: Option[Future[CloseableHttpResponse]] = None
 
-  {
-    DorisFrontend.initialize(config)
-  }
-
   def load(row: R): Unit = {
 
     if (createNewBatch) {
-      requestFuture = DorisFrontend.requestFrontends[Future[CloseableHttpResponse]]()(frontEnd => {
+      requestFuture = frontend.requestFrontends[Future[CloseableHttpResponse]]()((frontEnd, httpClient) => {
         val httpPut = new HttpPut(URLs.streamLoad(frontEnd.host, frontEnd.httpPort, db, table, httpsEnabled))
         handleStreamLoadProperties(httpPut)
         val pipedInputStream = new PipedInputStream(4096)
@@ -148,7 +143,7 @@ protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: 
       throw new Exception()
     }
     val resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity))
-    val response = MAPPER.readValue(resEntity, classOf[StreamLoadResponse])
+    val response = AbstractStreamLoadProcessor.MAPPER.readValue(resEntity, classOf[StreamLoadResponse])
     if (STREAM_LOAD_SUCCESS_STATUS.contains(response.Status)) {
       //
       createNewBatch = true
@@ -160,25 +155,29 @@ protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: 
   }
 
   override def commit(m: String): Unit = {
-    DorisFrontend.requestFrontends()(frontEnd => {
-      val httpPut = new HttpPut(URLs.streamLoad2PC(frontEnd.host, frontEnd.httpPort, db, httpsEnabled))
-      handleCommitHeaders(httpPut, m)
-      val response = httpClient.execute(httpPut)
-      if (response.getStatusLine.getStatusCode != HttpStatus.SC_OK) {
-        throw new Exception()
-      }
-    })
+    if (twoPhaseCommitEnabled) {
+      frontend.requestFrontends()((frontEnd, httpClient) => {
+        val httpPut = new HttpPut(URLs.streamLoad2PC(frontEnd.host, frontEnd.httpPort, db, httpsEnabled))
+        handleCommitHeaders(httpPut, m)
+        val response = httpClient.execute(httpPut)
+        if (response.getStatusLine.getStatusCode != HttpStatus.SC_OK) {
+          throw new Exception()
+        }
+      })
+    }
   }
 
   override def abort(m: String): Unit = {
-    DorisFrontend.requestFrontends()(frontEnd => {
-      val httpPut = new HttpPut(URLs.streamLoad2PC(frontEnd.host, frontEnd.httpPort, db, httpsEnabled))
-      handleAbortHeaders(httpPut, m)
-      val response = httpClient.execute(httpPut)
-      if (response.getStatusLine.getStatusCode != HttpStatus.SC_OK) {
-        throw new Exception()
-      }
-    })
+    if (twoPhaseCommitEnabled) {
+      frontend.requestFrontends()((frontEnd, httpClient) => {
+        val httpPut = new HttpPut(URLs.streamLoad2PC(frontEnd.host, frontEnd.httpPort, db, httpsEnabled))
+        handleAbortHeaders(httpPut, m)
+        val response = httpClient.execute(httpPut)
+        if (response.getStatusLine.getStatusCode != HttpStatus.SC_OK) {
+          throw new Exception()
+        }
+      })
+    }
   }
 
   private def toFormat(row: R, format: String): Array[Byte] = {
@@ -226,8 +225,8 @@ protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: 
     httpPut.setHeader("columns", writeFields)
 
     // handle filter ratio
-    if (config.contains(DorisConfigOptions.DORIS_MAX_FILTER_RATIO)) {
-      httpPut.setHeader("max_filter_ratio", config.getValue(DorisConfigOptions.DORIS_MAX_FILTER_RATIO))
+    if (config.contains(DorisOptions.DORIS_MAX_FILTER_RATIO)) {
+      httpPut.setHeader("max_filter_ratio", config.getValue(DorisOptions.DORIS_MAX_FILTER_RATIO))
     }
 
     // handle 2pc
@@ -268,8 +267,8 @@ protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: 
   }
 
   private def addCommonHeaders(req: HttpRequestBase): Unit = {
-    val user = config.getValue(DorisConfigOptions.DORIS_USER)
-    val passwd = config.getValue(DorisConfigOptions.DORIS_PASSWORD)
+    val user = config.getValue(DorisOptions.DORIS_USER)
+    val passwd = config.getValue(DorisOptions.DORIS_PASSWORD)
     HttpUtils.setAuth(req, user, passwd)
     req.setHeader(HttpHeaders.EXPECT, "100-continue")
     req.setHeader(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8")
@@ -279,7 +278,13 @@ protected[spark] abstract class AbstractStreamLoadProcessor[R:ClassTag](config: 
 
   override def close(): Unit = {
     createNewBatch = true
-    httpClient.close()
+    frontend.close()
   }
+
+}
+
+protected object AbstractStreamLoadProcessor {
+
+  protected val MAPPER: JsonMapper = JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).addModule(DefaultScalaModule).build()
 
 }

@@ -31,6 +31,7 @@ import java.util.Iterator;
 /**
  * InputStream for batch load
  */
+@Deprecated
 public class RecordBatchString {
 
     public static final Logger LOG = LoggerFactory.getLogger(RecordBatchString.class);

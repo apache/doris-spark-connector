@@ -29,6 +29,7 @@ import org.apache.doris.spark.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Deprecated
 public abstract class Settings {
     private final static Logger logger = LoggerFactory.getLogger(Settings.class);
 

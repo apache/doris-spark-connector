@@ -18,7 +18,7 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.client.DorisReaderPartition
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.rdd.{AbstractDorisRDD, AbstractDorisRDDIterator, DorisPartition}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
@@ -29,17 +29,17 @@ private[spark] class ScalaDorisRowRDD(sc: SparkContext, params: Map[String, Stri
   extends AbstractDorisRDD[Row](sc, params) {
 
   override def compute(split: Partition, context: TaskContext): ScalaDorisRowRDDIterator = {
-    new ScalaDorisRowRDDIterator(dorisCfg, context, split.asInstanceOf[DorisPartition].dorisPartition, schema)
+    new ScalaDorisRowRDDIterator(context, split.asInstanceOf[DorisPartition].dorisPartition, schema)
   }
 }
 
-private[spark] class ScalaDorisRowRDDIterator(config: DorisConfig, context: TaskContext,
+private[spark] class ScalaDorisRowRDDIterator(context: TaskContext,
                                               partition: DorisReaderPartition, schema: StructType)
-  extends AbstractDorisRDDIterator[Row](config, context, partition) {
+  extends AbstractDorisRDDIterator[Row](context, partition) {
 
   override def initReader(config: DorisConfig): Unit = {
-    config.setProperty(DorisConfigOptions.DORIS_READ_FIELDS, schema.map(f => s"`${f.name}``").mkString(","))
-    config.setProperty(DorisConfigOptions.DORIS_VALUE_READER_CLASS, classOf[DorisRowThriftReader].getName)
+    config.setProperty(DorisOptions.DORIS_READ_FIELDS, schema.map(f => s"`${f.name}``").mkString(","))
+    config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisRowThriftReader].getName)
   }
 
   override def createValue(value: Object): Row = {

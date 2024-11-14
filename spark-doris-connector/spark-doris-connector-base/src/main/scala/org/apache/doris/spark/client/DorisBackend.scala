@@ -1,7 +1,8 @@
 package org.apache.doris.spark.client
 
 import org.apache.doris.sdk.thrift.{TDorisExternalService, TScanBatchResult, TScanCloseParams, TScanNextBatchParams, TScanOpenParams, TScanOpenResult, TStatusCode}
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
+import org.apache.doris.spark.exception.ConnectedFailedException
 import org.apache.spark.internal.Logging
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{TSocket, TTransport, TTransportException}
@@ -16,9 +17,9 @@ class DorisBackend(backend: String, config: DorisConfig) extends AutoCloseable w
     val arr = backend.split(":")
     (arr(0).trim, arr(1).trim.toInt)
   }
-  private val retries = config.getValue(DorisConfigOptions.DORIS_REQUEST_RETRIES)
-  private val connectTimeout = config.getValue(DorisConfigOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS)
-  private val socketTimeout = config.getValue(DorisConfigOptions.DORIS_REQUEST_READ_TIMEOUT_MS)
+  private val retries = config.getValue(DorisOptions.DORIS_REQUEST_RETRIES)
+  private val connectTimeout = config.getValue(DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS)
+  private val socketTimeout = config.getValue(DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS)
 
   private var transport: TTransport = _
   private var thriftClient: TDorisExternalService.Client = _
@@ -48,7 +49,7 @@ class DorisBackend(backend: String, config: DorisConfig) extends AutoCloseable w
       attempt += 1
     }
     if (!isConnected) {
-      throw new Exception(host + ":" + port, ex)
+      throw new ConnectedFailedException(host + ":" + port, ex)
     }
   }
 
@@ -78,7 +79,7 @@ class DorisBackend(backend: String, config: DorisConfig) extends AutoCloseable w
       }
     }
     log.error(host)
-    throw new Exception(host, ex)
+    throw new ConnectedFailedException(host, ex)
   }
 
   def getNext(nextBatchParams: TScanNextBatchParams): TScanBatchResult = {
@@ -107,7 +108,7 @@ class DorisBackend(backend: String, config: DorisConfig) extends AutoCloseable w
       val msg = s"$host:$port, ${result.getStatus.getStatusCode}, ${result.getStatus.getErrorMsgs.asScala.mkString("\n")}"
       throw new Exception(msg)
     }
-    throw new Exception(host + ":" + port, ex)
+    throw new ConnectedFailedException(host + ":" + port, ex)
   }
 
   def closeScanner(closeParams: TScanCloseParams): Unit = {

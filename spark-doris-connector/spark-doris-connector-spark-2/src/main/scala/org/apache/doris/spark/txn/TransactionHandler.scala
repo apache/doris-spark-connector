@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.txn
 
-import org.apache.doris.spark.client.DorisCommitter
+import org.apache.doris.spark.client.write.DorisCommitter
 import org.apache.doris.spark.load.CommitMessage
 import org.apache.doris.spark.sql.Utils
 import org.apache.spark.internal.Logging

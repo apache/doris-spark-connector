@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 /**
  * present an Doris BE address.
  */
+@Deprecated
 public class Routing {
     private final static Logger logger = LoggerFactory.getLogger(Routing.class);
 

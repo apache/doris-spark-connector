@@ -1,7 +1,7 @@
 package org.apache.doris.spark.catalog
 
 import org.apache.doris.spark.client.DorisFrontend
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException
 import org.apache.spark.sql.connector.catalog.{Identifier, NamespaceChange, SupportsNamespaces, Table, TableCatalog, TableChange}
 import org.apache.spark.sql.connector.expressions.Transform
@@ -17,6 +17,8 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
 
   private var dorisConfig: DorisConfig = _
 
+  private var frontend: DorisFrontend = _
+
   override def name(): String = {
     require(catalogName.nonEmpty, "The Doris table catalog is not initialed")
     catalogName.get
@@ -26,7 +28,7 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
     assert(catalogName.isEmpty, "The Doris table catalog is already initialed")
     catalogName = Some(name)
     dorisConfig = DorisConfig.fromMap(caseInsensitiveStringMap.asScala.toMap)
-    DorisFrontend.initialize(dorisConfig)
+    frontend = DorisFrontend(dorisConfig)
   }
 
   override def listTables(namespace: Array[String]): Array[Identifier] = {
@@ -36,7 +38,7 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
   override def loadTable(identifier: Identifier): Table = {
     checkIdentifier(identifier)
     new DorisTable(identifier, DorisConfig.fromMap(dorisConfig.configOptions.toMap +
-      (DorisConfigOptions.DORIS_TABLE_IDENTIFIER.name -> getFullTableName(identifier))), None)
+      (DorisOptions.DORIS_TABLE_IDENTIFIER.name -> getFullTableName(identifier))), None)
   }
 
   override def createTable(identifier: Identifier, structType: StructType, transforms: Array[Transform], map: util.Map[String, String]): Table = throw new UnsupportedOperationException()

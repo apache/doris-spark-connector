@@ -27,6 +27,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object RowBatch {
+
   private val DEFAULT_ZONE_ID = ZoneId.systemDefault
   private val DATE_TIME_FORMATTER = new DateTimeFormatterBuilder().appendPattern("yyyy-MM-dd HH:mm:ss").appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true).toFormatter
   private val DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss"

@@ -1,6 +1,6 @@
 package org.apache.doris.spark.util
 
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.http.HttpHeaders
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.http.conn.ssl.{SSLConnectionSocketFactory, TrustAllStrategy}
@@ -19,18 +19,18 @@ object HttpUtils {
     val builder = HttpClients.custom().setRedirectStrategy(new DefaultRedirectStrategy {
       override def isRedirectable(method: String): Boolean = true
     })
-    val enableHttps = config.getValue(DorisConfigOptions.DORIS_ENABLE_HTTPS)
+    val enableHttps = config.getValue(DorisOptions.DORIS_ENABLE_HTTPS)
     if (enableHttps) {
-      require(config.contains(DorisConfigOptions.DORIS_HTTPS_KEY_STORE_PATH))
-      val keyStorePath: String = config.getValue(DorisConfigOptions.DORIS_HTTPS_KEY_STORE_PATH)
+      require(config.contains(DorisOptions.DORIS_HTTPS_KEY_STORE_PATH))
+      val keyStorePath: String = config.getValue(DorisOptions.DORIS_HTTPS_KEY_STORE_PATH)
       val keyStoreFile = new File(keyStorePath)
       if (!keyStoreFile.exists()) throw new IllegalArgumentException()
-      val keyStoreType: String = config.getValue(DorisConfigOptions.DORIS_HTTPS_KEY_STORE_TYPE)
+      val keyStoreType: String = config.getValue(DorisOptions.DORIS_HTTPS_KEY_STORE_TYPE)
       val keyStore = KeyStore.getInstance(keyStoreType)
       var fis: FileInputStream = null
       Try {
         fis = new FileInputStream(keyStoreFile)
-        val password = config.getValue(DorisConfigOptions.DORIS_HTTPS_KEY_STORE_PASSWORD)
+        val password = config.getValue(DorisOptions.DORIS_HTTPS_KEY_STORE_PASSWORD)
         keyStore.load(fis, if (password == null) null else password.toCharArray)
       } match {
         case Success(_) => if (fis != null) fis.close()

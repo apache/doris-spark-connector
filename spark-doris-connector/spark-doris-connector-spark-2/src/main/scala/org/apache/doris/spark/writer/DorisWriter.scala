@@ -17,8 +17,8 @@
 
 package org.apache.doris.spark.writer
 
-import org.apache.doris.spark.client.{DorisCommitter, StreamLoadProcessor}
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.write.{DorisCommitter, StreamLoadProcessor}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.load.CommitMessage
 import org.apache.doris.spark.sql.Utils
 import org.apache.doris.spark.txn.TransactionHandler
@@ -30,7 +30,6 @@ import org.apache.spark.util.CollectionAccumulator
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.time.Duration
-import java.util.Objects
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success}
@@ -41,25 +40,24 @@ class DorisWriter(config: DorisConfig,
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisWriter])
 
-  private val sinkTaskPartitionSize: Int = config.getValue(DorisConfigOptions.DORIS_SINK_TASK_PARTITION_SIZE)
-  private val loadMode: String = config.getValue(DorisConfigOptions.LOAD_MODE)
-  private val sinkTaskUseRepartition: Boolean = config.getValue(DorisConfigOptions.DORIS_SINK_TASK_USE_REPARTITION)
+  private val loadMode: String = config.getValue(DorisOptions.LOAD_MODE)
+  private val sinkTaskUseRepartition: Boolean = config.getValue(DorisOptions.DORIS_SINK_TASK_USE_REPARTITION)
 
-  private val maxRetryTimes: Int = config.getValue(DorisConfigOptions.DORIS_SINK_MAX_RETRIES)
-  private val batchSize: Int = config.getValue(DorisConfigOptions.DORIS_SINK_BATCH_SIZE)
-  private val batchInterValMs: Int = config.getValue(DorisConfigOptions.DORIS_SINK_BATCH_INTERVAL_MS)
+  private val maxRetryTimes: Int = config.getValue(DorisOptions.DORIS_SINK_MAX_RETRIES)
+  private val batchSize: Int = config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE)
+  private val batchInterValMs: Int = config.getValue(DorisOptions.DORIS_SINK_BATCH_INTERVAL_MS)
 
   if (maxRetryTimes > 0) {
     logger.info(s"batch retry enabled, size is $batchSize, interval is $batchInterValMs")
   }
 
-  private val enable2PC: Boolean = config.getValue(DorisConfigOptions.DORIS_SINK_ENABLE_2PC)
+  private val enable2PC: Boolean = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC)
 
-  private val writer: org.apache.doris.spark.client.DorisWriter[InternalRow] = generateLoader
+  private val writer: org.apache.doris.spark.client.write.DorisWriter[InternalRow] = generateLoader
 
-  private val sinkTxnRetries = config.getValue(DorisConfigOptions.DORIS_SINK_TXN_RETRIES)
+  private val sinkTxnRetries = config.getValue(DorisOptions.DORIS_SINK_TXN_RETRIES)
 
-  private val sinkTxnIntervalMs = config.getValue(DorisConfigOptions.DORIS_SINK_TXN_INTERVAL_MS)
+  private val sinkTxnIntervalMs = config.getValue(DorisOptions.DORIS_SINK_TXN_INTERVAL_MS)
 
   private val txnHandler: TransactionHandler = TransactionHandler(generateCommitter, sinkTxnRetries, sinkTxnIntervalMs)
 
@@ -78,7 +76,8 @@ class DorisWriter(config: DorisConfig,
       dataFrame.sparkSession.sparkContext.addSparkListener(new DorisTransactionListener(txnAcc, txnHandler))
     }
     var resultDataFrame = dataFrame
-    if (Objects.nonNull(sinkTaskPartitionSize)) {
+    if (config.contains(DorisOptions.DORIS_SINK_TASK_PARTITION_SIZE)) {
+      val sinkTaskPartitionSize = config.getValue(DorisOptions.DORIS_SINK_TASK_PARTITION_SIZE)
       resultDataFrame = if (sinkTaskUseRepartition) dataFrame.repartition(sinkTaskPartitionSize) else dataFrame.coalesce(sinkTaskPartitionSize)
     }
 
@@ -204,7 +203,7 @@ class DorisWriter(config: DorisConfig,
   }
 
   @throws[IllegalArgumentException]
-  private def generateLoader: org.apache.doris.spark.client.DorisWriter[InternalRow] = {
+  private def generateLoader: org.apache.doris.spark.client.write.DorisWriter[InternalRow] = {
     loadMode match {
       case "stream_load" => new StreamLoadProcessor(config)
       // case "stream_load" => new StreamLoader(settings, isStreaming)
@@ -229,7 +228,7 @@ class DorisWriter(config: DorisConfig,
       writer.load(iter.next())
     }
     val txnId = writer.stop()
-    Some(CommitMessage(txnId.toLong))
+    if (txnId == null) None else Some(CommitMessage(txnId.toLong))
   }
 
   def getTransactionHandler: TransactionHandler = txnHandler

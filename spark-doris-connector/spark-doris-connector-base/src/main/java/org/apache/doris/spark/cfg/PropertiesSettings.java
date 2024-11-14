@@ -21,6 +21,7 @@ import java.util.Properties;
 
 import com.google.common.base.Preconditions;
 
+@Deprecated
 public class PropertiesSettings extends Settings {
 
     protected final Properties props;

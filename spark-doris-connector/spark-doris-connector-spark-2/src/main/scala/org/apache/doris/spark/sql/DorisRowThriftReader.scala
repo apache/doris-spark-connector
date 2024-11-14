@@ -17,13 +17,14 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.client.{DorisReaderPartition, DorisThriftReader}
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.read.DorisThriftReader
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.exception.ShouldNeverHappenException
 
 class DorisRowThriftReader(partition: DorisReaderPartition, config: DorisConfig) extends DorisThriftReader(partition, config) {
 
-  private val rowOrder: Seq[String] = config.getValue(DorisConfigOptions.DORIS_WRITE_FIELDS).split(",")
+  private val rowOrder: Seq[String] = config.getValue(DorisOptions.DORIS_READ_FIELDS).split(",")
 
   override def next(): AnyRef = {
     if (!hasNext) {

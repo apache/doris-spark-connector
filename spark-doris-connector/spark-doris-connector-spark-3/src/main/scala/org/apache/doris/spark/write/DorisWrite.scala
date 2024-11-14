@@ -1,14 +1,14 @@
 package org.apache.doris.spark.write
 
-import org.apache.doris.spark.client.{DorisCommitter, StreamLoadProcessor}
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.write.{DorisCommitter, StreamLoadProcessor}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.sql.connector.write.streaming.{StreamingDataWriterFactory, StreamingWrite}
 import org.apache.spark.sql.connector.write.{BatchWrite, DataWriterFactory, PhysicalWriteInfo, WriterCommitMessage}
 import org.apache.spark.sql.types.StructType
 
 class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite with StreamingWrite {
 
-  private val committer: DorisCommitter = config.getValue(DorisConfigOptions.LOAD_MODE) match {
+  private val committer: DorisCommitter = config.getValue(DorisOptions.LOAD_MODE) match {
     case "stream_load" => new StreamLoadProcessor(config, schema)
     case _ => throw new IllegalArgumentException()
   }

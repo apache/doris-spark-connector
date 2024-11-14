@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Client to request Doris BE
  */
+@Deprecated
 public class BackendClient {
     private final static Logger logger = LoggerFactory.getLogger(BackendClient.class);
 

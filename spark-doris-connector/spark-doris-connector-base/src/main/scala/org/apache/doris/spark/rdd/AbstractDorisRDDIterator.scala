@@ -17,14 +17,14 @@
 
 package org.apache.doris.spark.rdd
 
-import org.apache.doris.spark.client.{DorisReader, DorisReaderPartition}
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.read.DorisReader
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.util.TaskCompletionListener
 import org.apache.spark.{TaskContext, TaskKilledException}
 import org.slf4j.{Logger, LoggerFactory}
 
 private[spark] abstract class AbstractDorisRDDIterator[T](
-    config: DorisConfig,
     context: TaskContext,
     partition: DorisReaderPartition) extends Iterator[T] {
 
@@ -35,8 +35,9 @@ private[spark] abstract class AbstractDorisRDDIterator[T](
   // the reader obtain data from Doris BE
   private lazy val reader = {
     initialized = true
+    val config = partition.config
     initReader(config)
-    val valueReaderName = config.getValue(DorisConfigOptions.DORIS_VALUE_READER_CLASS)
+    val valueReaderName = config.getValue(DorisOptions.DORIS_VALUE_READER_CLASS)
     logger.debug(s"Use value reader '$valueReaderName'.")
     val cons = Class.forName(valueReaderName).getDeclaredConstructor(classOf[DorisReaderPartition], classOf[DorisConfig])
     cons.newInstance(partition, config).asInstanceOf[DorisReader]
@@ -59,7 +60,7 @@ private[spark] abstract class AbstractDorisRDDIterator[T](
     if (!hasNext) {
       throw new NoSuchElementException("End of stream")
     }
-    val value = reader.next
+    val value = reader.next()
     createValue(value)
   }
 

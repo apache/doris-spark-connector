@@ -27,12 +27,13 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters.asScalaBufferConverter
 
+@deprecated(since = "24.0.0")
 class ScalaDorisRowValueReader(
   partition: PartitionDefinition,
   settings: Settings)
   extends ScalaValueReader(partition, settings) {
 
-  private val logger: Logger = LoggerFactory.getLogger(classOf[ScalaDorisRowValueReader].getName)
+  private val logger = LoggerFactory.getLogger(classOf[ScalaDorisRowValueReader].getName)
 
   val rowOrder: Seq[String] = settings.getProperty(DORIS_READ_FIELD).split(",")
 
@@ -41,7 +42,7 @@ class ScalaDorisRowValueReader(
       logger.error(SHOULD_NOT_HAPPEN_MESSAGE)
       throw new ShouldNeverHappenException
     }
-    val row: ScalaDorisRow = new ScalaDorisRow(rowOrder)
+    val row = new ScalaDorisRow(rowOrder)
     rowBatch.next.asScala.zipWithIndex.foreach{
       case (s, index) if index < row.values.size => row.values.update(index, s)
       case _ => // nothing

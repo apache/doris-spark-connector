@@ -83,6 +83,7 @@ import java.util.stream.Collectors;
 /**
  * Service for communicate with Doris FE.
  */
+@Deprecated
 public class RestService implements Serializable {
     public final static int REST_RESPONSE_STATUS_OK = 200;
     private static final String API_PREFIX = "/api";

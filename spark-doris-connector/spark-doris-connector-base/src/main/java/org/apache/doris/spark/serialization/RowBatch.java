@@ -77,6 +77,7 @@ import java.util.Objects;
 /**
  * row batch data container.
  */
+@Deprecated
 public class RowBatch {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
     private static final ZoneId DEFAULT_ZONE_ID = ZoneId.systemDefault();

@@ -1,8 +1,8 @@
-package org.apache.doris.spark.client
+package org.apache.doris.spark.client.read
 
 import org.apache.doris.sdk.thrift.{TScanCloseParams, TScanNextBatchParams, TScanOpenParams, TScanOpenResult}
-import org.apache.doris.spark.client.read.RowBatch
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.{DorisBackend, DorisFrontend, DorisReaderPartition, DorisSchema}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.atomic.AtomicBoolean
@@ -16,12 +16,13 @@ protected[spark] abstract class AbstractThriftReader(partition: DorisReaderParti
 
   protected val log: Logger = LoggerFactory.getLogger(this.getClass.getName.stripSuffix("$"))
 
+  protected lazy val frontend: DorisFrontend = DorisFrontend(config)
   private lazy val backend = new DorisBackend(partition.backend, config)
 
   private[this] var offset = 0
 
   private[this] val eos: AtomicBoolean = new AtomicBoolean(false)
-  private[this] lazy val async: Boolean = config.getValue(DorisConfigOptions.DORIS_DESERIALIZE_ARROW_ASYNC)
+  private[this] lazy val async: Boolean = config.getValue(DorisOptions.DORIS_DESERIALIZE_ARROW_ASYNC)
 
   private[this] val beLock = if (async) new ReentrantLock() else new NoOpLock
 
@@ -32,7 +33,7 @@ protected[spark] abstract class AbstractThriftReader(partition: DorisReaderParti
 
   private[this] val rowBatchQueue: BlockingQueue[RowBatch] = {
     if (async) {
-      val blockingQueueSize = config.getValue(DorisConfigOptions.DORIS_DESERIALIZE_QUEUE_SIZE)
+      val blockingQueueSize = config.getValue(DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE)
       new ArrayBlockingQueue(blockingQueueSize)
     } else null
   }
@@ -121,22 +122,22 @@ protected[spark] abstract class AbstractThriftReader(partition: DorisReaderParti
 
   private def buildScanOpenParams(): TScanOpenParams = {
     val params = new TScanOpenParams
-    params.cluster = DorisConfigOptions.DORIS_DEFAULT_CLUSTER
+    params.cluster = DorisOptions.DORIS_DEFAULT_CLUSTER
     params.database = partition.database
     params.table = partition.table
     params.tablet_ids = partition.tablets.map(java.lang.Long.valueOf).toList.asJava
     params.opaqued_query_plan = partition.opaquedQueryPlan
 
     // max row number of one read batch
-    val batchSize = config.getValue(DorisConfigOptions.DORIS_BATCH_SIZE)
-    val queryDorisTimeout = config.getValue(DorisConfigOptions.DORIS_REQUEST_QUERY_TIMEOUT_S)
-    val execMemLimit = config.getValue(DorisConfigOptions.DORIS_EXEC_MEM_LIMIT)
+    val batchSize = config.getValue(DorisOptions.DORIS_BATCH_SIZE)
+    val queryDorisTimeout = config.getValue(DorisOptions.DORIS_REQUEST_QUERY_TIMEOUT_S)
+    val execMemLimit = config.getValue(DorisOptions.DORIS_EXEC_MEM_LIMIT)
 
     params.setBatchSize(batchSize)
     params.setQueryTimeout(queryDorisTimeout)
     params.setMemLimit(execMemLimit)
-    params.setUser(config.getValue(DorisConfigOptions.DORIS_USER))
-    params.setPasswd(config.getValue(DorisConfigOptions.DORIS_PASSWORD))
+    params.setUser(config.getValue(DorisOptions.DORIS_USER))
+    params.setPasswd(config.getValue(DorisOptions.DORIS_PASSWORD))
 
     log.debug(s"Open scan params is, " +
       s"cluster: ${params.getCluster}, " +

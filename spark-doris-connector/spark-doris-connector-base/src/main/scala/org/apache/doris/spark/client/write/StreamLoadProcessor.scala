@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.spark.client
+package org.apache.doris.spark.client.write
 
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.VectorSchemaRoot
 import org.apache.arrow.vector.dictionary.DictionaryProvider
 import org.apache.arrow.vector.ipc.ArrowStreamWriter
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.util.{ArrowUtils, RowConvertors}
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.catalyst.InternalRow
@@ -55,8 +55,8 @@ class StreamLoadProcessor(config: DorisConfig, var schema: StructType = StructTy
   }
 
   override def getWriteFields: String = {
-    if (config.contains(DorisConfigOptions.DORIS_WRITE_FIELDS)) {
-      config.getValue(DorisConfigOptions.DORIS_WRITE_FIELDS)
+    if (config.contains(DorisOptions.DORIS_WRITE_FIELDS)) {
+      config.getValue(DorisOptions.DORIS_WRITE_FIELDS)
     } else schema.fields.map(f => s"`${f.name}`").mkString(",")
   }
 

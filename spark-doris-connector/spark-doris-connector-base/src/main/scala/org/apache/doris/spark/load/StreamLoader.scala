@@ -51,6 +51,7 @@ import scala.util.{Failure, Success, Try}
 
 case class StreamLoadResponse(code: Int, msg: String, content: String)
 
+@deprecated
 class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader {
 
   private final val LOG: Logger = LoggerFactory.getLogger(classOf[StreamLoader])
@@ -208,9 +209,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
     }
 
     //get group commit mode
-    if (!validateGroupCommitMode(props)) {
-      props.remove(ConfigurationOptions.GROUP_COMMIT)
-    }
+    if (!validateGroupCommitMode(props)) props.remove(ConfigurationOptions.GROUP_COMMIT)
 
     props.remove("columns")
     props.toMap
@@ -218,9 +217,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
 
 
   private def validateGroupCommitMode(props: mutable.Map[String, String]): Boolean = {
-    if (!props.contains(ConfigurationOptions.GROUP_COMMIT)) {
-      return false;
-    }
+    if (!props.contains(ConfigurationOptions.GROUP_COMMIT)) return false
 
     val value = props(ConfigurationOptions.GROUP_COMMIT)
     val normalizedValue = value.trim().toLowerCase();

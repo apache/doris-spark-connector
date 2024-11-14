@@ -5,80 +5,59 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.commons.lang3.StringUtils
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
-import org.apache.doris.spark.util.{HttpUtils, JdbcUtils, SchemaConvertors}
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
+import org.apache.doris.spark.util.{HttpUtils, JdbcUtils}
 import org.apache.http.HttpStatus
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.util.EntityUtils
 
 import java.sql.Connection
-import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks
 import scala.util.{Failure, Success, Try}
 
-object DorisFrontend {
+class DorisFrontend(config: DorisConfig) {
 
   private val MAPPER = JsonMapper.builder().addModule(DefaultScalaModule).build()
 
-  private var config: DorisConfig = _
+  private val user: String = config.getValue(DorisOptions.DORIS_USER)
 
-  private var user: String = _
+  private val password: String = config.getValue(DorisOptions.DORIS_PASSWORD)
 
-  private var password: String = _
-
-  private var frontends: List[Frontend] = _
+  private val frontends: List[Frontend] = initFrontends()
 
   private var httpsEnabled: Boolean = false
 
-  private var initialized = false
+  private lazy val httpClient: CloseableHttpClient = HttpUtils.getHttpClient(config)
 
-  def initialize(config: DorisConfig): Unit = {
-    if (!initialized) {
-      this.config = config
-      user = config.getValue(DorisConfigOptions.DORIS_USER)
-      password = config.getValue(DorisConfigOptions.DORIS_PASSWORD)
-      initFrontends()
-      initialized = true
-    }
-  }
-
-  private def initFrontends(): Unit = {
-    if (frontends == null) {
-      val fenodes = config.getValue(DorisConfigOptions.DORIS_FENODES)
-      val httpClient = HttpUtils.getHttpClient(config)
-      httpsEnabled = config.getValue(DorisConfigOptions.DORIS_ENABLE_HTTPS)
-      fenodes.split(",").map(fenode => {
-        val feNodeArr = fenode.split(":")
-        requestFrontends(List(Frontend(feNodeArr(0), feNodeArr(1).toInt)))(frontend => {
-          val httpGet = new HttpGet(URLs.getFrontEndNodes(frontend.host, frontend.httpPort, httpsEnabled))
-          HttpUtils.setAuth(httpGet, user, password)
-          val response = httpClient.execute(httpGet)
-          if (response.getStatusLine.getStatusCode != HttpStatus.SC_OK) {
-            throw new Exception()
-          }
-          val entity = EntityUtils.toString(response.getEntity)
-          val dataNode = extractEntity(entity, "data")
-          val columnNames = dataNode.get("columnNames").asInstanceOf[ArrayNode]
-          val rows = dataNode.get("rows").asInstanceOf[ArrayNode]
-          Try {
-            frontends = parseFrontends(columnNames, rows)
-          } match {
-            case Success(_) => // do nothing
-            case Failure(exception) => exception.printStackTrace()
-          }
-          println(frontends)
-        })
+  private def initFrontends(): List[Frontend] = {
+    val fenodes = config.getValue(DorisOptions.DORIS_FENODES)
+    httpsEnabled = config.getValue(DorisOptions.DORIS_ENABLE_HTTPS)
+    fenodes.split(",").map(fenode => {
+      val feNodeArr = fenode.split(":")
+      requestFrontends(List(Frontend(feNodeArr(0), feNodeArr(1).toInt)))((frontend, httpClient) => {
+        val httpGet = new HttpGet(URLs.getFrontEndNodes(frontend.host, frontend.httpPort, httpsEnabled))
+        HttpUtils.setAuth(httpGet, user, password)
+        val response = httpClient.execute(httpGet)
+        if (response.getStatusLine.getStatusCode != HttpStatus.SC_OK) {
+          throw new Exception()
+        }
+        val entity = EntityUtils.toString(response.getEntity)
+        val dataNode = extractEntity(entity, "data")
+        val columnNames = dataNode.get("columnNames").asInstanceOf[ArrayNode]
+        val rows = dataNode.get("rows").asInstanceOf[ArrayNode]
+        parseFrontends(columnNames, rows)
       })
-    }
+    }).head.get
   }
 
-  def requestFrontends[T](frontEnds: List[Frontend] = frontends)(f: Frontend => T): Option[T] = {
+  def requestFrontends[T](frontEnds: List[Frontend] = frontends)(f: (Frontend, CloseableHttpClient) => T): Option[T] = {
     val breaks = new Breaks
     var requestResult: Option[T] = None
     breaks.breakable {
       frontEnds.foreach(frontEnd => {
-        val result = Try(f(frontEnd))
+        val result = Try(f(frontEnd, httpClient))
         result match {
           case Success(res) => requestResult = Some(res)
           case Failure(exception) =>
@@ -145,8 +124,7 @@ object DorisFrontend {
   }
 
   def getTableSchema(db: String, table: String): DorisSchema = {
-    requestFrontends()(frontend => {
-      val httpClient = HttpUtils.getHttpClient(config)
+    requestFrontends()((frontend, httpClient) => {
       val httpGet = new HttpGet(URLs.tableSchema(frontend.host, frontend.httpPort, db, table, httpsEnabled))
       HttpUtils.setAuth(httpGet, user, password)
       val response = httpClient.execute(httpGet)
@@ -156,7 +134,7 @@ object DorisFrontend {
       val entity = EntityUtils.toString(response.getEntity)
       val dorisSchema = MAPPER.readValue(extractEntity(entity, "data").traverse(), classOf[DorisSchema])
       val unsupportedCols = dorisSchema.properties.filter(field => field.`type`.toUpperCase == "BITMAP" || field.`type`.toUpperCase == "HLL")
-      config.setProperty(DorisConfigOptions.DORIS_UNSUPPORTED_COLUMNS, unsupportedCols.map(c => s"`$c`").mkString(","))
+      config.setProperty(DorisOptions.DORIS_UNSUPPORTED_COLUMNS, unsupportedCols.map(c => s"`$c`").mkString(","))
       dorisSchema
     }).get
   }
@@ -189,8 +167,7 @@ object DorisFrontend {
   }
 
   def getQueryPlan(database: String, table: String, sql: String): QueryPlan = {
-    requestFrontends()(frontend => {
-      val httpClient = HttpUtils.getHttpClient(config)
+    requestFrontends()((frontend, httpClient) => {
       val httpPost = new HttpPost(URLs.queryPlan(frontend.host, frontend.httpPort, database, table, httpsEnabled))
       HttpUtils.setAuth(httpPost, user, password)
       val body = MAPPER.writeValueAsString(Map[String, String]("sql" -> sql))
@@ -205,7 +182,7 @@ object DorisFrontend {
   }
 
   private def extractEntity(entityStr: String, fieldName: String): JsonNode = {
-    MAPPER.readTree(entityStr).get("data")
+    MAPPER.readTree(entityStr).get(fieldName)
   }
 
   def getTableAllColumns(db: String, table: String): Array[String] = {
@@ -223,4 +200,12 @@ object DorisFrontend {
     }).get
   }
 
+  def close(): Unit = {
+    httpClient.close()
+  }
+
+}
+
+object DorisFrontend {
+  def apply(config: DorisConfig): DorisFrontend = new DorisFrontend(config)
 }

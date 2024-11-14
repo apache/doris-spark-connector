@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.DorisTestBase
+import org.apache.doris.spark.{DorisTestBase, sparkContextFunctions}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 import org.junit.Test
@@ -45,11 +45,10 @@ class DorisReaderITCase extends DorisTestBase {
         "doris.request.auth.password" -> DorisTestBase.PASSWORD
       ))
     )
-    import scala.collection.JavaConverters._
-    val result = dorisSparkRDD.collect().toList.asJava
+    val result = dorisSparkRDD.collect()
     sc.stop()
 
-    assert(List(List("doris", 18).asJava, List("org.apache.doris.spark", 10).asJava).asJava.equals(result))
+    assert(compareCollectResult(Array(Array("doris", 18), Array("spark", 10)), result))
   }
 
   @Test
@@ -62,8 +61,8 @@ class DorisReaderITCase extends DorisTestBase {
       .format("doris")
       .option("doris.fenodes", DorisTestBase.getFenodes)
       .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL)
-      .option("user", DorisTestBase.USERNAME)
-      .option("password", DorisTestBase.PASSWORD)
+      .option("doris.user", DorisTestBase.USERNAME)
+      .option("doris.password", DorisTestBase.PASSWORD)
       .load()
 
     val result = dorisSparkDF.collect().toList.toString()
@@ -85,12 +84,12 @@ class DorisReaderITCase extends DorisTestBase {
          | "fenodes"="${DorisTestBase.getFenodes}",
          | "user"="${DorisTestBase.USERNAME}",
          | "password"="${DorisTestBase.PASSWORD}"
-         |);
+         |)
          |""".stripMargin)
 
     val result = session.sql(
       """
-        |select  name,age from test_source;
+        |select  name,age from test_source
         |""".stripMargin).collect().toList.toString()
     session.stop()
 
@@ -117,6 +116,27 @@ class DorisReaderITCase extends DorisTestBase {
         if (statement != null) statement.close()
       }
     }
+  }
+
+  private def compareCollectResult(a1: Array[AnyRef], a2: Array[AnyRef]): Boolean = {
+    if (a1.length == a2.length) {
+      for (idx <- a1.indices) {
+        if (!a1(idx).isInstanceOf[Array[AnyRef]] || !a2(idx).isInstanceOf[Array[AnyRef]]) {
+          return false
+        }
+        val arr1 = a1(idx).asInstanceOf[Array[AnyRef]]
+        val arr2 = a2(idx).asInstanceOf[Array[AnyRef]]
+        if (arr1.length != arr2.length) {
+          return false
+        }
+        for (idx2 <- arr1.indices) {
+          if (arr1(idx2) != arr2(idx2)) {
+            return false
+          }
+        }
+      }
+      true
+    } else false
   }
 
 

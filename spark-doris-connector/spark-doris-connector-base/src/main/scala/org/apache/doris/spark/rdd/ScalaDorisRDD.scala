@@ -17,8 +17,9 @@
 
 package org.apache.doris.spark.rdd
 
-import org.apache.doris.spark.client.{DorisReaderPartition, DorisThriftReader}
-import org.apache.doris.spark.config.{DorisConfig, DorisConfigOptions}
+import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.read.DorisThriftReader
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 import scala.reflect.ClassTag
@@ -28,18 +29,17 @@ private[spark] class ScalaDorisRDD[T: ClassTag](
     params: Map[String, String] = Map.empty)
     extends AbstractDorisRDD[T](sc, params) {
   override def compute(split: Partition, context: TaskContext): ScalaDorisRDDIterator[T] = {
-    new ScalaDorisRDDIterator(dorisCfg, context, split.asInstanceOf[DorisPartition].dorisPartition)
+    new ScalaDorisRDDIterator(context, split.asInstanceOf[DorisPartition].dorisPartition)
   }
 }
 
 private[spark] class ScalaDorisRDDIterator[T](
-                                               config: DorisConfig,
                                                context: TaskContext,
                                                partition: DorisReaderPartition)
-  extends AbstractDorisRDDIterator[T](config, context, partition) {
+  extends AbstractDorisRDDIterator[T](context, partition) {
 
   override def initReader(config: DorisConfig): Unit = {
-    config.setProperty(DorisConfigOptions.DORIS_VALUE_READER_CLASS, classOf[DorisThriftReader].getName)
+    config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisThriftReader].getName)
   }
 
   override def createValue(value: Object): T = {

@@ -19,11 +19,12 @@ import scala.language.implicitConversions
 
 class DorisTable(identifier: Identifier, config: DorisConfig, schema: Option[StructType]) extends Table with SupportsRead with SupportsWrite {
 
+  private lazy val frontend:DorisFrontend = DorisFrontend(config)
+
   override def name(): String = identifier.toString
 
   override def schema(): StructType = schema.getOrElse({
-    DorisFrontend.initialize(config)
-    val dorisSchema = DorisFrontend.getTableSchema(identifier.namespace()(0), identifier.name())
+    val dorisSchema = frontend.getTableSchema(identifier.namespace()(0), identifier.name())
     dorisSchema
   })
 

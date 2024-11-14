@@ -103,11 +103,11 @@ class DorisWriterITCase extends DorisTestBase {
          | "fenodes"="${DorisTestBase.getFenodes}",
          | "user"="${DorisTestBase.USERNAME}",
          | "password"="${DorisTestBase.PASSWORD}"
-         |);
+         |)
          |""".stripMargin)
     session.sql(
       """
-        |insert into test_sink select  name,age from mock_source ;
+        |insert into test_sink select  name,age from mock_source
         |""".stripMargin)
     session.stop()
 

@@ -17,15 +17,16 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.cfg.ConfigurationOptions._
-import org.apache.doris.spark.cfg.{ConfigurationOptions, SparkSettings}
+import org.apache.doris.spark.cfg.ConfigurationOptions
+import org.apache.doris.spark.client.DorisFrontend
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
+import org.apache.doris.spark.util.SchemaConvertors
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.math.min
 
@@ -34,17 +35,22 @@ private[sql] class DorisRelation(
     val sqlContext: SQLContext, parameters: Map[String, String])
     extends BaseRelation with TableScan with PrunedScan with PrunedFilteredScan with InsertableRelation{
 
-  private lazy val cfg = {
-    val conf = new SparkSettings(sqlContext.sparkContext.getConf)
-    conf.merge(parameters.asJava)
-    conf
-  }
+  private lazy val cfg = DorisConfig.fromSparkConf(sqlContext.sparkContext.getConf, parameters)
 
   private lazy val inValueLengthLimit =
-    min(cfg.getProperty(DORIS_FILTER_QUERY_IN_MAX_COUNT, "100").toInt,
-      DORIS_FILTER_QUERY_IN_VALUE_UPPER_LIMIT)
+    min(cfg.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT), DorisOptions.DORIS_FILTER_QUERY_IN_VALUE_UPPER_LIMIT)
 
-  private lazy val lazySchema = SchemaUtils.discoverSchema(cfg)
+  private lazy val frontend = DorisFrontend(cfg)
+
+  private lazy val lazySchema = {
+    val tableIdentifier = cfg.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)
+    val tableIdentifierArr = tableIdentifier.split("\\.").map(_.replaceAll("`", ""))
+    val dorisSchema = frontend.getTableSchema(tableIdentifierArr(0), tableIdentifierArr(1))
+    StructType(dorisSchema.properties.map(field => {
+      StructField(field.name, SchemaConvertors.toCatalystType(field.`type`, field.precision, field.scale))
+    }))
+
+  }
 
   private lazy val dialect = JdbcDialects.get("")
 
@@ -70,11 +76,6 @@ private[sql] class DorisRelation(
           .map(filter => s"($filter)").mkString(" and ")
     }
 
-    val bitmapColumnStr = cfg.getProperty(SchemaUtils.DORIS_BITMAP_COLUMNS, "")
-    paramWithScan += (SchemaUtils.DORIS_BITMAP_COLUMNS -> bitmapColumnStr)
-    val hllColumnStr = cfg.getProperty(SchemaUtils.DORIS_HLL_COLUMNS, "")
-    paramWithScan += (SchemaUtils.DORIS_HLL_COLUMNS -> hllColumnStr)
-
     // required columns for column pruner
     if (requiredColumns != null && requiredColumns.length > 0) {
       paramWithScan += (ConfigurationOptions.DORIS_READ_FIELD ->
@@ -93,16 +94,8 @@ private[sql] class DorisRelation(
 
   // Insert Table
   override def insert(data: DataFrame, overwrite: Boolean): Unit = {
-    //replace 'doris.request.auth.user' with 'user' and 'doris.request.auth.password' with 'password'
-    val insertCfg = cfg.copy().asProperties().asScala.map {
-      case (ConfigurationOptions.DORIS_REQUEST_AUTH_USER, v) =>
-        ("user", v)
-      case (ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD, v) =>
-        ("password", v)
-      case (k, v) => (k, v)
-    }
     data.write.format(DorisSourceProvider.SHORT_NAME)
-      .options(insertCfg)
+      .options(cfg.toMap)
       .mode(if (overwrite) SaveMode.Overwrite else SaveMode.Append)
       .save()
   }

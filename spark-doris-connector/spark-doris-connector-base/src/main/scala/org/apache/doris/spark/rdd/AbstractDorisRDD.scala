@@ -17,14 +17,12 @@
 
 package org.apache.doris.spark.rdd
 
-import org.apache.doris.spark.cfg.SparkSettings
-import org.apache.doris.spark.client.{DorisFrontend, DorisReaderPartition, ReaderPartitionGenerator}
+import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.read.ReaderPartitionGenerator
 import org.apache.doris.spark.config.DorisConfig
-import org.apache.doris.spark.rest.{PartitionDefinition, RestService}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{Partition, SparkContext}
 
-import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
 
 protected[spark] abstract class AbstractDorisRDD[T: ClassTag](
@@ -50,7 +48,10 @@ protected[spark] abstract class AbstractDorisRDD[T: ClassTag](
   /**
    * doris configuration get from rdd parameters and spark conf.
    */
-  @transient private[spark] lazy val dorisCfg = DorisConfig.fromSparkConf(sc.getConf)
+  @transient private[spark] lazy val dorisCfg = {
+    val config = DorisConfig.fromSparkConf(sc.getConf, params)
+    config
+  }
 
   @transient private[spark] lazy val dorisPartitions = ReaderPartitionGenerator.generatePartitions(dorisCfg)
 }

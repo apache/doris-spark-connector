@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * a cached streamload client for each partition
  */
+@Deprecated
 public class CachedDorisStreamLoadClient {
     private static final long cacheExpireTimeout = 30 * 60;
     private static LoadingCache<SparkSettings, DorisStreamLoad> dorisStreamLoadLoadingCache;

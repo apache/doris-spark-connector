@@ -1,6 +1,7 @@
 package org.apache.doris.spark.client
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import org.apache.doris.spark.config.DorisConfig
 
 case class Frontend(host: String, httpPort: Int, queryPort: Int = -1, flightSqlPort: Int = -1)
 
@@ -32,4 +33,4 @@ case class StreamLoadResponse(@JsonProperty(value = "TxnId") TxnId: Long,
                               @JsonProperty(value = "CommitAndPublishTimeMs") CommitAndPublishTimeMs: Int,
                               @JsonProperty(value = "ErrorURL") ErrorURL: String)
 
-case class DorisReaderPartition(database: String, table: String, backend: String, tablets: Array[Long], opaquedQueryPlan: String)
+case class DorisReaderPartition(database: String, table: String, backend: String, tablets: Array[Long], opaquedQueryPlan: String, config: DorisConfig)

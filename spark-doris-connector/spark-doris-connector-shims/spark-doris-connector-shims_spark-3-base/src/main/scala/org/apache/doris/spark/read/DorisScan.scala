@@ -1,6 +1,7 @@
 package org.apache.doris.spark.read
 
-import org.apache.doris.spark.client.{DorisReaderPartition, ReaderPartitionGenerator}
+import org.apache.doris.spark.client.read.ReaderPartitionGenerator
+import org.apache.doris.spark.client.{DorisFrontend, DorisReaderPartition}
 import org.apache.doris.spark.config.DorisConfig
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReaderFactory, Scan}
