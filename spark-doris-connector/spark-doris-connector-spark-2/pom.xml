@@ -7,7 +7,7 @@
         <groupId>org.apache.doris</groupId>
         <artifactId>spark-doris-connector</artifactId>
         <version>${revision}</version>
-        <!-- <relativePath>../pom.xml</relativePath> -->
+        <relativePath>../pom.xml</relativePath>
     </parent>
     <packaging>jar</packaging>
 
@@ -27,7 +27,6 @@
         <dependency>
             <groupId>org.apache.doris</groupId>
             <artifactId>spark-doris-connector-base</artifactId>
-            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>

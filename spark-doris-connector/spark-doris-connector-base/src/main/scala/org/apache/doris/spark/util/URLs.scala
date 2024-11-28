@@ -27,16 +27,39 @@ object URLs {
 
   def aliveBackend(feNode: String, enableHttps: Boolean = false) = s"${schema(enableHttps)}://$feNode/api/backends?is_alive=true"
 
+  def aliveBackend(host: String, port: Int, enableHttps: Boolean) = s"${schema(enableHttps)}://$host:$port/api/backends?is_alive=true"
+
   def tableSchema(feNode: String, database: String, table: String, enableHttps: Boolean = false) =
     s"${schema(enableHttps)}://$feNode/api/$database/$table/_schema"
+
+  def tableSchema(host: String, port: Int, database: String, table: String, enableHttps: Boolean): String =
+    tableSchema(s"$host:$port", database, table, enableHttps)
 
   def queryPlan(feNode: String, database: String, table: String, enableHttps: Boolean = false) =
     s"${schema(enableHttps)}://$feNode/api/$database/$table/_query_plan"
 
+  def queryPlan(host: String, port: Int, database: String, table: String, enableHttps: Boolean): String =
+    queryPlan(s"$host:$port", database, table, enableHttps)
+
   def streamLoad(feNode: String, database: String, table: String, enableHttps: Boolean = false) =
     s"${schema(enableHttps)}://$feNode/api/$database/$table/_stream_load"
 
+  def streamLoad(host: String, port: Int, database: String, table: String, enableHttps: Boolean): String =
+    streamLoad(s"$host:$port", database, table, enableHttps)
+
   def streamLoad2PC(feNode: String, database: String, enableHttps: Boolean = false) =
     s"${schema(enableHttps)}://$feNode/api/$database/_stream_load_2pc"
+
+  def streamLoad2PC(host: String, port: Int, database: String, enableHttps: Boolean): String =
+    streamLoad2PC(s"$host:$port", database, enableHttps)
+
+  def getFrontEndNodes(host: String, port: Int, enableHttps: Boolean = false) =
+    s"${schema(enableHttps)}://$host:$port/rest/v2/manager/node/frontends"
+
+  def copyIntoUpload(host: String, port: Int, enableHttps: Boolean = false) =
+    s"${schema(enableHttps)}://$host:$port/copy/upload"
+
+  def copyIntoQuery(host: String, port: Int, enableHttps: Boolean = false) =
+    s"${schema(enableHttps)}://$host:$port/copy/query"
 
 }

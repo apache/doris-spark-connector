@@ -1,6 +1,23 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.doris.spark.catalog
 
-import org.apache.doris.spark.client.DorisFrontend
+import org.apache.doris.spark.client.DorisFrontendClient
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException
 import org.apache.spark.sql.connector.catalog.{Identifier, NamespaceChange, SupportsNamespaces, Table, TableCatalog, TableChange}
@@ -17,7 +34,7 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
 
   private var dorisConfig: DorisConfig = _
 
-  private var frontend: DorisFrontend = _
+  private var frontend: DorisFrontendClient = _
 
   override def name(): String = {
     require(catalogName.nonEmpty, "The Doris table catalog is not initialed")
@@ -27,18 +44,18 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
   override def initialize(name: String, caseInsensitiveStringMap: CaseInsensitiveStringMap): Unit = {
     assert(catalogName.isEmpty, "The Doris table catalog is already initialed")
     catalogName = Some(name)
-    dorisConfig = DorisConfig.fromMap(caseInsensitiveStringMap.asScala.toMap)
-    frontend = DorisFrontend(dorisConfig)
+    dorisConfig = DorisConfig.fromMap(caseInsensitiveStringMap)
+    frontend = new DorisFrontendClient(dorisConfig)
   }
 
   override def listTables(namespace: Array[String]): Array[Identifier] = {
-    DorisFrontend.listTables(namespace).map(i => Identifier.of(i._1, i._2))
+    frontend.listTables(namespace).asScala.map(i => Identifier.of(i.getLeft, i.getValue)).toArray
   }
 
   override def loadTable(identifier: Identifier): Table = {
     checkIdentifier(identifier)
-    new DorisTable(identifier, DorisConfig.fromMap(dorisConfig.configOptions.toMap +
-      (DorisOptions.DORIS_TABLE_IDENTIFIER.name -> getFullTableName(identifier))), None)
+    new DorisTable(identifier, DorisConfig.fromMap((dorisConfig.toMap.asScala +
+      (DorisOptions.DORIS_TABLE_IDENTIFIER.getName -> getFullTableName(identifier))).asJava), None)
   }
 
   override def createTable(identifier: Identifier, structType: StructType, transforms: Array[Transform], map: util.Map[String, String]): Table = throw new UnsupportedOperationException()
@@ -50,13 +67,13 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
   override def renameTable(identifier: Identifier, identifier1: Identifier): Unit = throw new UnsupportedOperationException()
 
   override def listNamespaces(): Array[Array[String]] = {
-    DorisFrontend.listDatabases().map(Array(_))
+    frontend.listDatabases().map(Array(_))
   }
 
   override def listNamespaces(namespace: Array[String]): Array[Array[String]] = {
     namespace match {
       case Array() => listNamespaces()
-      case Array(_) if DorisFrontend.databaseExists(namespace(0)) => Array()
+      case Array(_) if frontend.databaseExists(namespace(0)) => Array()
       case _ => throw new NoSuchNamespaceException(namespace)
     }
   }
@@ -64,7 +81,7 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
   override def loadNamespaceMetadata(namespace: Array[String]): util.Map[String, String] = {
     namespace match {
       case Array(database) =>
-        if (!DorisFrontend.databaseExists(database)) {
+        if (!frontend.databaseExists(database)) {
           throw new NoSuchNamespaceException(namespace)
         }
         new util.HashMap[String, String]()

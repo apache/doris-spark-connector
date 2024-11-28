@@ -26,6 +26,16 @@ public class Tablet {
     private long versionHash;
     private long schemaHash;
 
+    public Tablet() {
+    }
+
+    public Tablet(List<String> routings, int version, long versionHash, long schemaHash) {
+        this.routings = routings;
+        this.version = version;
+        this.versionHash = versionHash;
+        this.schemaHash = schemaHash;
+    }
+
     public List<String> getRoutings() {
         return routings;
     }

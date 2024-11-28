@@ -18,7 +18,7 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.DorisTestBase
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.junit.Test
 
 import java.sql.{ResultSet, Statement}
@@ -46,9 +46,10 @@ class DorisWriterITCase extends DorisTestBase {
       .option("doris.table.identifier", DATABASE + "." + TABLE_CSV)
       .option("user", DorisTestBase.USERNAME)
       .option("password", DorisTestBase.PASSWORD)
-      .option("sink.properteis.column_separator", ",")
-      .option("sink.properteis.line_delimiter", "\n")
-      .option("sink.properteis.format", "csv")
+      .option("sink.properties.column_separator", ",")
+      .option("sink.properties.line_delimiter", "\n")
+      .option("sink.properties.format", "csv")
+      .mode(SaveMode.Append)
       .save()
     session.stop()
 
@@ -73,8 +74,10 @@ class DorisWriterITCase extends DorisTestBase {
       .option("doris.table.identifier", DATABASE + "." + TABLE_JSON)
       .option("user", DorisTestBase.USERNAME)
       .option("password", DorisTestBase.PASSWORD)
-      .option("sink.properteis.read_json_by_line", "true")
-      .option("sink.properteis.format", "json")
+      .option("sink.properties.read_json_by_line", "true")
+      .option("sink.properties.format", "json")
+      .option("doris.sink.auto-redirect", "false")
+      .mode(SaveMode.Append)
       .save()
     session.stop()
 

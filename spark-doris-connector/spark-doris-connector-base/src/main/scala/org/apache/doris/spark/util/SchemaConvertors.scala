@@ -2,9 +2,10 @@ package org.apache.doris.spark.util
 
 import org.apache.commons.lang3.StringUtils
 import org.apache.doris.sdk.thrift.{TPrimitiveType, TScanColumnDesc}
-import org.apache.doris.spark.client.{DorisSchema, Field}
+import org.apache.doris.spark.rest.models.{Field, Schema}
 import org.apache.spark.sql.types.{DataType, DataTypes, DecimalType, MapType}
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 object SchemaConvertors {
@@ -49,31 +50,13 @@ object SchemaConvertors {
     }
   }
 
-  def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc], readFields: Array[String], unsupportedCols: Array[String]): DorisSchema = {
-    val fieldList = fieldUnion(readFields, unsupportedCols, tscanColumnDescs)
-    DorisSchema(0, "", fieldList)
-  }
-
-  private def fieldUnion(readColumns: Array[String], unsupportedCols: Array[String], tScanColumnDescSeq: Seq[TScanColumnDesc]): List[Field] = {
-    val fieldList = mutable.Buffer[Field]()
-    var rcIdx = 0;
-    var tsdIdx = 0;
-    while (rcIdx < readColumns.length || tsdIdx < tScanColumnDescSeq.length) {
-      if (rcIdx < readColumns.length) {
-        if (StringUtils.equals(readColumns(rcIdx), tScanColumnDescSeq(tsdIdx).getName)) {
-          fieldList += Field(tScanColumnDescSeq(tsdIdx).getName, tScanColumnDescSeq(tsdIdx).getType.name, "", "")
-          rcIdx += 1
-          tsdIdx += 1
-        } else if (unsupportedCols.contains(readColumns(rcIdx))) {
-          fieldList += Field(readColumns(rcIdx), TPrimitiveType.VARCHAR.name, "", "")
-          rcIdx += 1
-        }
-      } else {
-        fieldList += Field(tScanColumnDescSeq(tsdIdx).getName, tScanColumnDescSeq(tsdIdx).getType.name, "", "")
-        tsdIdx += 1
-      }
-    }
-    fieldList.toList
+  def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc]): Schema = {
+    val schema = new Schema(tscanColumnDescs.length)
+    tscanColumnDescs.foreach(desc => {
+      println(desc.getName + " " + desc.getType.name())
+      schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, ""))
+    })
+    schema
   }
 
 }

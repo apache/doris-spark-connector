@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-org.apache.doris.spark.datasource.DorisDataSourceV2
+org.apache.doris.spark.sql.sources.DorisDataSourceV2

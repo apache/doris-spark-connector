@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.writer
 
-import org.apache.doris.spark.client.write.{DorisCommitter, StreamLoadProcessor}
+import org.apache.doris.spark.client.write.{CopyIntoProcessor, DorisCommitter, StreamLoadProcessor}
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.load.CommitMessage
 import org.apache.doris.spark.sql.Utils
@@ -206,6 +206,7 @@ class DorisWriter(config: DorisConfig,
   private def generateLoader: org.apache.doris.spark.client.write.DorisWriter[InternalRow] = {
     loadMode match {
       case "stream_load" => new StreamLoadProcessor(config)
+      case "copy_into" => new CopyIntoProcessor(config)
       // case "stream_load" => new StreamLoader(settings, isStreaming)
       // case "copy_into" => new CopyIntoLoader(settings, isStreaming)
       case _ => throw new IllegalArgumentException(s"Unsupported load mode: $loadMode")
@@ -216,6 +217,7 @@ class DorisWriter(config: DorisConfig,
   private def generateCommitter: DorisCommitter = {
     loadMode match {
       case "stream_load" => new StreamLoadProcessor(config)
+      case "copy_into" => new CopyIntoProcessor(config)
       // case "stream_load" => new StreamLoader(settings, isStreaming)
       // case "copy_into" => new CopyIntoLoader(settings, isStreaming)
       case _ => throw new IllegalArgumentException(s"Unsupported load mode: $loadMode")
@@ -223,7 +225,11 @@ class DorisWriter(config: DorisConfig,
   }
 
   private def batchWriteFunc(iter: Iterator[InternalRow], schema: StructType): Option[CommitMessage] = {
-    writer.asInstanceOf[StreamLoadProcessor].schema = schema
+    writer match {
+      case processor: StreamLoadProcessor => processor.setSchema(schema)
+      case processor: CopyIntoProcessor => processor.setSchema(schema)
+      case _ => // do nothing
+    }
     while (iter.hasNext) {
       writer.load(iter.next())
     }

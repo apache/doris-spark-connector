@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.rdd
 
-import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.entity.DorisReaderPartition
 import org.apache.doris.spark.client.read.DorisThriftReader
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.{Partition, SparkContext, TaskContext}

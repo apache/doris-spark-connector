@@ -13,7 +13,7 @@
     <artifactId>spark-doris-connector-spark-3</artifactId>
 
     <properties>
-        <spark.version>3.0.0</spark.version>
+        <spark.version>3.0.3</spark.version>
         <spark.major.version>3.0</spark.major.version>
         <scala.version>2.12.18</scala.version>
         <scala.major.version>2.12</scala.major.version>

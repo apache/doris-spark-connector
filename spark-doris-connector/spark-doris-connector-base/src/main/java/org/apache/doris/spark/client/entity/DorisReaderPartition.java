@@ -1,0 +1,82 @@
+package org.apache.doris.spark.client.entity;
+
+import org.apache.doris.spark.config.DorisConfig;
+
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Objects;
+
+public class DorisReaderPartition implements Serializable {
+
+    private final String database;
+    private final String table;
+    private final Backend backend;
+    private final Long[] tablets;
+    private final String opaquedQueryPlan;
+    private final String[] readColumns;
+    private final String[] filters;
+    private final DorisConfig config;
+
+    public DorisReaderPartition(String database, String table, Backend backend, Long[] tablets, String opaquedQueryPlan, String[] readColumns, String[] filters, DorisConfig config) {
+        this.database = database;
+        this.table = table;
+        this.backend = backend;
+        this.tablets = tablets;
+        this.opaquedQueryPlan = opaquedQueryPlan;
+        this.readColumns = readColumns;
+        this.filters = filters;
+        this.config = config;
+    }
+
+    // Getters and Setters
+    public String getDatabase() {
+        return database;
+    }
+
+    public String getTable() {
+        return table;
+    }
+
+    public Backend getBackend() {
+        return backend;
+    }
+
+    public Long[] getTablets() {
+        return tablets;
+    }
+
+    public String getOpaquedQueryPlan() {
+        return opaquedQueryPlan;
+    }
+
+    public DorisConfig getConfig() {
+        return config;
+    }
+
+    public String[] getReadColumns() {
+        return readColumns;
+    }
+
+    public String[] getFilters() {
+        return filters;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        DorisReaderPartition that = (DorisReaderPartition) o;
+        return Objects.equals(database, that.database)
+                && Objects.equals(table, that.table)
+                && Objects.equals(backend, that.backend)
+                && Objects.deepEquals(tablets, that.tablets)
+                && Objects.equals(opaquedQueryPlan, that.opaquedQueryPlan)
+                && Objects.deepEquals(readColumns, that.readColumns)
+                && Objects.deepEquals(filters, that.filters)
+                && Objects.equals(config, that.config);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(database, table, backend, Arrays.hashCode(tablets), opaquedQueryPlan, Arrays.hashCode(readColumns), Arrays.hashCode(filters), config);
+    }
+}

@@ -1,6 +1,6 @@
 package org.apache.doris.spark.read
 
-import org.apache.doris.spark.config.DorisConfig
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.util.DorisDialects
 import org.apache.spark.sql.connector.read.{Scan, ScanBuilder, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
 import org.apache.spark.sql.sources.Filter
@@ -14,10 +14,12 @@ protected[spark] abstract class DorisScanBuilderTrait(config: DorisConfig, schem
 
   private var pushDownPredicates: Array[Filter] = Array[Filter]()
 
+  private val inValueLengthLimit = config.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT)
+
   override def build(): Scan = new DorisScan(config, readSchema, pushDownPredicates)
 
   override def pushFilters(filters: Array[Filter]): Array[Filter] = {
-    val (pushed, unsupported) = filters.partition(DorisDialects.compileFilter(_).isDefined)
+    val (pushed, unsupported) = filters.partition(DorisDialects.compileFilter(_, inValueLengthLimit).isDefined)
     this.pushDownPredicates = pushed
     unsupported
   }

@@ -42,7 +42,7 @@ class ScalaDorisRowValueReader(
       logger.error(SHOULD_NOT_HAPPEN_MESSAGE)
       throw new ShouldNeverHappenException
     }
-    val row = new ScalaDorisRow(rowOrder)
+    val row = new DorisRow(rowOrder)
     rowBatch.next.asScala.zipWithIndex.foreach{
       case (s, index) if index < row.values.size => row.values.update(index, s)
       case _ => // nothing

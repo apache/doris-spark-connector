@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.rdd
 
-import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.entity.DorisReaderPartition
 import org.apache.doris.spark.client.read.DorisReader
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.util.TaskCompletionListener
@@ -35,12 +35,12 @@ private[spark] abstract class AbstractDorisRDDIterator[T](
   // the reader obtain data from Doris BE
   private lazy val reader = {
     initialized = true
-    val config = partition.config
+    val config = partition.getConfig
     initReader(config)
     val valueReaderName = config.getValue(DorisOptions.DORIS_VALUE_READER_CLASS)
     logger.debug(s"Use value reader '$valueReaderName'.")
-    val cons = Class.forName(valueReaderName).getDeclaredConstructor(classOf[DorisReaderPartition], classOf[DorisConfig])
-    cons.newInstance(partition, config).asInstanceOf[DorisReader]
+    val cons = Class.forName(valueReaderName).getDeclaredConstructor(classOf[DorisReaderPartition])
+    cons.newInstance(partition).asInstanceOf[DorisReader]
   }
 
   context.addTaskCompletionListener(new TaskCompletionListener() {

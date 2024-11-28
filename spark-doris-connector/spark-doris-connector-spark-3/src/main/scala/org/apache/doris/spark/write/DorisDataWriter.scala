@@ -1,7 +1,24 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.doris.spark.write
 
 import org.apache.commons.lang3.StringUtils
-import org.apache.doris.spark.client.write.{DorisWriter, StreamLoadProcessor}
+import org.apache.doris.spark.client.write.{CopyIntoProcessor, DorisCommitter, DorisWriter, StreamLoadProcessor}
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.util.Retry
 import org.apache.spark.internal.Logging
@@ -15,10 +32,12 @@ import scala.util.{Failure, Success}
 
 class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int, taskId: Long, epochId: Long = -1) extends DataWriter[InternalRow] with Logging {
 
-  private val writer: DorisWriter[InternalRow] = config.getValue(DorisOptions.LOAD_MODE) match {
-    case "stream_load" => new StreamLoadProcessor(config, schema)
-    case _ => throw new IllegalArgumentException()
-  }
+  private val (writer: DorisWriter[InternalRow], committer: DorisCommitter) =
+    config.getValue(DorisOptions.LOAD_MODE) match {
+      case "stream_load" => (new StreamLoadProcessor(config, schema), new StreamLoadProcessor(config, schema))
+      case "copy_into" => (new CopyIntoProcessor(config, schema), new CopyIntoProcessor(config, schema))
+      case mode => throw new IllegalArgumentException("Unsupported load mode: " + mode)
+    }
 
   private val batchSize = config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE)
 
@@ -48,7 +67,6 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
       }
     }
     loadWithRetries(record)
-    currentBatchCount += 1
   }
 
   override def commit(): WriterCommitMessage = {
@@ -64,6 +82,9 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
   }
 
   override def abort(): Unit = {
+    if (committedMessages.nonEmpty) {
+      committedMessages.foreach(msg => committer.abort(msg))
+    }
     close()
   }
 
@@ -75,21 +96,22 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
 
   @throws[Exception]
   private def loadWithRetries(record: InternalRow): Unit = {
-    recordBuffer += record
     var isRetrying = false
-    Retry.exec[Unit, Exception](retries, Duration.ofMillis(batchIntervalMs), log) {
+    Retry.exec[Unit, Exception](retries, Duration.ofMillis(batchIntervalMs.toLong), log) {
       if (isRetrying) {
-        currentBatchCount = 0
         do {
           writer.load(recordBuffer(currentBatchCount))
           currentBatchCount += 1
-        } while (currentBatchCount < recordBuffer.size - 1)
+        } while (currentBatchCount < recordBuffer.size)
+        isRetrying = false
       }
       writer.load(record)
+      currentBatchCount += 1
     } {
       isRetrying = true
+      currentBatchCount = 0
     } match {
-      case Success(_) => // do nothing
+      case Success(_) => recordBuffer += record
       case Failure(exception) => throw new Exception(exception)
     }
 

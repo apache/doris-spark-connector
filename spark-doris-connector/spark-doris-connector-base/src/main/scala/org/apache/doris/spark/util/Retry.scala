@@ -20,7 +20,7 @@ object Retry {
         LockSupport.parkNanos(interval.toNanos)
         Success(result)
       case Failure(exception: T) if retryTimes > 0 =>
-        logger.warn(s"Execution failed caused by: ", exception)
+        logger.warn("Execution failed caused by: ", exception)
         logger.warn(s"$retryTimes times retry remaining, the next attempt will be in ${interval.toMillis} ms")
         LockSupport.parkNanos(interval.toNanos)
         h

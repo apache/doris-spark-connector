@@ -1,7 +1,7 @@
 package org.apache.doris.spark.read
 
-import org.apache.doris.spark.client.read.{DorisReader, DorisThriftReader}
-import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.entity.DorisReaderPartition
+import org.apache.doris.spark.client.read.{DorisFlightSqlReader, DorisReader, DorisThriftReader}
 import org.apache.doris.spark.config.DorisConfig
 import org.apache.doris.spark.util.RowConvertors
 import org.apache.spark.sql.catalyst.InternalRow
@@ -14,12 +14,16 @@ import scala.language.implicitConversions
 class DorisPartitionReader(inputPartition: InputPartition, schema: StructType, mode: ScanMode, config: DorisConfig)
   extends PartitionReader[InternalRow] {
 
-  private implicit def toReaderPartition(inputPart: DorisInputPartition): DorisReaderPartition =
-    DorisReaderPartition(inputPart.database, inputPart.table, inputPart.backend, inputPart.tablets, inputPart.opaquedQueryPlan)
+  private implicit def toReaderPartition(inputPart: DorisInputPartition): DorisReaderPartition = {
+    val tablets = inputPart.tablets.map(java.lang.Long.valueOf)
+    new DorisReaderPartition(inputPart.database, inputPart.table, inputPart.backend, tablets,
+      inputPart.opaquedQueryPlan, inputPart.readCols, inputPart.predicates, config)
+  }
 
   private lazy val reader: DorisReader = {
     mode match {
-      case ScanMode.THRIFT => new DorisThriftReader(inputPartition.asInstanceOf[DorisInputPartition], config)
+      case ScanMode.THRIFT => new DorisThriftReader(inputPartition.asInstanceOf[DorisInputPartition])
+      case ScanMode.ARROW => new DorisFlightSqlReader(inputPartition.asInstanceOf[DorisInputPartition])
       case _ => throw new UnsupportedOperationException()
     }
   }

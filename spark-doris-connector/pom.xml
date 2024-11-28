@@ -82,13 +82,16 @@
         <scala.version>2.11.12</scala.version>
         <scala.major.version>2.11</scala.major.version>
         <libthrift.version>0.16.0</libthrift.version>
-        <arrow.version>13.0.0</arrow.version>
+        <arrow.version>15.0.2</arrow.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.scm.id>github</project.scm.id>
-        <netty.version>4.1.77.Final</netty.version>
+        <netty.version>4.1.104.Final</netty.version>
         <fasterxml.jackson.version>2.13.5</fasterxml.jackson.version>
         <thrift-service.version>1.0.1</thrift-service.version>
         <testcontainers.version>1.17.6</testcontainers.version>
+        <jmockit.version>1.49</jmockit.version>
+        <fe_ut_parallel>1</fe_ut_parallel>
+        <argLine>-Xmx512m</argLine>
     </properties>
 
     <dependencyManagement>
@@ -184,6 +187,86 @@
                 <scope>runtime</scope>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.arrow.adbc</groupId>
+                <artifactId>adbc-driver-flight-sql</artifactId>
+                <version>0.13.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.arrow</groupId>
+                        <artifactId>flight-sql-jdbc-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-memory-netty</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-memory-core</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-format</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-vector</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>grpc-netty</artifactId>
+                        <groupId>io.grpc</groupId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-netty</artifactId>
+                <version>1.60.0</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>netty-codec-http2</artifactId>
+                        <groupId>io.netty</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>netty-handler-proxy</artifactId>
+                        <groupId>io.netty</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>netty-transport-native-unix-common</artifactId>
+                        <groupId>io.netty</groupId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-http2</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler-proxy</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport-native-unix-common</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>flight-sql-jdbc-core</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>3.22.3</version>
+            </dependency>
+
             <!--Test-->
             <dependency>
                 <groupId>org.hamcrest</groupId>
@@ -202,6 +285,22 @@
                         <groupId>org.hamcrest</groupId>
                     </exclusion>
                 </exclusions>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.jmockit/jmockit -->
+            <dependency>
+                <groupId>org.jmockit</groupId>
+                <artifactId>jmockit</artifactId>
+                <version>1.49</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>5.10.2</version>
                 <scope>test</scope>
             </dependency>
 
@@ -329,7 +428,7 @@
                 <plugin>
                     <groupId>net.alchim31.maven</groupId>
                     <artifactId>scala-maven-plugin</artifactId>
-                    <version>3.2.1</version>
+                    <version>3.4.1</version>
                     <executions>
                         <execution>
                             <id>scala-compile-first</id>
@@ -355,8 +454,18 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.2.1</version>
+                    <version>3.4.1</version>
                     <configuration>
+                        <filters>
+                            <filter>
+                                <artifact>*:*</artifact>
+                                <excludes>
+                                    <exclude>META-INF/*.SF</exclude>
+                                    <exclude>META-INF/*.DSA</exclude>
+                                    <exclude>META-INF/*.RSA</exclude>
+                                </excludes>
+                            </filter>
+                        </filters>
                         <artifactSet>
                             <excludes>
                                 <exclude>com.google.code.findbugs:*</exclude>
@@ -393,7 +502,19 @@
                                 <pattern>org.apache.http</pattern>
                                 <shadedPattern>org.apache.doris.shaded.org.apache.http</shadedPattern>
                             </relocation>
+                            <relocation>
+                                <pattern>io.grpc</pattern>
+                                <shadedPattern>org.apache.doris.shaded.io.grpc</shadedPattern>
+                            </relocation>
+                            <relocation>
+                                <pattern>com.google</pattern>
+                                <shadedPattern>org.apache.doris.shaded.com.google</shadedPattern>
+                            </relocation>
                         </relocations>
+                        <transformers>
+                            <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                        </transformers>
                     </configuration>
                     <executions>
                         <execution>
@@ -463,7 +584,7 @@
                 <artifactId>flatten-maven-plugin</artifactId>
                 <configuration>
                     <updatePomFile>true</updatePomFile>
-                    <flattenMode>bom</flattenMode>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
                 </configuration>
                 <executions>
                     <execution>
@@ -619,9 +740,47 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-deploy-plugin</artifactId>
                     </plugin>
+                    <!-- jmockit -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${jmockit.version}</version>
+                        <configuration>
+                            <!-->set larger, eg, 3, to reduce the time or running FE unit tests<-->
+                            <forkCount>${fe_ut_parallel}</forkCount>
+                            <!-->not reuse forked jvm, so that each unit test will run in separate jvm. to avoid singleton confict<-->
+                            <reuseForks>false</reuseForks>
+                            <argLine>
+                                -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar @{argLine}
+                            </argLine>
+                        </configuration>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>spark-2</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <spark.version>2.4.8</spark.version>
+                <spark.major.version>2.4</spark.major.version>
+                <scala.version>2.11.10</scala.version>
+                <scala.major.version>2.11</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3</id>
+            <properties>
+                <spark.version>3.0.3</spark.version>
+                <spark.major.version>3.0</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+
     </profiles>
 
 </project>

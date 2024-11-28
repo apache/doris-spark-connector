@@ -42,7 +42,8 @@ class DorisReaderITCase extends DorisTestBase {
       cfg = Some(Map(
         "doris.fenodes" -> DorisTestBase.getFenodes,
         "doris.request.auth.user" -> DorisTestBase.USERNAME,
-        "doris.request.auth.password" -> DorisTestBase.PASSWORD
+        "doris.request.auth.password" -> DorisTestBase.PASSWORD,
+        "doris.fe.init.fetch" -> "false"
       ))
     )
     val result = dorisSparkRDD.collect()

@@ -17,10 +17,11 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.client.DorisFrontend
+import org.apache.doris.spark.client.DorisFrontendClient
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.load.CommitMessage
 import org.apache.doris.spark.sql.DorisSourceProvider.SHORT_NAME
+import org.apache.doris.spark.sql.sources.{DorisRelation, DorisSourceRegisterTrait}
 import org.apache.doris.spark.writer.DorisWriter
 import org.apache.spark.sql.execution.streaming.Sink
 import org.apache.spark.sql.sources._
@@ -29,15 +30,17 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 import org.slf4j.{Logger, LoggerFactory}
 
-private[sql] class DorisSourceProvider extends DataSourceRegister
+import java.sql.Connection
+import java.util.function.Function
+import scala.collection.JavaConverters.mapAsJavaMapConverter
+
+private[sql] class DorisSourceProvider extends DorisSourceRegisterTrait
   with RelationProvider
   with CreatableRelationProvider
   with StreamSinkProvider
   with Serializable {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[DorisSourceProvider].getName)
-
-  override def shortName(): String = SHORT_NAME
 
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation = {
     new DorisRelation(sqlContext, parameters)
@@ -51,7 +54,7 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
                               mode: SaveMode, parameters: Map[String, String],
                               data: DataFrame): BaseRelation = {
 
-    val config = DorisConfig.fromSparkConf(sqlContext.sparkContext.getConf, parameters)
+    val config = DorisConfig.fromMap(sqlContext.sparkContext.getConf.getAll.toMap.asJava, parameters.asJava)
 
     mode match {
       case SaveMode.Overwrite =>
@@ -82,17 +85,21 @@ private[sql] class DorisSourceProvider extends DataSourceRegister
   }
 
   override def createSink(sqlContext: SQLContext, parameters: Map[String, String], partitionColumns: Seq[String], outputMode: OutputMode): Sink = {
-    new DorisStreamLoadSink(sqlContext, DorisConfig.fromMap(Utils.params(parameters, logger)))
+    new DorisStreamLoadSink(sqlContext, DorisConfig.fromMap(Utils.params(parameters, logger).asJava))
   }
 
   private def truncateTable(config: DorisConfig): Unit = {
-    val frontend = DorisFrontend(config)
-    frontend.queryFrontends()(conn => {
-      val query = s"TRUNCATE TABLE ${config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)}"
-      val stmt = conn.createStatement()
-      stmt.execute(query)
-      logger.info(s"truncate table ${config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)} success")
-    })
+    val frontend = new DorisFrontendClient(config)
+    val queryFunc: Function[Connection, Void] = new Function[Connection, Void]() {
+      override def apply(conn: Connection): Void = {
+        val query = s"TRUNCATE TABLE ${config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)}"
+        val stmt = conn.createStatement()
+        stmt.execute(query)
+        logger.info(s"truncate table ${config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)} success")
+        null
+      }
+    }
+    frontend.queryFrontends(queryFunc)
   }
 
 }

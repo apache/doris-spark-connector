@@ -37,8 +37,12 @@ jobs:
       with:
         distribution: adopt
         java-version: '8'
-
-    - name: Run ITCases
+ 
+    - name: Run ITCases for spark 2
       run: |
-        cd spark-doris-connector && mvn test -Dtest="*ITCase" -Dimage="adamlee489/doris:2.0.3"
+        cd spark-doris-connector && mvn test -pl spark-doris-connector-it -P spark-2 -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="adamlee489/doris:2.0.3"
 
+    - name: Run ITCases for spark 3
+      run: |
+        cd spark-doris-connector && mvn test -pl spark-doris-connector-it -P spark-3 -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="adamlee489/doris:2.0.3"
+    

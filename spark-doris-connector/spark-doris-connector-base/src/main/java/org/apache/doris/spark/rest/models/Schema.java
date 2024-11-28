@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class Schema {
+
     private int status = 0;
     private String keysType;
     private List<Field> properties;
@@ -32,6 +33,12 @@ public class Schema {
 
     public Schema(int fieldCount) {
         properties = new ArrayList<>(fieldCount);
+    }
+
+    public Schema(int status, String keysType, List<Field> properties) {
+        this.status = status;
+        this.keysType = keysType;
+        this.properties = properties;
     }
 
     public int getStatus() {

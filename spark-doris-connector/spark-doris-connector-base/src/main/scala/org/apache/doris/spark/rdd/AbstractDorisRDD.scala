@@ -17,12 +17,13 @@
 
 package org.apache.doris.spark.rdd
 
-import org.apache.doris.spark.client.DorisReaderPartition
+import org.apache.doris.spark.client.entity.DorisReaderPartition
 import org.apache.doris.spark.client.read.ReaderPartitionGenerator
 import org.apache.doris.spark.config.DorisConfig
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{Partition, SparkContext}
 
+import scala.collection.JavaConverters.mapAsJavaMapConverter
 import scala.reflect.ClassTag
 
 protected[spark] abstract class AbstractDorisRDD[T: ClassTag](
@@ -38,7 +39,7 @@ protected[spark] abstract class AbstractDorisRDD[T: ClassTag](
 
   override def getPreferredLocations(split: Partition): Seq[String] = {
     val dorisSplit = split.asInstanceOf[DorisPartition]
-    Seq(dorisSplit.dorisPartition.backend)
+    Seq(dorisSplit.dorisPartition.getBackend.hostRpcPortString())
   }
 
   override def checkpoint(): Unit = {
@@ -48,10 +49,7 @@ protected[spark] abstract class AbstractDorisRDD[T: ClassTag](
   /**
    * doris configuration get from rdd parameters and spark conf.
    */
-  @transient private[spark] lazy val dorisCfg = {
-    val config = DorisConfig.fromSparkConf(sc.getConf, params)
-    config
-  }
+  @transient private[spark] lazy val dorisCfg = DorisConfig.fromMap(sc.getConf.getAll.toMap.asJava, params.asJava)
 
   @transient private[spark] lazy val dorisPartitions = ReaderPartitionGenerator.generatePartitions(dorisCfg)
 }
