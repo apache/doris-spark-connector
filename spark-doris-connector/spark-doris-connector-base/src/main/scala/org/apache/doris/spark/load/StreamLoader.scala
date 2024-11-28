@@ -83,6 +83,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
     ConfigurationOptions.DORIS_ENABLE_HTTPS_DEFAULT) && autoRedirect
 
   private val enableGroupCommit: Boolean = streamLoadProps.contains(ConfigurationOptions.GROUP_COMMIT)
+
   /**
    * execute stream load
    *
@@ -381,7 +382,7 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
   /**
    * generate load label
    *
-   * spark_streamload_YYYYMMDD_HHMMSS_{UUID}
+   * {label_prefix}_YYYYMMDD_HHMMSS_{UUID}
    *
    * @return load label
    */
@@ -390,7 +391,9 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
       return null;
     }
     val calendar = Calendar.getInstance
-    "spark_streamload_" +
+    val labelPrefix = settings.getProperty(ConfigurationOptions.DORIS_SINK_LABEL_PREFIX,
+      ConfigurationOptions.DORIS_SINK_LABEL_PREFIX_DEFAULT)
+    labelPrefix + "_" +
       f"${calendar.get(Calendar.YEAR)}${calendar.get(Calendar.MONTH) + 1}%02d${calendar.get(Calendar.DAY_OF_MONTH)}%02d" +
       f"_${calendar.get(Calendar.HOUR_OF_DAY)}%02d${calendar.get(Calendar.MINUTE)}%02d${calendar.get(Calendar.SECOND)}%02d" +
       f"_${UUID.randomUUID.toString.replaceAll("-", "")}"

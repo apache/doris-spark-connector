@@ -60,7 +60,8 @@ public interface ConfigurationOptions {
     int DORIS_TABLET_SIZE_MIN = 1;
 
     String DORIS_BATCH_SIZE = "doris.batch.size";
-    int DORIS_BATCH_SIZE_DEFAULT = 1024;
+    int DORIS_BATCH_SIZE_DEFAULT = 4064;
+    int DORIS_BATCH_SIZE_MAX = 65535;
 
     String DORIS_EXEC_MEM_LIMIT = "doris.exec.mem.limit";
     long DORIS_EXEC_MEM_LIMIT_DEFAULT = 8L * 1024 * 1024 * 1024;
@@ -126,6 +127,9 @@ public interface ConfigurationOptions {
     String DORIS_SINK_AUTO_REDIRECT = "doris.sink.auto-redirect";
     boolean DORIS_SINK_AUTO_REDIRECT_DEFAULT = true;
 
+    String DORIS_SINK_LABEL_PREFIX = "doris.sink.label.prefix";
+    String DORIS_SINK_LABEL_PREFIX_DEFAULT = "spark_streamload";
+
     /**
      * compress_type
      */
@@ -161,5 +165,13 @@ public interface ConfigurationOptions {
             "async_mode",
             "off_mode"
     )));
+
+    String DORIS_READ_MODE = "doris.read.mode";
+    String DORIS_READ_MODE_DEFAULT = "thrift";
+
+    String DORIS_ARROW_FLIGHT_SQL_PORT = "doris.arrow-flight-sql.port";
+
+    String DORIS_THRIFT_MAX_MESSAGE_SIZE = "doris.thrift.max.message.size";
+    int DORIS_THRIFT_MAX_MESSAGE_SIZE_DEFAULT = Integer.MAX_VALUE;
 
 }

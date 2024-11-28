@@ -17,15 +17,13 @@
 
 package org.apache.doris.spark.cfg;
 
-import java.util.Properties;
-
-import org.apache.spark.SparkConf;
-
 import com.google.common.base.Preconditions;
-
+import org.apache.spark.SparkConf;
 import scala.Option;
 import scala.Serializable;
 import scala.Tuple2;
+
+import java.util.Properties;
 
 @Deprecated
 public class SparkSettings extends Settings implements Serializable {
@@ -35,6 +33,16 @@ public class SparkSettings extends Settings implements Serializable {
     public SparkSettings(SparkConf cfg) {
         Preconditions.checkArgument(cfg != null, "non-null spark configuration expected.");
         this.cfg = cfg;
+    }
+
+    public static SparkSettings fromProperties(Properties props) {
+        SparkConf sparkConf = new SparkConf();
+        props.forEach((k, v) -> {
+            if (k instanceof String) {
+                sparkConf.set((String) k, v.toString());
+            }
+        });
+        return new SparkSettings(sparkConf);
     }
 
     public SparkSettings copy() {
@@ -75,4 +83,5 @@ public class SparkSettings extends Settings implements Serializable {
 
         return props;
     }
+
 }

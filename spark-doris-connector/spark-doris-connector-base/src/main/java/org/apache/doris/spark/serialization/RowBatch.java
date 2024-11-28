@@ -17,11 +17,6 @@
 
 package org.apache.doris.spark.serialization;
 
-import org.apache.doris.sdk.thrift.TScanBatchResult;
-import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.rest.models.Schema;
-import org.apache.doris.spark.util.IPUtils;
-
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
@@ -45,10 +40,14 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.doris.sdk.thrift.TScanBatchResult;
+import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.rest.models.Schema;
+import org.apache.doris.spark.util.IPUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +79,10 @@ import java.util.Objects;
 @Deprecated
 public class RowBatch {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
+
+    private final List<Row> rowBatch = new ArrayList<>();
+    private final ArrowReader arrowReader;
+    private final Schema schema;
     private static final ZoneId DEFAULT_ZONE_ID = ZoneId.systemDefault();
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
@@ -94,10 +97,7 @@ public class RowBatch {
     private final DateTimeFormatter dateTimeV2Formatter =
             DateTimeFormatter.ofPattern(DATETIMEV2_PATTERN);
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private final List<Row> rowBatch = new ArrayList<>();
-    private final ArrowStreamReader arrowStreamReader;
-    private final RootAllocator rootAllocator;
-    private final Schema schema;
+    private RootAllocator rootAllocator = null;
     // offset for iterate the rowBatch
     private int offsetInRowBatch = 0;
     private int rowCountInOneBatch = 0;
@@ -105,32 +105,15 @@ public class RowBatch {
     private List<FieldVector> fieldVectors;
 
     public RowBatch(TScanBatchResult nextResult, Schema schema) throws DorisException {
-        this.schema = schema;
+
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        this.arrowStreamReader = new ArrowStreamReader(
-                new ByteArrayInputStream(nextResult.getRows()),
-                rootAllocator
-        );
+        this.arrowReader = new ArrowStreamReader(new ByteArrayInputStream(nextResult.getRows()), rootAllocator);
+        this.schema = schema;
+
         try {
-            VectorSchemaRoot root = arrowStreamReader.getVectorSchemaRoot();
-            while (arrowStreamReader.loadNextBatch()) {
-                fieldVectors = root.getFieldVectors();
-                if (fieldVectors.size() > schema.size()) {
-                    logger.error("Data schema size '{}' should not be bigger than arrow field size '{}'.",
-                            schema.size(), fieldVectors.size());
-                    throw new DorisException("Load Doris data failed, schema size of fetch data is wrong.");
-                }
-                if (fieldVectors.isEmpty() || root.getRowCount() == 0) {
-                    logger.debug("One batch in arrow has no data.");
-                    continue;
-                }
-                rowCountInOneBatch = root.getRowCount();
-                // init the rowBatch
-                for (int i = 0; i < rowCountInOneBatch; ++i) {
-                    rowBatch.add(new Row(fieldVectors.size()));
-                }
-                convertArrowToRowBatch();
-                readRowCount += root.getRowCount();
+            VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+            while (arrowReader.loadNextBatch()) {
+                readBatch(root);
             }
         } catch (Exception e) {
             logger.error("Read Doris Data failed because: ", e);
@@ -138,6 +121,42 @@ public class RowBatch {
         } finally {
             close();
         }
+
+    }
+
+    public RowBatch(ArrowReader reader, Schema schema) throws DorisException {
+
+        this.arrowReader = reader;
+        this.schema = schema;
+
+        try {
+            VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+            readBatch(root);
+        } catch (Exception e) {
+            logger.error("Read Doris Data failed because: ", e);
+            throw new DorisException(e.getMessage());
+        }
+
+    }
+
+    private void readBatch(VectorSchemaRoot root) throws DorisException {
+        fieldVectors = root.getFieldVectors();
+        if (fieldVectors.size() > schema.size()) {
+            logger.error("Data schema size '{}' should not be bigger than arrow field size '{}'.",
+                    schema.size(), fieldVectors.size());
+            throw new DorisException("Load Doris data failed, schema size of fetch data is wrong.");
+        }
+        if (fieldVectors.isEmpty() || root.getRowCount() == 0) {
+            logger.debug("One batch in arrow has no data.");
+            return;
+        }
+        rowCountInOneBatch = root.getRowCount();
+        // init the rowBatch
+        for (int i = 0; i < rowCountInOneBatch; ++i) {
+            rowBatch.add(new Row(fieldVectors.size()));
+        }
+        convertArrowToRowBatch();
+        readRowCount += root.getRowCount();
     }
 
     public static LocalDateTime longToLocalDateTime(long time) {
@@ -365,13 +384,6 @@ public class RowBatch {
                         break;
                     case "DATETIME":
                     case "DATETIMEV2":
-
-                        Preconditions.checkArgument(
-                                mt.equals(Types.MinorType.TIMESTAMPMICRO) || mt.equals(MinorType.VARCHAR) ||
-                                        mt.equals(MinorType.TIMESTAMPMILLI) || mt.equals(MinorType.TIMESTAMPSEC),
-                                typeMismatchMessage(currentType, mt));
-                        typeMismatchMessage(currentType, mt);
-
                         if (mt.equals(Types.MinorType.VARCHAR)) {
                             VarCharVector varCharVector = (VarCharVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
@@ -384,10 +396,8 @@ public class RowBatch {
                             }
                         } else if (curFieldVector instanceof TimeStampVector) {
                             TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
-
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                                 if (timeStampVector.isNull(rowIndex)) {
-
                                     addValueToRow(rowIndex, null);
                                     continue;
                                 }
@@ -395,7 +405,9 @@ public class RowBatch {
                                 String formatted = DATE_TIME_FORMATTER.format(dateTime);
                                 addValueToRow(rowIndex, formatted);
                             }
-
+                        } else {
+                            String errMsg = String.format("Unsupported type for DATETIMEV2, minorType %s, class is %s", mt.name(), curFieldVector.getClass());
+                            throw new java.lang.IllegalArgumentException(errMsg);
                         }
                         break;
                     case "CHAR":
@@ -506,8 +518,8 @@ public class RowBatch {
 
     public void close() {
         try {
-            if (arrowStreamReader != null) {
-                arrowStreamReader.close();
+            if (arrowReader != null) {
+                arrowReader.close();
             }
             if (rootAllocator != null) {
                 rootAllocator.close();

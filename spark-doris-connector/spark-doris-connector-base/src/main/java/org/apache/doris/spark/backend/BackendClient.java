@@ -43,6 +43,9 @@ import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_THRIFT_MAX_MESSAGE_SIZE;
+import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_THRIFT_MAX_MESSAGE_SIZE_DEFAULT;
+
 /**
  * Client to request Doris BE
  */
@@ -59,6 +62,7 @@ public class BackendClient {
     private final int retries;
     private final int socketTimeout;
     private final int connectTimeout;
+    private final int thriftMaxMessageSize;
 
     public BackendClient(Routing routing, Settings settings) throws ConnectedFailedException {
         this.routing = routing;
@@ -68,8 +72,9 @@ public class BackendClient {
                 ConfigurationOptions.DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT);
         this.retries = settings.getIntegerProperty(ConfigurationOptions.DORIS_REQUEST_RETRIES,
                 ConfigurationOptions.DORIS_REQUEST_RETRIES_DEFAULT);
-        logger.trace("connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",
-                this.connectTimeout, this.socketTimeout, this.retries);
+        this.thriftMaxMessageSize = settings.getIntegerProperty(DORIS_THRIFT_MAX_MESSAGE_SIZE, DORIS_THRIFT_MAX_MESSAGE_SIZE_DEFAULT);
+        logger.trace("connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'. thrift MAX_MESSAGE_SIZE set to '{}'",
+                this.connectTimeout, this.socketTimeout, this.retries, this.thriftMaxMessageSize);
         open();
     }
 
@@ -80,7 +85,9 @@ public class BackendClient {
             logger.debug("Attempt {} to connect {}.", attempt, routing);
             try {
                 TBinaryProtocol.Factory factory = new TBinaryProtocol.Factory();
-                transport = new TSocket(new TConfiguration(), routing.getHost(), routing.getPort(), socketTimeout, connectTimeout);
+                TConfiguration.Builder configBuilder = TConfiguration.custom();
+                configBuilder.setMaxMessageSize(thriftMaxMessageSize);
+                transport = new TSocket(configBuilder.build(), routing.getHost(), routing.getPort(), socketTimeout, connectTimeout);
                 TProtocol protocol = factory.getProtocol(transport);
                 client = new TDorisExternalService.Client(protocol);
                 logger.trace("Connect status before open transport to {} is '{}'.", routing, isConnected);

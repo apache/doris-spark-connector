@@ -95,7 +95,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
 
     // max row number of one read batch
     val batchSize = Try {
-      settings.getProperty(DORIS_BATCH_SIZE, DORIS_BATCH_SIZE_DEFAULT.toString).toInt
+      Math.min(settings.getProperty(DORIS_BATCH_SIZE, DORIS_BATCH_SIZE_DEFAULT.toString).toInt, DORIS_BATCH_SIZE_MAX)
     } getOrElse {
       logWarning(String.format(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, DORIS_BATCH_SIZE, settings.getProperty(DORIS_BATCH_SIZE)))
       DORIS_BATCH_SIZE_DEFAULT
@@ -172,7 +172,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
    * read data and cached in rowBatch.
    * @return true if hax next value
    */
-  def hasNext: Boolean = {
+  override def hasNext: Boolean = {
     var hasNext = false
     if (deserializeArrowToRowBatchAsync && asyncThreadStarted) {
       // support deserialize Arrow to RowBatch asynchronously
@@ -218,7 +218,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
    * get next value.
    * @return next value
    */
-  def next: AnyRef = {
+  override def next: AnyRef = {
     if (!hasNext) {
       logError(SHOULD_NOT_HAPPEN_MESSAGE)
       throw new ShouldNeverHappenException
@@ -226,7 +226,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
     rowBatch.next
   }
 
-  def close(): Unit = {
+  override def close(): Unit = {
     val closeParams = new TScanCloseParams
     closeParams.setContextId(contextId)
     lockClient(_.closeScanner(closeParams))
