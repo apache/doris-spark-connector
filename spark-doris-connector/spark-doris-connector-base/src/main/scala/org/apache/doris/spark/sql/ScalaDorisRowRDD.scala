@@ -38,8 +38,12 @@ private[spark] class ScalaDorisRowRDDIterator(context: TaskContext,
   extends AbstractDorisRDDIterator[Row](context, partition) {
 
   override def initReader(config: DorisConfig): Unit = {
-    config.setProperty(DorisOptions.DORIS_READ_FIELDS, schema.map(f => s"`${f.name}``").mkString(","))
-    config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisRowThriftReader].getName)
+    config.setProperty(DorisOptions.DORIS_READ_FIELDS, schema.map(f => s"`${f.name}`").mkString(","))
+    config.getValue(DorisOptions.READ_MODE).toLowerCase match {
+      case "thrift" => config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisRowThriftReader].getName)
+      case "arrow" => config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisRowFlightSqlReader].getName)
+      case rm: String => throw new IllegalArgumentException("Unknown read mode: " + rm)
+    }
   }
 
   override def createValue(value: Object): Row = {

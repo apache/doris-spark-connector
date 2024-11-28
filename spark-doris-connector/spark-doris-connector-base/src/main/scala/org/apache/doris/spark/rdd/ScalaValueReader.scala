@@ -172,7 +172,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
    * read data and cached in rowBatch.
    * @return true if hax next value
    */
-  override def hasNext: Boolean = {
+  def hasNext: Boolean = {
     var hasNext = false
     if (deserializeArrowToRowBatchAsync && asyncThreadStarted) {
       // support deserialize Arrow to RowBatch asynchronously
@@ -218,7 +218,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
    * get next value.
    * @return next value
    */
-  override def next: AnyRef = {
+  def next: AnyRef = {
     if (!hasNext) {
       logError(SHOULD_NOT_HAPPEN_MESSAGE)
       throw new ShouldNeverHappenException
@@ -226,7 +226,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) exten
     rowBatch.next
   }
 
-  override def close(): Unit = {
+  def close(): Unit = {
     val closeParams = new TScanCloseParams
     closeParams.setContextId(contextId)
     lockClient(_.closeScanner(closeParams))

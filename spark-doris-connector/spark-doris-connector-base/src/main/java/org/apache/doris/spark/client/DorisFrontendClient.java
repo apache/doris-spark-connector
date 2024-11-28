@@ -78,7 +78,7 @@ public class DorisFrontendClient implements Serializable {
     private List<Frontend> initFrontends(DorisConfig config) throws Exception {
         String frontendNodes = config.getValue(DorisOptions.DORIS_FENODES);
         String[] frontendNodeArray = frontendNodes.split(",");
-        if (config.getValue(DorisOptions.DORIS_FE_INIT_FETCH)) {
+        if (config.getValue(DorisOptions.DORIS_FE_AUTO_FETCH)) {
             Exception ex = null;
             List<Frontend> frontendList = null;
             for (String frontendNode : frontendNodeArray) {

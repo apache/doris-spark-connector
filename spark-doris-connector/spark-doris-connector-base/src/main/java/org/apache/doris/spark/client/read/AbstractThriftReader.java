@@ -193,6 +193,9 @@ public abstract class AbstractThriftReader extends DorisReader {
         params.setOpaquedQueryPlan(partition.getOpaquedQueryPlan());
 
         int batchSize = config.getValue(DorisOptions.DORIS_BATCH_SIZE);
+        if (batchSize > DorisOptions.DORIS_BATCH_SIZE_MAX) {
+            batchSize = DorisOptions.DORIS_BATCH_SIZE_MAX;
+        }
         int queryDorisTimeout = config.getValue(DorisOptions.DORIS_REQUEST_QUERY_TIMEOUT_S);
         long execMemLimit = config.getValue(DorisOptions.DORIS_EXEC_MEM_LIMIT);
 

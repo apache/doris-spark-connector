@@ -51,33 +51,36 @@ public class DorisBackendThriftClient {
     private final static Logger logger = LoggerFactory.getLogger(DorisBackendThriftClient.class);
 
     private final Backend backend;
+    private final DorisConfig config;
 
     private TDorisExternalService.Client client;
     private TTransport transport;
 
     private boolean isConnected = false;
     private final int retries;
-    private final int socketTimeout;
-    private final int connectTimeout;
 
     public DorisBackendThriftClient(Backend backend, DorisConfig config) throws ConnectedFailedException, OptionRequiredException {
         this.backend = backend;
-        this.connectTimeout = config.getValue(DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS);
-        this.socketTimeout = config.getValue(DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS);
+        this.config = config;
         this.retries = config.getValue(DorisOptions.DORIS_REQUEST_RETRIES);
-        logger.trace("connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",
-                this.connectTimeout, this.socketTimeout, this.retries);
         open();
     }
 
     private void open() throws ConnectedFailedException {
         logger.debug("Open client to Doris BE '{}'.", backend);
-        TException ex = null;
+        Exception ex = null;
         for (int attempt = 0; !isConnected && attempt < retries; ++attempt) {
             logger.debug("Attempt {} to connect {}.", attempt, backend);
             try {
                 TBinaryProtocol.Factory factory = new TBinaryProtocol.Factory();
-                transport = new TSocket(new TConfiguration(), backend.getHost(), backend.getRpcPort(), socketTimeout, connectTimeout);
+                TConfiguration tConf = new TConfiguration();
+                Integer maxMessageSize = config.getValue(DorisOptions.DORIS_THRIFT_MAX_MESSAGE_SIZE);
+                tConf.setMaxMessageSize(maxMessageSize);
+                Integer connectTimeout = config.getValue(DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS);
+                Integer socketTimeout = config.getValue(DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS);
+                logger.trace("connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",
+                        connectTimeout, socketTimeout, this.retries);
+                transport = new TSocket(tConf, backend.getHost(), backend.getRpcPort(), socketTimeout, connectTimeout);
                 TProtocol protocol = factory.getProtocol(transport);
                 client = new TDorisExternalService.Client(protocol);
                 logger.trace("Connect status before open transport to {} is '{}'.", backend, isConnected);
@@ -87,6 +90,8 @@ public class DorisBackendThriftClient {
                 }
             } catch (TTransportException e) {
                 logger.warn(ErrorMessages.CONNECT_FAILED_MESSAGE, backend, e);
+                ex = e;
+            } catch (OptionRequiredException e) {
                 ex = e;
             }
             if (isConnected) {

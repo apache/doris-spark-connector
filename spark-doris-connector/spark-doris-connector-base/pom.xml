@@ -17,10 +17,6 @@
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <spark.version>2.4.8</spark.version>
-        <spark.major.version>2.4</spark.major.version>
-        <scala.version>2.11.12</scala.version>
-        <scala.major.version>2.11</scala.major.version>
     </properties>
 
     <dependencies>
@@ -46,6 +42,7 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.major.version}</artifactId>
             <version>${spark.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -241,29 +238,5 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>spark-2</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <properties>
-                <spark.version>2.4.8</spark.version>
-                <spark.major.version>2.4</spark.major.version>
-                <scala.version>2.11.10</scala.version>
-                <scala.major.version>2.11</scala.major.version>
-            </properties>
-        </profile>
-        <profile>
-            <id>spark-3</id>
-            <properties>
-                <spark.version>3.0.3</spark.version>
-                <spark.major.version>3.0</spark.major.version>
-                <scala.version>2.12.18</scala.version>
-                <scala.major.version>2.12</scala.major.version>
-            </properties>
-        </profile>
-    </profiles>
 
 </project>

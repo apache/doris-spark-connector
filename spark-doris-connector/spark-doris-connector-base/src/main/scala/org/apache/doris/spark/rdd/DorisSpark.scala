@@ -30,6 +30,6 @@ object DorisSpark {
     val params = collection.mutable.Map(cfg.getOrElse(Map.empty).toSeq: _*)
     query.map { s => params += (DORIS_FILTER_QUERY -> s) }
     tableIdentifier.map { s => params += (DORIS_TABLE_IDENTIFIER -> s) }
-    new ScalaDorisRDD[AnyRef](sc, params.toMap)
+    new DorisRDD[AnyRef](sc, params.toMap)
   }
 }

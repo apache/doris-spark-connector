@@ -50,6 +50,8 @@ public class DorisOptions {
 
     public static final ConfigOption<Integer> DORIS_BATCH_SIZE = ConfigOptions.name("doris.batch.size").intType().defaultValue(4064).withDescription("");
 
+    public static final int DORIS_BATCH_SIZE_MAX = 65535;
+
     public static final ConfigOption<Long> DORIS_EXEC_MEM_LIMIT = ConfigOptions.name("doris.exec.mem.limit").longType().defaultValue(8L * 1024 * 1024 * 1024).withDescription("");
 
     public static final ConfigOption<String> DORIS_VALUE_READER_CLASS = ConfigOptions.name("doris.value.reader.class").stringType().withoutDefaultValue().withDescription("");
@@ -114,9 +116,11 @@ public class DorisOptions {
 
     public static final ConfigOption<Integer> DORIS_READ_FLIGHT_SQL_PORT = ConfigOptions.name("doris.read.arrow-flight-sql.port").intType().withoutDefaultValue().withDescription("");
 
-    public static final ConfigOption<String> DORIS_SINK_TAG = ConfigOptions.name("doris.sink.tag").stringType().defaultValue("spark-doris").withDescription("");
+    public static final ConfigOption<String> DORIS_SINK_LABEL_PREFIX = ConfigOptions.name("doris.sink.label.prefix").stringType().defaultValue("spark-doris").withDescription("");
 
-    public static final ConfigOption<Boolean> DORIS_FE_INIT_FETCH = ConfigOptions.name("doris.fe.init.fetch").booleanType().defaultValue(false).withDescription("");
+    public static final ConfigOption<Integer> DORIS_THRIFT_MAX_MESSAGE_SIZE = ConfigOptions.name("doris.thrift.max.message.size").intType().defaultValue(Integer.MAX_VALUE).withDescription("") ;
+
+    public static final ConfigOption<Boolean> DORIS_FE_AUTO_FETCH = ConfigOptions.name("doris.fe.auto.fetch").booleanType().defaultValue(false).withDescription("");
 
     public static final ConfigOption<Boolean> DORIS_READ_BITMAP_TO_STRING = ConfigOptions.name("doris.read.bitmap-to-string").booleanType().defaultValue(false).withDescription("");
 

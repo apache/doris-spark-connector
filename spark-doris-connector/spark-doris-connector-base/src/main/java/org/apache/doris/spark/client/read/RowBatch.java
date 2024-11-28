@@ -384,12 +384,6 @@ public class RowBatch implements Serializable {
                     case "DATETIME":
                     case "DATETIMEV2":
 
-                        Preconditions.checkArgument(
-                                mt.equals(MinorType.TIMESTAMPMICRO) || mt.equals(MinorType.VARCHAR) ||
-                                        mt.equals(MinorType.TIMESTAMPMILLI) || mt.equals(MinorType.TIMESTAMPSEC),
-                                typeMismatchMessage(currentType, mt));
-                        typeMismatchMessage(currentType, mt);
-
                         if (mt.equals(MinorType.VARCHAR)) {
                             VarCharVector varCharVector = (VarCharVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
@@ -402,10 +396,8 @@ public class RowBatch implements Serializable {
                             }
                         } else if (curFieldVector instanceof TimeStampVector) {
                             TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
-
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                                 if (timeStampVector.isNull(rowIndex)) {
-
                                     addValueToRow(rowIndex, null);
                                     continue;
                                 }
@@ -413,7 +405,10 @@ public class RowBatch implements Serializable {
                                 String formatted = DATE_TIME_FORMATTER.format(dateTime);
                                 addValueToRow(rowIndex, formatted);
                             }
-
+                        } else {
+                            String errMsg = String.format("Unsupported type for DATETIMEV2, minorType %s, class is %s",
+                                    mt.name(), curFieldVector.getClass());
+                            throw new java.lang.IllegalArgumentException(errMsg);
                         }
                         break;
                     case "CHAR":

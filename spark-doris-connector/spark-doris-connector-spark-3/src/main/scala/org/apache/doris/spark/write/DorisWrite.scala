@@ -60,6 +60,8 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
     }
   }
 
+  override def useCommitCoordinator(): Boolean = true
+
   override def createStreamingWriterFactory(physicalWriteInfo: PhysicalWriteInfo): StreamingDataWriterFactory = {
     new DorisDataWriterFactory(config, schema)
   }

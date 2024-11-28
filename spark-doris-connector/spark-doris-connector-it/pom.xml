@@ -71,12 +71,6 @@
                     <scope>test</scope>
                 </dependency>
             </dependencies>
-            <properties>
-                <spark.version>2.4.8</spark.version>
-                <spark.major.version>2.4</spark.major.version>
-                <scala.version>2.11.10</scala.version>
-                <scala.major.version>2.11</scala.major.version>
-            </properties>
         </profile>
         <profile>
             <id>spark-3</id>
@@ -88,12 +82,6 @@
                     <scope>test</scope>
                 </dependency>
             </dependencies>
-            <properties>
-                <spark.version>3.0.3</spark.version>
-                <spark.major.version>3.0</spark.major.version>
-                <scala.version>2.12.18</scala.version>
-                <scala.major.version>2.12</scala.major.version>
-            </properties>
         </profile>
     </profiles>
     <build>

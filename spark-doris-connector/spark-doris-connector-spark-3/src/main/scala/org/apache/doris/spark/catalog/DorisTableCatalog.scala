@@ -20,7 +20,7 @@ package org.apache.doris.spark.catalog
 import org.apache.doris.spark.client.DorisFrontendClient
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException
-import org.apache.spark.sql.connector.catalog.{Identifier, NamespaceChange, SupportsNamespaces, Table, TableCatalog, TableChange}
+import org.apache.spark.sql.connector.catalog.{Identifier, NamespaceChange, Table, TableCatalog, TableChange}
 import org.apache.spark.sql.connector.expressions.Transform
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -28,7 +28,7 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import java.util
 import scala.collection.JavaConverters._
 
-class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
+class DorisTableCatalog extends DorisTableCatalogBase with TableCatalog {
 
   private var catalogName: Option[String] = None
 
@@ -92,8 +92,6 @@ class DorisTableCatalog extends TableCatalog with SupportsNamespaces {
   override def createNamespace(namespace: Array[String], metadata: util.Map[String, String]): Unit = throw new UnsupportedOperationException()
 
   override def alterNamespace(namespace: Array[String], changes: NamespaceChange*): Unit = throw new UnsupportedOperationException()
-
-  override def dropNamespace(namespace: Array[String]): Boolean = throw new UnsupportedOperationException()
 
   private def checkIdentifier(identifier: Identifier): Unit = {
     if (identifier.namespace().length > 1) {

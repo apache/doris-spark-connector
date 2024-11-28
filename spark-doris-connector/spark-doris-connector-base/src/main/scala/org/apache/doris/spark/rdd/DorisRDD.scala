@@ -18,13 +18,13 @@
 package org.apache.doris.spark.rdd
 
 import org.apache.doris.spark.client.entity.DorisReaderPartition
-import org.apache.doris.spark.client.read.DorisThriftReader
+import org.apache.doris.spark.client.read.{DorisFlightSqlReader, DorisThriftReader}
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 import scala.reflect.ClassTag
 
-private[spark] class ScalaDorisRDD[T: ClassTag](
+private[spark] class DorisRDD[T: ClassTag](
     sc: SparkContext,
     params: Map[String, String] = Map.empty)
     extends AbstractDorisRDD[T](sc, params) {
@@ -39,7 +39,11 @@ private[spark] class ScalaDorisRDDIterator[T](
   extends AbstractDorisRDDIterator[T](context, partition) {
 
   override def initReader(config: DorisConfig): Unit = {
-    config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisThriftReader].getName)
+    config.getValue(DorisOptions.READ_MODE).toLowerCase match {
+      case "thrift" => config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisThriftReader].getName)
+      case "arrow" => config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisFlightSqlReader].getName)
+      case rm: String => throw new IllegalArgumentException("Unknown read mode: " + rm)
+    }
   }
 
   override def createValue(value: Object): T = {

@@ -88,7 +88,7 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
         int stageId = taskContext.stageId();
         long taskAttemptId = taskContext.taskAttemptId();
         int partitionId = taskContext.partitionId();
-        String prefix = config.getValue(DorisOptions.DORIS_SINK_TAG);
+        String prefix = config.getValue(DorisOptions.DORIS_SINK_LABEL_PREFIX);
         return String.format("%s-%d-%d-%d-%d", prefix, stageId, taskAttemptId, partitionId, System.currentTimeMillis());
     }
 

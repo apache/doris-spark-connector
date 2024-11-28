@@ -772,15 +772,59 @@
             </properties>
         </profile>
         <profile>
-            <id>spark-3</id>
+            <id>spark-3.0</id>
             <properties>
-                <spark.version>3.0.3</spark.version>
+                <spark.version>3.0.0</spark.version>
                 <spark.major.version>3.0</spark.major.version>
                 <scala.version>2.12.18</scala.version>
                 <scala.major.version>2.12</scala.major.version>
             </properties>
         </profile>
-
+        <profile>
+            <id>spark-3.1</id>
+            <properties>
+                <spark.version>3.1.0</spark.version>
+                <spark.major.version>3.1</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.2</id>
+            <properties>
+                <spark.version>3.2.0</spark.version>
+                <spark.major.version>3.2</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.3</id>
+            <properties>
+                <spark.version>3.3.0</spark.version>
+                <spark.major.version>3.3</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.4</id>
+            <properties>
+                <spark.version>3.4.0</spark.version>
+                <spark.major.version>3.4</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.5</id>
+            <properties>
+                <spark.version>3.5.0</spark.version>
+                <spark.major.version>3.5</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
     </profiles>
 
 </project>
