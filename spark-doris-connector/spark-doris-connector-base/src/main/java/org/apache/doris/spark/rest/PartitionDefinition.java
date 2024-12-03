@@ -127,7 +127,7 @@ public class PartitionDefinition implements Serializable, Comparable<PartitionDe
         return Objects.equals(database, that.database)
                 && Objects.equals(table, that.table)
                 && Objects.equals(beAddress, that.beAddress)
-                && Objects.equals(tabletIds, that.tabletIds)
+                && Objects.deepEquals(tabletIds, that.tabletIds)
                 && Objects.equals(queryPlan, that.queryPlan)
                 && Objects.equals(serializedSettings, that.serializedSettings);
     }
