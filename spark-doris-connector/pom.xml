@@ -26,8 +26,9 @@
         <version>29</version>
     </parent>
     <groupId>org.apache.doris</groupId>
-    <artifactId>spark-doris-connector-${spark.major.version}_${scala.major.version}</artifactId>
+    <artifactId>spark-doris-connector</artifactId>
     <version>${revision}</version>
+    <packaging>pom</packaging>
     <name>Spark Doris Connector</name>
     <url>https://doris.apache.org/</url>
 
@@ -38,6 +39,14 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+    <modules>
+        <module>spark-doris-connector-base</module>
+        <module>spark-doris-connector-shims</module>
+        <module>spark-doris-connector-dist</module>
+        <module>spark-doris-connector-spark-2</module>
+        <module>spark-doris-connector-spark-3</module>
+        <module>spark-doris-connector-it</module>
+    </modules>
 
     <scm>
         <connection>scm:git:https://git@github.com/apache/doris-spark-connector.git</connection>
@@ -68,10 +77,10 @@
 
     <properties>
         <revision>1.4.0-SNAPSHOT</revision>
-        <spark.version>3.1.2</spark.version>
-        <spark.major.version>3.1</spark.major.version>
-        <scala.version>2.12.10</scala.version>
-        <scala.major.version>2.12</scala.major.version>
+        <spark.version>2.4.8</spark.version>
+        <spark.major.version>2.4</spark.major.version>
+        <scala.version>2.11.12</scala.version>
+        <scala.major.version>2.11</scala.major.version>
         <libthrift.version>0.16.0</libthrift.version>
         <arrow.version>15.0.2</arrow.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -80,256 +89,317 @@
         <fasterxml.jackson.version>2.13.5</fasterxml.jackson.version>
         <thrift-service.version>1.0.1</thrift-service.version>
         <testcontainers.version>1.17.6</testcontainers.version>
+        <jmockit.version>1.49</jmockit.version>
+        <fe_ut_parallel>1</fe_ut_parallel>
+        <argLine>-Xmx512m</argLine>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.apache.doris</groupId>
-            <artifactId>thrift-service</artifactId>
-            <version>${thrift-service.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-3</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-shims_spark-3-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-shims_spark-${spark.major.version}</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.major.version}</artifactId>
-            <version>${spark.version}</version>
-            <scope>provided</scope>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>thrift-service</artifactId>
+                <version>${thrift-service.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
+                <version>${netty.version}</version>
+                <scope>provided</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.major.version}</artifactId>
-            <version>${spark.version}</version>
-            <scope>provided</scope>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-core_${scala.major.version}</artifactId>
+                <version>${spark.version}</version>
+                <scope>provided</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.thrift</groupId>
-            <artifactId>libthrift</artifactId>
-            <version>${libthrift.version}</version>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-sql_${scala.major.version}</artifactId>
+                <version>${spark.version}</version>
+                <scope>provided</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-vector</artifactId>
-            <version>${arrow.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>jackson-annotations</artifactId>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>jackson-core</artifactId>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>jackson-databind</artifactId>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.thrift</groupId>
+                <artifactId>libthrift</artifactId>
+                <version>${libthrift.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-memory-netty</artifactId>
-            <version>${arrow.version}</version>
-            <scope>runtime</scope>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${arrow.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>jackson-annotations</artifactId>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>jackson-core</artifactId>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>jackson-databind</artifactId>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
 
-        <!--Test-->
-        <dependency>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-core</artifactId>
-            <version>1.3</version>
-            <scope>test</scope>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
+                <version>${arrow.version}</version>
+                <scope>runtime</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-scala_${scala.major.version}</artifactId>
-            <version>1.4.7</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>hamcrest-core</artifactId>
-                    <groupId>org.hamcrest</groupId>
-                </exclusion>
-            </exclusions>
-            <scope>test</scope>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.arrow.adbc</groupId>
+                <artifactId>adbc-driver-flight-sql</artifactId>
+                <version>0.14.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.arrow</groupId>
+                        <artifactId>flight-sql-jdbc-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-memory-netty</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-memory-core</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-format</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>arrow-vector</artifactId>
+                        <groupId>org.apache.arrow</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>grpc-netty</artifactId>
+                        <groupId>io.grpc</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
 
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.11</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>hamcrest-core</artifactId>
-                    <groupId>org.hamcrest</groupId>
-                </exclusion>
-            </exclusions>
-            <scope>test</scope>
-        </dependency>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-netty</artifactId>
+                <version>1.60.0</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>netty-codec-http2</artifactId>
+                        <groupId>io.netty</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>netty-handler-proxy</artifactId>
+                        <groupId>io.netty</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>netty-transport-native-unix-common</artifactId>
+                        <groupId>io.netty</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql-kafka-0-10_${scala.major.version}</artifactId>
-            <version>${spark.version}</version>
-            <scope>test</scope>
-        </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-http2</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler-proxy</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport-native-unix-common</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${fasterxml.jackson.version}</version>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>flight-sql-jdbc-core</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <version>${fasterxml.jackson.version}</version>
-        </dependency>
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>3.22.3</version>
+            </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>${fasterxml.jackson.version}</version>
-        </dependency>
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>33.0.0-jre</version>
+            </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.module</groupId>
-            <artifactId>jackson-module-scala_${scala.major.version}</artifactId>
-            <version>${fasterxml.jackson.version}</version>
-        </dependency>
+            <!--Test-->
+            <dependency>
+                <groupId>org.hamcrest</groupId>
+                <artifactId>hamcrest-core</artifactId>
+                <version>1.3</version>
+                <scope>test</scope>
+            </dependency>
 
-        <!-- https://mvnrepository.com/artifact/com.mysql/mysql-connector-j -->
-        <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <version>8.0.33</version>
-            <scope>test</scope>
-        </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-scala_${scala.major.version}</artifactId>
+                <version>1.4.7</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>hamcrest-core</artifactId>
+                        <groupId>org.hamcrest</groupId>
+                    </exclusion>
+                </exclusions>
+                <scope>test</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <version>4.2.0</version>
-            <scope>test</scope>
-        </dependency>
+            <!-- https://mvnrepository.com/artifact/org.jmockit/jmockit -->
+            <dependency>
+                <groupId>org.jmockit</groupId>
+                <artifactId>jmockit</artifactId>
+                <version>1.49</version>
+                <scope>test</scope>
+            </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.scala-lang/scala-library -->
-        <dependency>
-            <groupId>org.scala-lang</groupId>
-            <artifactId>scala-library</artifactId>
-            <version>${scala.version}</version>
-            <scope>provided</scope>
-        </dependency>
+            <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>5.10.2</version>
+                <scope>test</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.13</version>
-        </dependency>
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>4.11</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>hamcrest-core</artifactId>
+                        <groupId>org.hamcrest</groupId>
+                    </exclusion>
+                </exclusions>
+                <scope>test</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-hive_${scala.major.version}</artifactId>
-            <version>${spark.version}</version>
-            <scope>provided</scope>
-        </dependency>
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-sql-kafka-0-10_${scala.major.version}</artifactId>
+                <version>${spark.version}</version>
+                <scope>test</scope>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.arrow.adbc</groupId>
-            <artifactId>adbc-driver-flight-sql</artifactId>
-            <version>0.13.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.arrow</groupId>
-                    <artifactId>flight-sql-jdbc-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>arrow-memory-netty</artifactId>
-                    <groupId>org.apache.arrow</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>arrow-memory-core</artifactId>
-                    <groupId>org.apache.arrow</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>arrow-format</artifactId>
-                    <groupId>org.apache.arrow</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>arrow-vector</artifactId>
-                    <groupId>org.apache.arrow</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>grpc-netty</artifactId>
-                    <groupId>io.grpc</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-netty</artifactId>
-            <version>1.60.0</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>netty-codec-http2</artifactId>
-                    <groupId>io.netty</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>netty-handler-proxy</artifactId>
-                    <groupId>io.netty</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>netty-transport-native-unix-common</artifactId>
-                    <groupId>io.netty</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-codec-http2</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-handler-proxy</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-unix-common</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>flight-sql-jdbc-core</artifactId>
-            <version>${arrow.version}</version>
-        </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-scala_${scala.major.version}</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>3.22.3</version>
-        </dependency>
+            <!-- https://mvnrepository.com/artifact/com.mysql/mysql-connector-j -->
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>8.0.33</version>
+                <scope>test</scope>
+            </dependency>
 
-    </dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>4.2.0</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.scala-lang/scala-library -->
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>${scala.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>4.5.13</version>
+            </dependency>
+
+        </dependencies>
+
+    </dependencyManagement>
 
     <build>
         <pluginManagement>
@@ -402,8 +472,6 @@
                     <configuration>
                         <filters>
                             <filter>
-                                <!-- Do not copy the signatures in the META-INF folder.
-                                Otherwise, this might cause SecurityExceptions when using the JAR. -->
                                 <artifact>*:*</artifact>
                                 <excludes>
                                     <exclude>META-INF/*.SF</exclude>
@@ -461,7 +529,6 @@
                             <transformer
                                     implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                         </transformers>
-                        <!-- <minimizeJar>true</minimizeJar> -->
                     </configuration>
                     <executions>
                         <execution>
@@ -476,8 +543,8 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
-                        <source>1.8</source>
-                        <target>1.8</target>
+                        <source>8</source>
+                        <target>8</target>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -492,6 +559,11 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>1.2.5</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -520,6 +592,30 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>license-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
@@ -658,8 +754,90 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-deploy-plugin</artifactId>
                     </plugin>
+                    <!-- jmockit -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${jmockit.version}</version>
+                        <configuration>
+                            <!-->set larger, eg, 3, to reduce the time or running FE unit tests<-->
+                            <forkCount>${fe_ut_parallel}</forkCount>
+                            <!-->not reuse forked jvm, so that each unit test will run in separate jvm. to avoid singleton confict<-->
+                            <reuseForks>false</reuseForks>
+                            <argLine>
+                                -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar @{argLine}
+                            </argLine>
+                        </configuration>
+                    </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <profile>
+            <id>spark-2</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <spark.version>2.4.8</spark.version>
+                <spark.major.version>2.4</spark.major.version>
+                <scala.version>2.11.10</scala.version>
+                <scala.major.version>2.11</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.0</id>
+            <properties>
+                <spark.version>3.0.0</spark.version>
+                <spark.major.version>3.0</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.1</id>
+            <properties>
+                <spark.version>3.1.0</spark.version>
+                <spark.major.version>3.1</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.2</id>
+            <properties>
+                <spark.version>3.2.0</spark.version>
+                <spark.major.version>3.2</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.3</id>
+            <properties>
+                <spark.version>3.3.0</spark.version>
+                <spark.major.version>3.3</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.4</id>
+            <properties>
+                <spark.version>3.4.0</spark.version>
+                <spark.major.version>3.4</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3.5</id>
+            <properties>
+                <spark.version>3.5.0</spark.version>
+                <spark.major.version>3.5</spark.major.version>
+                <scala.version>2.12.18</scala.version>
+                <scala.major.version>2.12</scala.major.version>
+            </properties>
         </profile>
     </profiles>
 
