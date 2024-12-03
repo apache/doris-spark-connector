@@ -108,7 +108,7 @@ public class PartitionDefinition implements Serializable, Comparable<PartitionDe
         similar.retainAll(o.tabletIds);
         diffSelf.removeAll(similar);
         diffOther.removeAll(similar);
-        if  (diffSelf.size() == 0) {
+        if  (diffSelf.isEmpty()) {
             return 0;
         }
         long diff = Collections.min(diffSelf) - Collections.min(diffOther);
@@ -127,7 +127,7 @@ public class PartitionDefinition implements Serializable, Comparable<PartitionDe
         return Objects.equals(database, that.database)
                 && Objects.equals(table, that.table)
                 && Objects.equals(beAddress, that.beAddress)
-                && Objects.equals(tabletIds, that.tabletIds)
+                && tabletIds.size() == that.tabletIds.size() && tabletIds.containsAll(that.tabletIds)
                 && Objects.equals(queryPlan, that.queryPlan)
                 && Objects.equals(serializedSettings, that.serializedSettings);
     }
