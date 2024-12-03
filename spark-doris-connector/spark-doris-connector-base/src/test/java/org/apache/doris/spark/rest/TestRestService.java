@@ -17,7 +17,6 @@
 
 package org.apache.doris.spark.rest;
 
-import org.apache.commons.collections4.ListUtils;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_FENODES;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE;
 import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLET_SIZE_DEFAULT;
@@ -26,7 +25,6 @@ import static org.apache.doris.spark.cfg.ConfigurationOptions.DORIS_TABLE_IDENTI
 import static org.hamcrest.core.StringStartsWith.startsWith;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -307,7 +305,7 @@ public class TestRestService {
                 settings, beToTablets, opaquedQueryPlan, database, table, logger);
         Collections.sort(actual);
 
-        Assert.assertTrue(ListUtils.isEqualList(expected, actual));
+        Assert.assertEquals(expected, actual);
     }
 
     @Deprecated
