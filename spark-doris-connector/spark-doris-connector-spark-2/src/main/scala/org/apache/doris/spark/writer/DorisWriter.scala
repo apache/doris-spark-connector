@@ -218,8 +218,6 @@ class DorisWriter(config: DorisConfig,
     loadMode match {
       case "stream_load" => new StreamLoadProcessor(config)
       case "copy_into" => new CopyIntoProcessor(config)
-      // case "stream_load" => new StreamLoader(settings, isStreaming)
-      // case "copy_into" => new CopyIntoLoader(settings, isStreaming)
       case _ => throw new IllegalArgumentException(s"Unsupported load mode: $loadMode")
     }
   }

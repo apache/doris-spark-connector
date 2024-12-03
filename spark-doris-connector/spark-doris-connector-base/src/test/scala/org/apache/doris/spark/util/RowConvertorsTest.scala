@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.apache.doris.spark.util
 
 import org.apache.spark.sql.catalyst.util.{ArrayData, MapData}

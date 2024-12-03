@@ -111,7 +111,7 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
       isRetrying = true
       currentBatchCount = 0
     } match {
-      case Success(_) => recordBuffer += record
+      case Success(_) => if (retries > 0) recordBuffer += record
       case Failure(exception) => throw new Exception(exception)
     }
 
