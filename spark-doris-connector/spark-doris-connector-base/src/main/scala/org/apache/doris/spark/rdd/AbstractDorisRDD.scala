@@ -49,7 +49,7 @@ protected[spark] abstract class AbstractDorisRDD[T: ClassTag](
   /**
    * doris configuration get from rdd parameters and spark conf.
    */
-  @transient private[spark] lazy val dorisCfg = DorisConfig.fromMap(sc.getConf.getAll.toMap.asJava, params.asJava)
+  @transient private[spark] lazy val dorisCfg = DorisConfig.fromMap(sc.getConf.getAll.toMap.asJava, params.asJava, false)
 
   @transient private[spark] lazy val dorisPartitions = ReaderPartitionGenerator.generatePartitions(dorisCfg)
 }

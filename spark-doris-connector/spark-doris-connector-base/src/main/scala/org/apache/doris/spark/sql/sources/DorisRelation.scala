@@ -35,7 +35,7 @@ private[sql] class DorisRelation(
                                   val sqlContext: SQLContext, parameters: Map[String, String])
   extends BaseRelation with TableScan with PrunedScan with PrunedFilteredScan with InsertableRelation {
 
-  private lazy val cfg = DorisConfig.fromMap(sqlContext.sparkContext.getConf.getAll.toMap.asJava, parameters.asJava)
+  private lazy val cfg = DorisConfig.fromMap(sqlContext.sparkContext.getConf.getAll.toMap.asJava, parameters.asJava, false)
 
   private lazy val inValueLengthLimit = cfg.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT)
 

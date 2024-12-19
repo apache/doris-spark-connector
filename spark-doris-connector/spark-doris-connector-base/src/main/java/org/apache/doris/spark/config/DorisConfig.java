@@ -29,17 +29,20 @@ import java.util.Map;
 
 public class DorisConfig implements Serializable {
 
-    private Map<String, String> configOptions;
     private final String DORIS_REQUEST_AUTH_USER = "doris.request.auth.user";
     private final String DORIS_REQUEST_AUTH_PASSWORD = "doris.request.auth.password";
+
+    private Map<String, String> configOptions;
+    private boolean ignoreTableCheck;
 
     // only for test
     public DorisConfig() {
         configOptions = Collections.emptyMap();
     }
 
-    private DorisConfig(Map<String, String> options) throws OptionRequiredException {
+    private DorisConfig(Map<String, String> options, Boolean ignoreTableCheck) throws OptionRequiredException {
         this.configOptions = new HashMap<>(processOptions(options));
+        this.ignoreTableCheck = ignoreTableCheck;
         checkOptions(this.configOptions);
     }
 
@@ -87,14 +90,16 @@ public class DorisConfig implements Serializable {
                 throw new IllegalArgumentException("option [" + DorisOptions.DORIS_FENODES.getName() + "] is not in correct format, for example: host:port[,host2:port]");
             }
         }
-        if (!options.containsKey(DorisOptions.DORIS_TABLE_IDENTIFIER.getName())) {
-            throw new OptionRequiredException(DorisOptions.DORIS_TABLE_IDENTIFIER.getName());
-        } else {
-            String tableIdentifier = options.get(DorisOptions.DORIS_TABLE_IDENTIFIER.getName());
-            if (tableIdentifier.isEmpty()) {
-                throw new IllegalArgumentException("option [" + DorisOptions.DORIS_TABLE_IDENTIFIER.getName() + "] is empty");
-            } else if (!tableIdentifier.contains(".")) {
-                throw new IllegalArgumentException("option [" + DorisOptions.DORIS_TABLE_IDENTIFIER.getName() + "] is not in correct format, for example: db.table");
+        if (!ignoreTableCheck) {
+            if (!options.containsKey(DorisOptions.DORIS_TABLE_IDENTIFIER.getName())) {
+                throw new OptionRequiredException(DorisOptions.DORIS_TABLE_IDENTIFIER.getName());
+            } else {
+                String tableIdentifier = options.get(DorisOptions.DORIS_TABLE_IDENTIFIER.getName());
+                if (tableIdentifier.isEmpty()) {
+                    throw new IllegalArgumentException("option [" + DorisOptions.DORIS_TABLE_IDENTIFIER.getName() + "] is empty");
+                } else if (!tableIdentifier.contains(".")) {
+                    throw new IllegalArgumentException("option [" + DorisOptions.DORIS_TABLE_IDENTIFIER.getName() + "] is not in correct format, for example: db.table");
+                }
             }
         }
         if (!options.containsKey(DorisOptions.DORIS_USER.getName())) {
@@ -176,16 +181,16 @@ public class DorisConfig implements Serializable {
         return new HashMap<>(configOptions);
     }
 
-    public static DorisConfig fromMap(Map<String, String> sparkConfMap) throws OptionRequiredException {
-        return fromMap(sparkConfMap, Collections.emptyMap());
+    public static DorisConfig fromMap(Map<String, String> sparkConfMap, Boolean ignoreTableCheck) throws OptionRequiredException {
+        return fromMap(sparkConfMap, Collections.emptyMap(), ignoreTableCheck);
     }
 
-    public static DorisConfig fromMap(Map<String, String> sparkConfMap, Map<String, String> options) throws OptionRequiredException {
+    public static DorisConfig fromMap(Map<String, String> sparkConfMap, Map<String, String> options, Boolean ignoreTableCheck) throws OptionRequiredException {
         Map<String, String> map = new HashMap<>(sparkConfMap);
         if (MapUtils.isNotEmpty(options)) {
             map.putAll(options);
         }
-        return new DorisConfig(map);
+        return new DorisConfig(map, ignoreTableCheck);
     }
 
 }

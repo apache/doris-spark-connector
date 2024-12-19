@@ -18,7 +18,7 @@
 package org.apache.doris.spark.catalog
 
 import org.apache.doris.spark.client.DorisFrontendClient
-import org.apache.doris.spark.config.DorisConfig
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.read.DorisScanBuilder
 import org.apache.doris.spark.rest.models.Schema
 import org.apache.doris.spark.util.SchemaConvertors
@@ -53,10 +53,12 @@ class DorisTable(identifier: Identifier, config: DorisConfig, schema: Option[Str
   }
 
   override def newScanBuilder(caseInsensitiveStringMap: CaseInsensitiveStringMap): ScanBuilder = {
-    new DorisScanBuilder(config: DorisConfig, schema())
+    config.setProperty(DorisOptions.DORIS_TABLE_IDENTIFIER, name())
+    new DorisScanBuilder(config, schema())
   }
 
   override def newWriteBuilder(logicalWriteInfo: LogicalWriteInfo): WriteBuilder = {
+    config.setProperty(DorisOptions.DORIS_TABLE_IDENTIFIER, name())
     new DorisWriteBuilder(config, logicalWriteInfo.schema())
   }
 
