@@ -265,7 +265,7 @@ public final class SparkDpp implements java.io.Serializable {
                         Object[] array = columnObjects.toArray();
                         Object[] catalystArr = new Object[array.length];
                         for (int i = 0; i < array.length; i++) {
-                            catalystArr[i] = CatalystTypeConverters.convertToCatalyst(array[i]);
+                            catalystArr[i] = CatalystTypeConverters.createToCatalystConverter(dstSchema.apply(i).dataType()).apply(array[i]);
                         }
                         InternalRow internalRow = InternalRow.apply(
                                 JavaConverters.asScalaBufferConverter(Arrays.asList(catalystArr)).asScala()
