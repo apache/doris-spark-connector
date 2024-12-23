@@ -21,6 +21,7 @@ spark-load/spark-load-core/.idea/
 spark-load/spark-load-dist/dependency-reduced-pom.xml
 spark-load/spark-load-dist/target/
 spark-load/spark-load-dpp/dependency-reduced-pom.xml
+spark-load/spark-load-dpp/.flattened-pom.xml
 spark-load/spark-load-dpp/target/
 spark-load/spark-load-common/dependency-reduced-pom.xml
 spark-load/spark-load-common/target/
