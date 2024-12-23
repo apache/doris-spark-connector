@@ -105,12 +105,6 @@ public class PullLoader extends Loader implements Recoverable {
 
         JobConfig.SparkInfo spark = jobConfig.getSpark();
 
-        String logDir = SparkLoadRunner.SPARK_LOAD_HOME + "/log";
-        File file = new File(logDir);
-        if (!file.exists()) {
-            file.mkdir();
-        }
-
         LOG.info("submit spark job on master: " + spark.getMaster() + ", deployMode: " + spark.getDeployMode());
 
         super.execute();
