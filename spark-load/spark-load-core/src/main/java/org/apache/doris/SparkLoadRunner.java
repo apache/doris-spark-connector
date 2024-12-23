@@ -17,6 +17,7 @@
 
 package org.apache.doris;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.doris.common.CommandLineOptions;
 import org.apache.doris.config.JobConfig;
 import org.apache.doris.load.LoaderFactory;
@@ -67,7 +68,7 @@ public class SparkLoadRunner {
         try {
             checkConfig(jobConfig);
         } catch (IllegalArgumentException e) {
-            System.err.println("check config failed, msg: " + e.getMessage());
+            System.err.println("check config failed, msg: " + ExceptionUtils.getStackTrace(e));
             System.exit(-1);
         }
 
