@@ -135,6 +135,7 @@ public class DorisClient {
 
         private String executeRequest(HttpRequestBase req, String apiPath, Map<String, String> params)
                 throws IOException, URISyntaxException {
+            IOException ex = null;
             try (CloseableHttpClient client = HttpUtils.getClient()) {
                 for (String feNode : feNodes) {
                     String url = String.format(BASE_URL, feNode, apiPath);
@@ -148,6 +149,7 @@ public class DorisClient {
                     try {
                         res = client.execute(req);
                     } catch (IOException e) {
+                        ex = e;
                         continue;
                     }
                     if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
@@ -155,6 +157,9 @@ public class DorisClient {
                     }
                     return HttpUtils.getEntityContent(res.getEntity());
                 }
+            }
+            if (ex != null) {
+                throw ex;
             }
             return null;
         }
