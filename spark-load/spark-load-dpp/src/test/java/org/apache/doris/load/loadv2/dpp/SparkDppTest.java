@@ -20,8 +20,8 @@ package org.apache.doris.load.loadv2.dpp;
 import org.apache.doris.config.EtlJobConfig;
 
 import org.apache.spark.sql.RowFactory;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 
@@ -39,14 +39,14 @@ public class SparkDppTest {
 
         DecimalParser decimalParser = new DecimalParser(etlColumn);
         // test max/min
-        Assert.assertEquals(decimalParser.getMaxValue().toString(), "9.99");
-        Assert.assertEquals(decimalParser.getMinValue().toString(), "-9.99");
+        Assertions.assertEquals(decimalParser.getMaxValue().toString(), "9.99");
+        Assertions.assertEquals(decimalParser.getMinValue().toString(), "-9.99");
         // normal
         BigDecimal bigDecimal = new BigDecimal("1.21");
-        Assert.assertTrue(sparkDpp.validateData(bigDecimal, etlColumn, decimalParser, RowFactory.create(bigDecimal)));
+        Assertions.assertTrue(sparkDpp.validateData(bigDecimal, etlColumn, decimalParser, RowFactory.create(bigDecimal)));
         // failed
         BigDecimal bigDecimalFailed = new BigDecimal("10");
-        Assert.assertFalse(sparkDpp.validateData(bigDecimalFailed, etlColumn, decimalParser, RowFactory.create(bigDecimalFailed)));
+        Assertions.assertFalse(sparkDpp.validateData(bigDecimalFailed, etlColumn, decimalParser, RowFactory.create(bigDecimalFailed)));
 
         // string
         EtlJobConfig.EtlColumn stringColumn = new EtlJobConfig.EtlColumn();
@@ -55,13 +55,13 @@ public class SparkDppTest {
         StringParser stringParser = new StringParser(stringColumn);
         // normal
         String normalString = "a1";
-        Assert.assertTrue(sparkDpp.validateData(normalString, stringColumn, stringParser, RowFactory.create(normalString)));
+        Assertions.assertTrue(sparkDpp.validateData(normalString, stringColumn, stringParser, RowFactory.create(normalString)));
         // cn normal
         String normalStringCN = "中";
-        Assert.assertTrue(sparkDpp.validateData(normalStringCN, stringColumn, stringParser, RowFactory.create(normalStringCN)));
+        Assertions.assertTrue(sparkDpp.validateData(normalStringCN, stringColumn, stringParser, RowFactory.create(normalStringCN)));
         // cn failed
         String failedStringCN = "中a";
-        Assert.assertFalse(sparkDpp.validateData(failedStringCN, stringColumn, stringParser, RowFactory.create(failedStringCN)));
+        Assertions.assertFalse(sparkDpp.validateData(failedStringCN, stringColumn, stringParser, RowFactory.create(failedStringCN)));
     }
 
 }

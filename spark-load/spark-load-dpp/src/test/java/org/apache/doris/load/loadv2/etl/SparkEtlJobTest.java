@@ -37,9 +37,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;
@@ -56,7 +57,7 @@ public class SparkEtlJobTest {
     private long partition2Id;
     private EtlJobConfig etlJobConfig;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         tableId = 0L;
         index1Id = 1L;
@@ -108,12 +109,12 @@ public class SparkEtlJobTest {
         SparkEtlJob job = Deencapsulation.newInstance(SparkEtlJob.class, "hdfs://127.0.0.1:10000/jobconfig.json");
         Deencapsulation.invoke(job, "initConfig");
         EtlJobConfig parsedConfig = Deencapsulation.getField(job, "etlJobConfig");
-        Assert.assertTrue(parsedConfig.tables.containsKey(tableId));
+        Assertions.assertTrue(parsedConfig.tables.containsKey(tableId));
         EtlTable table = parsedConfig.tables.get(tableId);
-        Assert.assertEquals(2, table.indexes.size());
-        Assert.assertEquals(2, table.partitionInfo.partitions.size());
-        Assert.assertEquals(false, parsedConfig.properties.strictMode);
-        Assert.assertEquals("label0", parsedConfig.label);
+        Assertions.assertEquals(2, table.indexes.size());
+        Assertions.assertEquals(2, table.partitionInfo.partitions.size());
+        Assertions.assertEquals(false, parsedConfig.properties.strictMode);
+        Assertions.assertEquals("label0", parsedConfig.label);
     }
 
     @Test
@@ -123,7 +124,7 @@ public class SparkEtlJobTest {
         Deencapsulation.invoke(job, "checkConfig");
         Map<Long, Set<String>> tableToBitmapDictColumns = Deencapsulation.getField(job, "tableToBitmapDictColumns");
         // check bitmap dict columns empty
-        Assert.assertTrue(tableToBitmapDictColumns.isEmpty());
+        Assertions.assertTrue(tableToBitmapDictColumns.isEmpty());
     }
 
     @Test
@@ -142,13 +143,13 @@ public class SparkEtlJobTest {
         Deencapsulation.invoke(job, "checkConfig");
         // check hive source
         Set<Long> hiveSourceTables = Deencapsulation.getField(job, "hiveSourceTables");
-        Assert.assertTrue(hiveSourceTables.contains(tableId));
+        Assertions.assertTrue(hiveSourceTables.contains(tableId));
         // check bitmap dict columns has v2
         Map<Long, Set<String>> tableToBitmapDictColumns = Deencapsulation.getField(job, "tableToBitmapDictColumns");
-        Assert.assertTrue(tableToBitmapDictColumns.containsKey(tableId));
-        Assert.assertTrue(tableToBitmapDictColumns.get(tableId).contains("v2"));
+        Assertions.assertTrue(tableToBitmapDictColumns.containsKey(tableId));
+        Assertions.assertTrue(tableToBitmapDictColumns.get(tableId).contains("v2"));
         // check remove v2 bitmap_dict func mapping from file group column mappings
-        Assert.assertFalse(table.fileGroups.get(0).columnMappings.containsKey("v2"));
+        Assertions.assertFalse(table.fileGroups.get(0).columnMappings.containsKey("v2"));
     }
 
     private static class SeekableByteArrayInputStream extends ByteArrayInputStream implements Seekable, PositionedReadable {

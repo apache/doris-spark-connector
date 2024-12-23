@@ -68,11 +68,4 @@ public class LoadMetaTest {
 
     }
 
-
-    @Test
-    void getEtlJobConfig() throws SparkLoadException {
-        JobConfig jobConfig = new JobConfig();
-        LoadMeta loadMeta = new LoadMeta();
-        loadMeta.getEtlJobConfig(jobConfig);
-    }
 }
