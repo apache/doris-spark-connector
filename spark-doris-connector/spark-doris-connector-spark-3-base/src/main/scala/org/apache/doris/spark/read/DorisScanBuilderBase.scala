@@ -24,24 +24,9 @@ import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 
 protected[spark] abstract class DorisScanBuilderBase(config: DorisConfig, schema: StructType) extends ScanBuilder
-  with SupportsPushDownFilters
   with SupportsPushDownRequiredColumns {
 
-  private var readSchema: StructType = schema
-
-  private var pushDownPredicates: Array[Filter] = Array[Filter]()
-
-  private val inValueLengthLimit = config.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT)
-
-  override def build(): Scan = new DorisScan(config, readSchema, pushDownPredicates)
-
-  override def pushFilters(filters: Array[Filter]): Array[Filter] = {
-    val (pushed, unsupported) = filters.partition(DorisDialects.compileFilter(_, inValueLengthLimit).isDefined)
-    this.pushDownPredicates = pushed
-    unsupported
-  }
-
-  override def pushedFilters(): Array[Filter] = pushDownPredicates
+  protected var readSchema: StructType = schema
 
   override def pruneColumns(requiredSchema: StructType): Unit = {
     readSchema = StructType(requiredSchema.fields.filter(schema.contains(_)))

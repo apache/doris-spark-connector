@@ -18,25 +18,15 @@
 package org.apache.doris.spark.read
 
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
-import org.apache.doris.spark.util.DorisDialects
-import org.apache.spark.sql.connector.read.{Scan, SupportsPushDownFilters}
-import org.apache.spark.sql.sources.Filter
+import org.apache.doris.spark.read.expression.V2ExpressionBuilder
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.connector.expressions.filter.Predicate
 import org.apache.spark.sql.types.StructType
 
-class DorisScanBuilder(config: DorisConfig, schema: StructType) extends DorisScanBuilderBase(config, schema) with SupportsPushDownFilters {
-
-  private var pushDownPredicates: Array[Filter] = Array[Filter]()
-
-  private val inValueLengthLimit = config.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT)
-
-  override def build(): Scan = new DorisScan(config, readSchema, pushDownPredicates)
-
-  override def pushFilters(filters: Array[Filter]): Array[Filter] = {
-    val (pushed, unsupported) = filters.partition(DorisDialects.compileFilter(_, inValueLengthLimit).isDefined)
-    this.pushDownPredicates = pushed
-    unsupported
+class DorisScanV2(config: DorisConfig, schema: StructType, filters: Array[Predicate]) extends AbstractDorisScan(config, schema) with Logging {
+  override protected def compiledFilters(): Array[String] = {
+    val inValueLengthLimit = config.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT)
+    val v2ExpressionBuilder = new V2ExpressionBuilder(inValueLengthLimit)
+    filters.map(e => Option[String](v2ExpressionBuilder.build(e))).filter(_.isDefined).map(_.get)
   }
-
-  override def pushedFilters(): Array[Filter] = pushDownPredicates
-
 }

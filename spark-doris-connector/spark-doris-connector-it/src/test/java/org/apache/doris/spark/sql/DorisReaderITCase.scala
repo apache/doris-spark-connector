@@ -141,5 +141,31 @@ class DorisReaderITCase extends DorisTestBase {
     } else false
   }
 
+  @Test
+  @throws[Exception]
+  def testSQLSourceWithCondition(): Unit = {
+    initializeTable(TABLE_READ_TBL)
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    session.sql(
+      s"""
+         |CREATE TEMPORARY VIEW test_source
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL}",
+         | "fenodes"="${DorisTestBase.getFenodes}",
+         | "user"="${DorisTestBase.USERNAME}",
+         | "password"="${DorisTestBase.PASSWORD}"
+         |)
+         |""".stripMargin)
+
+    val result = session.sql(
+      """
+        |select name,age from test_source where age = 18
+        |""".stripMargin).collect().toList.toString()
+    session.stop()
+
+    assert("List([doris,18])".equals(result))
+  }
+
 
 }
