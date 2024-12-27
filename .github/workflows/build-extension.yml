@@ -50,6 +50,8 @@ jobs:
     - name: Build spark connector 2.4 2.12
       run: |
         cd spark-doris-connector && mvn clean install ${MVN_OPT} \
+          -Dscala.version=2.12.18 \
+          -Dscala.major.version=2.12 \
           -Pspark-2 -pl spark-doris-connector-dist -am      
 
     - name: Build spark connector 3.0
