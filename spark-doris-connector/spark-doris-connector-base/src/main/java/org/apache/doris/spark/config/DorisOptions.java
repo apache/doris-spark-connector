@@ -110,7 +110,7 @@ public class DorisOptions {
 
     public static final ConfigOption<String> DORIS_HTTPS_KEY_STORE_PASSWORD = ConfigOptions.name("doris.https.key-store-password").stringType().withoutDefaultValue().withDescription("");
 
-    public static final ConfigOption<String> LOAD_MODE = ConfigOptions.name("doris.sink.load.mode").stringType().defaultValue("stream_load").withDescription("");
+    public static final ConfigOption<String> LOAD_MODE = ConfigOptions.name("doris.sink.mode").stringType().defaultValue("stream_load").withDescription("");
 
     public static final ConfigOption<String> READ_MODE = ConfigOptions.name("doris.read.mode").stringType().defaultValue("thrift").withDescription("");
 

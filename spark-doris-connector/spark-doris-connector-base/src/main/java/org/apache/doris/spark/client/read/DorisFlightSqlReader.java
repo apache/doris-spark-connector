@@ -159,9 +159,7 @@ public class DorisFlightSqlReader extends DorisReader {
                 .collect(Collectors.toMap(Field::getName, Function.identity()));
         String[] readColumns = partition.getReadColumns();
         List<Field> newFieldList = new ArrayList<>();
-        int offset = 0;
-        for (int i = 0; i < readColumns.length; i++) {
-            String readColumn = readColumns[i];
+        for (String readColumn : readColumns) {
             if (!fieldTypeMap.containsKey(readColumn) && readColumn.contains(" AS ")) {
                 int asIdx = readColumn.indexOf(" AS ");
                 String realColumn = readColumn.substring(asIdx + 4).trim().replaceAll("`", "");
@@ -169,7 +167,6 @@ public class DorisFlightSqlReader extends DorisReader {
                         && ("BITMAP".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType())
                         || "HLL".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType()))) {
                     newFieldList.add(new Field(realColumn, TPrimitiveType.VARCHAR.name(), null, 0, 0, null));
-                    offset++;
                 }
             } else {
                 newFieldList.add(fieldTypeMap.get(readColumn.trim().replaceAll("`", "")));

@@ -44,7 +44,7 @@ class DorisTableCatalog extends DorisTableCatalogBase with TableCatalog {
   override def initialize(name: String, caseInsensitiveStringMap: CaseInsensitiveStringMap): Unit = {
     assert(catalogName.isEmpty, "The Doris table catalog is already initialed")
     catalogName = Some(name)
-    dorisConfig = DorisConfig.fromMap(caseInsensitiveStringMap)
+    dorisConfig = DorisConfig.fromMap(caseInsensitiveStringMap, true)
     frontend = new DorisFrontendClient(dorisConfig)
   }
 
@@ -55,7 +55,7 @@ class DorisTableCatalog extends DorisTableCatalogBase with TableCatalog {
   override def loadTable(identifier: Identifier): Table = {
     checkIdentifier(identifier)
     new DorisTable(identifier, DorisConfig.fromMap((dorisConfig.toMap.asScala +
-      (DorisOptions.DORIS_TABLE_IDENTIFIER.getName -> getFullTableName(identifier))).asJava), None)
+      (DorisOptions.DORIS_TABLE_IDENTIFIER.getName -> getFullTableName(identifier))).asJava, false), None)
   }
 
   override def createTable(identifier: Identifier, structType: StructType, transforms: Array[Transform], map: util.Map[String, String]): Table = throw new UnsupportedOperationException()

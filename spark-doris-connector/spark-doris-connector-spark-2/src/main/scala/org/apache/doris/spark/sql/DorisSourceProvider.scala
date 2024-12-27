@@ -54,7 +54,7 @@ private[sql] class DorisSourceProvider extends DorisSourceRegisterTrait
                               mode: SaveMode, parameters: Map[String, String],
                               data: DataFrame): BaseRelation = {
 
-    val config = DorisConfig.fromMap(sqlContext.sparkContext.getConf.getAll.toMap.asJava, parameters.asJava)
+    val config = DorisConfig.fromMap(sqlContext.sparkContext.getConf.getAll.toMap.asJava, parameters.asJava, false)
 
     mode match {
       case SaveMode.Overwrite =>
@@ -85,7 +85,7 @@ private[sql] class DorisSourceProvider extends DorisSourceRegisterTrait
   }
 
   override def createSink(sqlContext: SQLContext, parameters: Map[String, String], partitionColumns: Seq[String], outputMode: OutputMode): Sink = {
-    new DorisStreamLoadSink(sqlContext, DorisConfig.fromMap(Utils.params(parameters, logger).asJava))
+    new DorisStreamLoadSink(sqlContext, DorisConfig.fromMap(Utils.params(parameters, logger).asJava, false))
   }
 
   private def truncateTable(config: DorisConfig): Unit = {

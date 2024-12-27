@@ -38,7 +38,7 @@ class DorisDataSourceV2 extends DorisDataSource with TableProvider {
   override def getTable(schema: StructType, partitioning: Array[Transform], properties: util.Map[String, String]): Table = {
     if (t != null) t
     else {
-      val dorisConfig = DorisConfig.fromMap(properties)
+      val dorisConfig = DorisConfig.fromMap(properties, false)
       val tableIdentifier = dorisConfig.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)
       val tableIdentifierArr = tableIdentifier.split("\\.")
       new DorisTable(Identifier.of(Array[String](tableIdentifierArr(0)), tableIdentifierArr(1)), dorisConfig, Some(schema))
@@ -48,7 +48,7 @@ class DorisDataSourceV2 extends DorisDataSource with TableProvider {
   private def getTable(options: CaseInsensitiveStringMap): Table = {
     if (t != null) t
     else {
-      val dorisConfig = DorisConfig.fromMap(options)
+      val dorisConfig = DorisConfig.fromMap(options, false)
       val tableIdentifier = dorisConfig.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)
       val tableIdentifierArr = tableIdentifier.split("\\.")
       new DorisTable(Identifier.of(Array[String](tableIdentifierArr(0)), tableIdentifierArr(1)), dorisConfig, None)
