@@ -292,6 +292,8 @@ under the License.
                             <shadedPattern>org.apache.doris.shaded.org.roaringbitmap</shadedPattern>
                             <pattern>com.google.guava</pattern>
                             <shadedPattern>org.apache.doris.shaded.com.google.guava</shadedPattern>
+                            <pattern>com.fasterxml.jackson</pattern>
+                            <shadedPattern>org.apache.doris.shaded.com.fasterxml.jackson</shadedPattern>
                         </relocation>
                     </relocations>
                 </configuration>
