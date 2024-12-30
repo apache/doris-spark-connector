@@ -758,7 +758,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <version>${jmockit.version}</version>
                         <configuration>
                             <!-->set larger, eg, 3, to reduce the time or running FE unit tests<-->
                             <forkCount>${fe_ut_parallel}</forkCount>
