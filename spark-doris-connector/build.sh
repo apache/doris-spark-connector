@@ -142,32 +142,29 @@ selectScala() {
 
 selectSpark() {
   echo 'Spark-Doris-Connector supports multiple versions of spark. Which version do you need ?'
-  select spark in "2.4" "3.0" "3.1" "3.2" "3.3" "3.4" "3.5"  "other"
+  select spark in "2.4" "3.1" "3.2" "3.3" "3.4" "3.5"  "other"
   do
     case $spark in
       "2.4")
         return 1
         ;;
-      "3.0")
+      "3.1")
         return 2
         ;;
-      "3.1")
+      "3.2")
         return 3
         ;;
-      "3.2")
+      "3.3")
         return 4
         ;;
-      "3.3")
+      "3.4")
         return 5
         ;;
-      "3.4")
+      "3.5")
         return 6
         ;;
-      "3.5")
-        return 7
-        ;;
       "other")
-        return 8
+        return 7
         ;;
     esac
   done
@@ -189,18 +186,16 @@ SparkVer=$?
 if [ ${SparkVer} -eq 1 ]; then
     SPARK_VERSION="2.4.8"
 elif [ ${SparkVer} -eq 2 ]; then
-    SPARK_VERSION="3.0.3"
-elif [ ${SparkVer} -eq 3 ]; then
     SPARK_VERSION="3.1.3"
-elif [ ${SparkVer} -eq 4 ]; then
+elif [ ${SparkVer} -eq 3 ]; then
     SPARK_VERSION="3.2.4"
-elif [ ${SparkVer} -eq 5 ]; then
+elif [ ${SparkVer} -eq 4 ]; then
     SPARK_VERSION="3.3.4"
-elif [ ${SparkVer} -eq 6 ]; then
+elif [ ${SparkVer} -eq 5 ]; then
     SPARK_VERSION="3.4.3"
-elif [ ${SparkVer} -eq 7 ]; then
+elif [ ${SparkVer} -eq 6 ]; then
     SPARK_VERSION="3.5.3"
-elif [ ${SparkVer} -eq 8 ]; then
+elif [ ${SparkVer} -eq 7 ]; then
     # shellcheck disable=SC2162
     read -p 'Which spark version do you need? please input
     :' ver
@@ -223,23 +218,23 @@ echo_g " scala version: ${SCALA_VERSION}, major version: ${SCALA_MAJOR_VERSION}"
 echo_g " spark version: ${SPARK_VERSION}, major version: ${SPARK_MAJOR_VERSION}"
 echo_g " build starting..."
 
-SPARK_PRIMARY_VERSION=0
-[ ${SPARK_MAJOR_VERSION} != 0 ] && SPARK_PRIMARY_VERSION=${SPARK_MAJOR_VERSION%.*}
+if [[ $SPARK_VERSION =~ ^3.* ]]; then
+  profile_name="spark-${SPARK_MAJOR_VERSION}"
+  module_suffix=${SPARK_MAJOR_VERSION}
+else
+  profile_name="spark-${SPARK_MAJOR_VERSION}_${SCALA_MAJOR_VERSION}"
+  module_suffix="2"
+fi
 
-${MVN_BIN} clean install \
-  -Dspark.version=${SPARK_VERSION} \
-  -Dscala.version=${SCALA_VERSION} \
-  -Dspark.major.version=${SPARK_MAJOR_VERSION} \
-  -Dscala.major.version=${SCALA_MAJOR_VERSION} \
-  -Pspark-${SPARK_PRIMARY_VERSION} -pl spark-doris-connector-dist -am "$@"
+${MVN_BIN} clean install -P"${profile_name}" -am "$@"
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then
   DIST_DIR=${DORIS_HOME}/dist
   [ ! -d "$DIST_DIR" ] && mkdir "$DIST_DIR"
-  dist_jar=$(ls "${ROOT}"/spark-doris-connector-dist/target | grep "spark-doris-" | grep -v "sources.jar" | grep -v "original-")
-  rm -rf "${DIST_DIR}"/spark-doris-connector-dist/"${dist_jar}"
-  cp "${ROOT}"/spark-doris-connector-dist/target/"${dist_jar}" "$DIST_DIR"
+  dist_jar=$(ls "${ROOT}"/spark-doris-connector-spark-"${module_suffix}"/target | grep "spark-doris-" | grep -v "sources.jar" | grep -v "original-")
+  rm -rf "${DIST_DIR}"/spark-doris-connector-spark-"${module_suffix}"/"${dist_jar}"
+  cp "${ROOT}"/spark-doris-connector-spark-"${module_suffix}"/target/"${dist_jar}" "$DIST_DIR"
 
   echo_g "*****************************************************************"
   echo_g "Successfully build Spark-Doris-Connector"

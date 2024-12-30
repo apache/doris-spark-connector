@@ -41,11 +41,14 @@
     </licenses>
     <modules>
         <module>spark-doris-connector-base</module>
-        <module>spark-doris-connector-shims</module>
-        <module>spark-doris-connector-dist</module>
         <module>spark-doris-connector-spark-2</module>
-        <module>spark-doris-connector-spark-3</module>
         <module>spark-doris-connector-it</module>
+        <module>spark-doris-connector-spark-3-base</module>
+        <module>spark-doris-connector-spark-3.1</module>
+        <module>spark-doris-connector-spark-3.2</module>
+        <module>spark-doris-connector-spark-3.3</module>
+        <module>spark-doris-connector-spark-3.4</module>
+        <module>spark-doris-connector-spark-3.5</module>
     </modules>
 
     <scm>
@@ -108,20 +111,34 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.doris</groupId>
-                <artifactId>spark-doris-connector-spark-3</artifactId>
+                <artifactId>spark-doris-connector-spark-3-base</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.doris</groupId>
-                <artifactId>spark-doris-connector-shims_spark-3-base</artifactId>
+                <artifactId>spark-doris-connector-spark-3.1</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.doris</groupId>
-                <artifactId>spark-doris-connector-shims_spark-${spark.major.version}</artifactId>
+                <artifactId>spark-doris-connector-spark-3.2</artifactId>
                 <version>${project.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-3.3</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-3.4</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-3.5</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.doris</groupId>
                 <artifactId>thrift-service</artifactId>
@@ -764,7 +781,7 @@
                             <!-->not reuse forked jvm, so that each unit test will run in separate jvm. to avoid singleton confict<-->
                             <reuseForks>false</reuseForks>
                             <argLine>
-                                -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar @{argLine}
+                                -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar --add-opens=java.base/java.nio=ALL-UNNAMED @{argLine}
                             </argLine>
                         </configuration>
                     </plugin>
@@ -773,22 +790,19 @@
         </profile>
 
         <profile>
-            <id>spark-2</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
+            <id>spark-2.4_2.11</id>
             <properties>
                 <spark.version>2.4.8</spark.version>
                 <spark.major.version>2.4</spark.major.version>
-                <scala.version>2.11.10</scala.version>
+                <scala.version>2.11.12</scala.version>
                 <scala.major.version>2.11</scala.major.version>
             </properties>
         </profile>
         <profile>
-            <id>spark-3.0</id>
+            <id>spark-2.4_2.12</id>
             <properties>
-                <spark.version>3.0.0</spark.version>
-                <spark.major.version>3.0</spark.major.version>
+                <spark.version>2.4.8</spark.version>
+                <spark.major.version>2.4</spark.major.version>
                 <scala.version>2.12.18</scala.version>
                 <scala.major.version>2.12</scala.major.version>
             </properties>
@@ -813,6 +827,9 @@
         </profile>
         <profile>
             <id>spark-3.3</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
             <properties>
                 <spark.version>3.3.0</spark.version>
                 <spark.major.version>3.3</spark.major.version>

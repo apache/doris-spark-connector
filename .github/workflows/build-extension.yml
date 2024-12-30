@@ -44,42 +44,28 @@ jobs:
 
     - name: Build spark connector 2.4 2.11
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Pspark-2 -pl spark-doris-connector-dist -am
+        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-2.4_2.11 -pl spark-doris-connector-spark-2 -am
 
     - name: Build spark connector 2.4 2.12
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Dscala.version=2.12.18 \
-          -Dscala.major.version=2.12 \
-          -Pspark-2 -pl spark-doris-connector-dist -am      
-
-    - name: Build spark connector 3.0
-      run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Pspark-3,spark-3.0 -pl spark-doris-connector-dist -am
+        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-2.4_2.12 -pl spark-doris-connector-spark-2 -am   
 
     - name: Build spark connector 3.1
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Pspark-3,spark-3.1 -pl spark-doris-connector-dist -am
+        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.1 -pl spark-doris-connector-spark-3.1 -am
 
     - name: Build spark connector 3.2
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Pspark-3,spark-3.2 -pl spark-doris-connector-dist -am
+        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.2 -pl spark-doris-connector-spark-3.2 -am
 
     - name: Build spark connector 3.3
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Pspark-3,spark-3.3 -pl spark-doris-connector-dist -am
+        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.3 -pl spark-doris-connector-spark-3.3 -am
 
     - name: Build spark connector 3.4
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Pspark-3,spark-3.4 -pl spark-doris-connector-dist -am
+        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.4 -pl spark-doris-connector-spark-3.4 -am
 
     - name: Build spark connector 3.5
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} \
-          -Pspark-3,spark-3.5 -pl spark-doris-connector-dist -am
+        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.5 -pl spark-doris-connector-spark-3.5 -am

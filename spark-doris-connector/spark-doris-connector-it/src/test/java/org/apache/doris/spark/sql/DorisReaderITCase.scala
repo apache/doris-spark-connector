@@ -37,6 +37,7 @@ class DorisReaderITCase extends DorisTestBase {
 
     val sparkConf: SparkConf = new SparkConf().setMaster("local[*]").setAppName("rddSource")
     val sc = new SparkContext(sparkConf)
+    // sc.setLogLevel("DEBUG")
     val dorisSparkRDD = sc.dorisRDD(
       tableIdentifier = Some(DATABASE + "." + TABLE_READ),
       cfg = Some(Map(
@@ -121,7 +122,7 @@ class DorisReaderITCase extends DorisTestBase {
 
   private def compareCollectResult(a1: Array[AnyRef], a2: Array[AnyRef]): Boolean = {
     if (a1.length == a2.length) {
-      for (idx <- a1.indices) {
+      for (idx <- 0 until a1.length) {
         if (!a1(idx).isInstanceOf[Array[AnyRef]] || !a2(idx).isInstanceOf[Array[AnyRef]]) {
           return false
         }
@@ -130,7 +131,7 @@ class DorisReaderITCase extends DorisTestBase {
         if (arr1.length != arr2.length) {
           return false
         }
-        for (idx2 <- arr1.indices) {
+        for (idx2 <- 0 until arr2.length) {
           if (arr1(idx2) != arr2(idx2)) {
             return false
           }
