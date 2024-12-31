@@ -97,7 +97,7 @@
             <dependencies>
                 <dependency>
                     <groupId>org.apache.doris</groupId>
-                    <artifactId>spark-doris-connector-spark-3.3</artifactId>
+                    <artifactId>spark-doris-connector-spark-${spark.major.version}</artifactId>
                     <version>${project.version}</version>
                     <scope>test</scope>
                 </dependency>
