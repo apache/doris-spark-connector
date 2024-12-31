@@ -226,7 +226,7 @@ else
   module_suffix="2"
 fi
 
-${MVN_BIN} clean install -P"${profile_name}" -am "$@"
+${MVN_BIN} clean install -P"${profile_name}" -pl spark-doris-connector-spark-"${module_suffix}" -am "$@"
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then
