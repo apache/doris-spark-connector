@@ -95,7 +95,6 @@
         <jmockit.version>1.49</jmockit.version>
         <fe_ut_parallel>1</fe_ut_parallel>
         <argLine>-Xmx512m</argLine>
-        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencyManagement>
