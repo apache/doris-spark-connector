@@ -67,7 +67,7 @@ object SchemaConvertors {
   def convertToSchema(tscanColumnDescs: Seq[TScanColumnDesc]): Schema = {
     val schema = new Schema(tscanColumnDescs.length)
     tscanColumnDescs.foreach(desc => {
-      println(desc.getName + " " + desc.getType.name())
+      // println(desc.getName + " " + desc.getType.name())
       schema.put(new Field(desc.getName, desc.getType.name, "", 0, 0, ""))
     })
     schema

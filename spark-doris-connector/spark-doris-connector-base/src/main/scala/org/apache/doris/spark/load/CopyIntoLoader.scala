@@ -38,7 +38,7 @@ import java.io.{ByteArrayOutputStream, IOException}
 import java.nio.charset.StandardCharsets
 import java.util.zip.GZIPOutputStream
 import java.util.{Base64, Properties, UUID}
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters.{asJavaIteratorConverter, mapAsJavaMapConverter, propertiesAsScalaMapConverter}
 import scala.util.{Failure, Success, Try}
 
 case class CopyIntoResponse(code: Int, msg: String, content: String)
@@ -234,7 +234,7 @@ class CopyIntoLoader(settings: SparkSettings, isStreaming: Boolean) extends Load
     }
     props.remove("columns")
     val properties = new Properties()
-    properties.putAll(props.mapValues(_.toString).asJava)
+    props.foreach(p => properties.setProperty(p._1, p._2))
     properties
   }
 

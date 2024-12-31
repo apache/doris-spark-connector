@@ -40,9 +40,9 @@ jobs:
  
     - name: Run ITCases for spark 2
       run: |
-        cd spark-doris-connector && mvn clean test -pl spark-doris-connector-it -Pspark-2 -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="adamlee489/doris:2.0.3"
+        cd spark-doris-connector && mvn clean test -Pspark-2-it,spark-2.4_2.11 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="adamlee489/doris:2.0.3"
 
     - name: Run ITCases for spark 3
       run: |
-        cd spark-doris-connector && mvn clean test -pl spark-doris-connector-it -Pspark-3,spark-3.0 -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="adamlee489/doris:2.0.3"
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.1 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="adamlee489/doris:2.0.3"
     

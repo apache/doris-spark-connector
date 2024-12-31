@@ -56,10 +56,12 @@
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.major.version}</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.major.version}</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -77,7 +79,7 @@
 
     <profiles>
         <profile>
-            <id>spark-2</id>
+            <id>spark-2-it</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
@@ -91,11 +93,11 @@
             </dependencies>
         </profile>
         <profile>
-            <id>spark-3</id>
+            <id>spark-3-it</id>
             <dependencies>
                 <dependency>
                     <groupId>org.apache.doris</groupId>
-                    <artifactId>spark-doris-connector-spark-3</artifactId>
+                    <artifactId>spark-doris-connector-spark-3.1</artifactId>
                     <version>${project.version}</version>
                     <scope>test</scope>
                 </dependency>
