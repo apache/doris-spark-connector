@@ -149,7 +149,8 @@ public class DorisFlightSqlReader extends DorisReader {
         String fullTableName = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
         String tablets = String.format("TABLET(%s)", StringUtils.join(partition.getTablets(), ","));
         String predicates = partition.getFilters().length == 0 ? "" : " WHERE " + String.join(" AND ", partition.getFilters());
-        return String.format("SELECT %s FROM %s %s%s", columns, fullTableName, tablets, predicates);
+        String limit = partition.getLimit() > 0 ? " LIMIT " + partition.getLimit() : "";
+        return String.format("SELECT %s FROM %s %s%s%s", columns, fullTableName, tablets, predicates, limit);
     }
 
     protected Schema processDorisSchema(DorisReaderPartition partition, final Schema originSchema) throws Exception {

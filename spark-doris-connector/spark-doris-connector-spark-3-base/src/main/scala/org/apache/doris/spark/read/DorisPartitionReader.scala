@@ -34,7 +34,7 @@ class DorisPartitionReader(inputPartition: InputPartition, schema: StructType, m
   private implicit def toReaderPartition(inputPart: DorisInputPartition): DorisReaderPartition = {
     val tablets = inputPart.tablets.map(java.lang.Long.valueOf)
     new DorisReaderPartition(inputPart.database, inputPart.table, inputPart.backend, tablets,
-      inputPart.opaquedQueryPlan, inputPart.readCols, inputPart.predicates, config)
+      inputPart.opaquedQueryPlan, inputPart.readCols, inputPart.predicates, inputPart.limit, config)
   }
 
   private lazy val reader: DorisReader = {

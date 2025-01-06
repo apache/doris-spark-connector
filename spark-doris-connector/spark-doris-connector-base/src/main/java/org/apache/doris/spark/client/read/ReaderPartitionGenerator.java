@@ -27,6 +27,8 @@ import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.util.DorisDialects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,6 +39,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ReaderPartitionGenerator {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ReaderPartitionGenerator.class);
 
     /*
      * for spark 2
@@ -51,14 +55,14 @@ public class ReaderPartitionGenerator {
         }
         String[] filters = config.contains(DorisOptions.DORIS_FILTER_QUERY) ?
                 config.getValue(DorisOptions.DORIS_FILTER_QUERY).split("\\.") : new String[0];
-        return generatePartitions(config, originReadCols, filters);
+        return generatePartitions(config, originReadCols, filters, -1);
     }
 
     /*
      * for spark 3
      */
     public static DorisReaderPartition[] generatePartitions(DorisConfig config,
-                                                            String[] fields, String[] filters) throws Exception {
+                                                            String[] fields, String[] filters, Integer limit) throws Exception {
         DorisFrontendClient frontend = new DorisFrontendClient(config);
         String fullTableName = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
         String[] tableParts = fullTableName.split("\\.");
@@ -69,13 +73,15 @@ public class ReaderPartitionGenerator {
             originReadCols = frontend.getTableAllColumns(db, table);
         }
         String[] finalReadColumns = getFinalReadColumns(config, frontend, db, table, originReadCols);
-        String sql = "SELECT " + String.join(",", finalReadColumns) + " FROM `" + db + "`.`" + table + "`" +
-                (filters.length == 0 ? "" : " WHERE " + String.join(" AND ", filters));
+        String finalReadColumnString = String.join(",", finalReadColumns);
+        String finalWhereClauseString = filters.length == 0 ? "" : " WHERE " + String.join(" AND ", filters);
+        String sql = "SELECT " + finalReadColumnString + " FROM `" + db + "`.`" + table + "`" + finalWhereClauseString;
+        LOG.info("get query plan for table " + db + "." + table + ", sql: " + sql);
         QueryPlan queryPlan = frontend.getQueryPlan(db, table, sql);
         Map<String, List<Long>> beToTablets = mappingBeToTablets(queryPlan);
         int maxTabletSize = config.getValue(DorisOptions.DORIS_TABLET_SIZE);
         return distributeTabletsToPartitions(db, table, beToTablets, queryPlan.getOpaqued_query_plan(), maxTabletSize,
-                finalReadColumns, filters, config);
+                finalReadColumns, filters, config, limit);
     }
 
     @VisibleForTesting
@@ -106,7 +112,7 @@ public class ReaderPartitionGenerator {
                                                                         Map<String, List<Long>> beToTablets,
                                                                         String opaquedQueryPlan, int maxTabletSize,
                                                                         String[] readColumns, String[] predicates,
-                                                                        DorisConfig config) {
+                                                                        DorisConfig config, Integer limit) {
         List<DorisReaderPartition> partitions = new ArrayList<>();
         beToTablets.forEach((backendStr, tabletIds) -> {
             List<Long> distinctTablets = new ArrayList<>(new HashSet<>(tabletIds));
@@ -115,7 +121,7 @@ public class ReaderPartitionGenerator {
                 Long[] tablets = distinctTablets.subList(offset, Math.min(offset + maxTabletSize, distinctTablets.size())).toArray(new Long[0]);
                 offset += maxTabletSize;
                 partitions.add(new DorisReaderPartition(database, table, new Backend(backendStr), tablets,
-                        opaquedQueryPlan, readColumns, predicates, config));
+                        opaquedQueryPlan, readColumns, predicates, limit, config));
             }
         });
         return partitions.toArray(new DorisReaderPartition[0]);

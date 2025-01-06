@@ -32,6 +32,7 @@ public class DorisReaderPartition implements Serializable {
     private final String opaquedQueryPlan;
     private final String[] readColumns;
     private final String[] filters;
+    private final Integer limit;
     private final DorisConfig config;
 
     public DorisReaderPartition(String database, String table, Backend backend, Long[] tablets, String opaquedQueryPlan, String[] readColumns, String[] filters, DorisConfig config) {
@@ -42,6 +43,19 @@ public class DorisReaderPartition implements Serializable {
         this.opaquedQueryPlan = opaquedQueryPlan;
         this.readColumns = readColumns;
         this.filters = filters;
+        this.limit = -1;
+        this.config = config;
+    }
+
+    public DorisReaderPartition(String database, String table, Backend backend, Long[] tablets, String opaquedQueryPlan, String[] readColumns, String[] filters, Integer limit, DorisConfig config) {
+        this.database = database;
+        this.table = table;
+        this.backend = backend;
+        this.tablets = tablets;
+        this.opaquedQueryPlan = opaquedQueryPlan;
+        this.readColumns = readColumns;
+        this.filters = filters;
+        this.limit = limit;
         this.config = config;
     }
 
@@ -78,6 +92,10 @@ public class DorisReaderPartition implements Serializable {
         return filters;
     }
 
+    public Integer getLimit() {
+        return limit;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -89,11 +107,12 @@ public class DorisReaderPartition implements Serializable {
                 && Objects.equals(opaquedQueryPlan, that.opaquedQueryPlan)
                 && Objects.deepEquals(readColumns, that.readColumns)
                 && Objects.deepEquals(filters, that.filters)
+                && Objects.equals(limit, that.limit)
                 && Objects.equals(config, that.config);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(database, table, backend, Arrays.hashCode(tablets), opaquedQueryPlan, Arrays.hashCode(readColumns), Arrays.hashCode(filters), config);
+        return Objects.hash(database, table, backend, Arrays.hashCode(tablets), opaquedQueryPlan, Arrays.hashCode(readColumns), Arrays.hashCode(filters), limit, config);
     }
 }
