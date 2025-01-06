@@ -109,7 +109,7 @@ object RowConvertors {
     dataType match {
       case StringType => UTF8String.fromString(v.asInstanceOf[String])
       case TimestampType => DateTimeUtils.fromJavaTimestamp(Timestamp.valueOf(v.asInstanceOf[String]))
-      case DateType => DateTimeUtils.fromJavaDate(Date.valueOf(v.asInstanceOf[String]))
+      case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
       case _: MapType =>
         val map = v.asInstanceOf[Map[String, String]]
         val keys = map.keys.toArray
