@@ -173,6 +173,11 @@ public class DorisFrontendClient implements Serializable {
                 ex = new OptionRequiredException(DorisOptions.DORIS_QUERY_PORT.getName());
                 break;
             }
+            try {
+                Class.forName("com.mysql.cj.jdbc.Driver");
+            } catch (ClassNotFoundException e) {
+                Class.forName("com.mysql.jdbc.Driver");
+            }
             try (Connection conn = DriverManager.getConnection("jdbc:mysql://" + frontEnd.getHost() + ":" + frontEnd.getQueryPort(), username, password)) {
                 return function.apply(conn);
             } catch (SQLException e) {
