@@ -88,7 +88,9 @@ public abstract class AbstractThriftReader extends DorisReader {
         this.contextId = scanOpenResult.getContextId();
         Schema schema = getDorisSchema();
         this.dorisSchema = processDorisSchema(partition, schema);
-        logger.debug("origin thrift read Schema: " + schema + ", processed schema: " + dorisSchema);
+        if (logger.isDebugEnabled()) {
+            logger.debug("origin thrift read Schema: " + schema + ", processed schema: " + dorisSchema);
+        }
 
         if (isAsync) {
             int blockingQueueSize = config.getValue(DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE);

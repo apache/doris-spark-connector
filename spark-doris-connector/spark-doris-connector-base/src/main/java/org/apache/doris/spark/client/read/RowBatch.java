@@ -194,6 +194,7 @@ public class RowBatch implements Serializable {
                 FieldVector curFieldVector = fieldVectors.get(col);
                 MinorType mt = curFieldVector.getMinorType();
 
+                final String colName = schema.get(col).getName();
                 final String currentType = schema.get(col).getType();
                 switch (currentType) {
                     case "NULL_TYPE":
@@ -203,7 +204,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "BOOLEAN":
                         Preconditions.checkArgument(mt.equals(MinorType.BIT),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         BitVector bitVector = (BitVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = bitVector.isNull(rowIndex) ? null : bitVector.get(rowIndex) != 0;
@@ -212,7 +213,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "TINYINT":
                         Preconditions.checkArgument(mt.equals(MinorType.TINYINT),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         TinyIntVector tinyIntVector = (TinyIntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = tinyIntVector.isNull(rowIndex) ? null : tinyIntVector.get(rowIndex);
@@ -221,7 +222,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "SMALLINT":
                         Preconditions.checkArgument(mt.equals(MinorType.SMALLINT),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         SmallIntVector smallIntVector = (SmallIntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = smallIntVector.isNull(rowIndex) ? null : smallIntVector.get(rowIndex);
@@ -230,7 +231,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "INT":
                         Preconditions.checkArgument(mt.equals(MinorType.INT),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         IntVector intVector = (IntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = intVector.isNull(rowIndex) ? null : intVector.get(rowIndex);
@@ -239,7 +240,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "BIGINT":
                         Preconditions.checkArgument(mt.equals(MinorType.BIGINT),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         BigIntVector bigIntVector = (BigIntVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = bigIntVector.isNull(rowIndex) ? null : bigIntVector.get(rowIndex);
@@ -248,7 +249,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "LARGEINT":
                         Preconditions.checkArgument(mt.equals(MinorType.FIXEDSIZEBINARY) ||
-                                mt.equals(MinorType.VARCHAR), typeMismatchMessage(currentType, mt));
+                                mt.equals(MinorType.VARCHAR), typeMismatchMessage(colName, currentType, mt));
                         if (mt.equals(MinorType.FIXEDSIZEBINARY)) {
                             FixedSizeBinaryVector largeIntVector = (FixedSizeBinaryVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
@@ -276,7 +277,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "IPV4":
                         Preconditions.checkArgument(mt.equals(MinorType.UINT4) || mt.equals(MinorType.INT),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         BaseIntVector ipv4Vector;
                         if (mt.equals(MinorType.INT)) {
                             ipv4Vector = (IntVector) curFieldVector;
@@ -291,7 +292,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "FLOAT":
                         Preconditions.checkArgument(mt.equals(MinorType.FLOAT4),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         Float4Vector float4Vector = (Float4Vector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = float4Vector.isNull(rowIndex) ? null : float4Vector.get(rowIndex);
@@ -301,7 +302,7 @@ public class RowBatch implements Serializable {
                     case "TIME":
                     case "DOUBLE":
                         Preconditions.checkArgument(mt.equals(MinorType.FLOAT8),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         Float8Vector float8Vector = (Float8Vector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = float8Vector.isNull(rowIndex) ? null : float8Vector.get(rowIndex);
@@ -310,7 +311,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "BINARY":
                         Preconditions.checkArgument(mt.equals(MinorType.VARBINARY),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         VarBinaryVector varBinaryVector = (VarBinaryVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             Object fieldValue = varBinaryVector.isNull(rowIndex) ? null : varBinaryVector.get(rowIndex);
@@ -319,7 +320,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "DECIMAL":
                         Preconditions.checkArgument(mt.equals(MinorType.VARCHAR),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         VarCharVector varCharVectorForDecimal = (VarCharVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (varCharVectorForDecimal.isNull(rowIndex)) {
@@ -343,7 +344,7 @@ public class RowBatch implements Serializable {
                     case "DECIMAL64":
                     case "DECIMAL128I":
                         Preconditions.checkArgument(mt.equals(MinorType.DECIMAL),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         DecimalVector decimalVector = (DecimalVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (decimalVector.isNull(rowIndex)) {
@@ -357,7 +358,7 @@ public class RowBatch implements Serializable {
                     case "DATE":
                     case "DATEV2":
                         Preconditions.checkArgument(mt.equals(MinorType.VARCHAR)
-                                || mt.equals(MinorType.DATEDAY), typeMismatchMessage(currentType, mt));
+                                || mt.equals(MinorType.DATEDAY), typeMismatchMessage(colName, currentType, mt));
                         if (mt.equals(MinorType.VARCHAR)) {
                             VarCharVector date = (VarCharVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
@@ -417,7 +418,7 @@ public class RowBatch implements Serializable {
                     case "JSONB":
                     case "VARIANT":
                         Preconditions.checkArgument(mt.equals(MinorType.VARCHAR),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         VarCharVector varCharVector = (VarCharVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (varCharVector.isNull(rowIndex)) {
@@ -430,7 +431,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "IPV6":
                         Preconditions.checkArgument(mt.equals(MinorType.VARCHAR),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         VarCharVector ipv6VarcharVector = (VarCharVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (ipv6VarcharVector.isNull(rowIndex)) {
@@ -444,7 +445,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "ARRAY":
                         Preconditions.checkArgument(mt.equals(MinorType.LIST),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         ListVector listVector = (ListVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (listVector.isNull(rowIndex)) {
@@ -457,7 +458,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "MAP":
                         Preconditions.checkArgument(mt.equals(MinorType.MAP),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         MapVector mapVector = (MapVector) curFieldVector;
                         UnionMapReader reader = mapVector.getReader();
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
@@ -476,7 +477,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "STRUCT":
                         Preconditions.checkArgument(mt.equals(MinorType.STRUCT),
-                                typeMismatchMessage(currentType, mt));
+                                typeMismatchMessage(colName, currentType, mt));
                         StructVector structVector = (StructVector) curFieldVector;
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (structVector.isNull(rowIndex)) {
@@ -508,9 +509,9 @@ public class RowBatch implements Serializable {
         return rowBatch.get(offsetInRowBatch++).getCols();
     }
 
-    private String typeMismatchMessage(final String sparkType, final MinorType arrowType) {
-        final String messageTemplate = "Spark type is %1$s, but arrow type is %2$s.";
-        return String.format(messageTemplate, sparkType, arrowType.name());
+    private String typeMismatchMessage(final String columnName, final String sparkType, final MinorType arrowType) {
+        final String messageTemplate = "Spark type for column %1$s is %2$s, but arrow type is %3$s.";
+        return String.format(messageTemplate, columnName, sparkType, arrowType.name());
     }
 
     public int getReadRowCount() {
