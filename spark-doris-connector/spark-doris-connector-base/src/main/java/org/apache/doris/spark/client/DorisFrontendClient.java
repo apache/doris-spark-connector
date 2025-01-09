@@ -316,7 +316,11 @@ public class DorisFrontendClient implements Serializable {
                     throw new DorisException();
                 }
                 String entity = EntityUtils.toString(response.getEntity());
-                return MAPPER.readValue(extractEntity(entity, "data").traverse(), QueryPlan.class);
+                JsonNode dataJsonNode = extractEntity(entity, "data");
+                if (dataJsonNode.get("exception") != null) {
+                    throw new DorisException("query plan failed, exception: " + dataJsonNode.get("exception").asText());
+                }
+                return MAPPER.readValue(dataJsonNode.traverse(), QueryPlan.class);
             } catch (Exception e) {
                 throw new RuntimeException("query plan request failed", e);
             }

@@ -88,8 +88,9 @@ public abstract class AbstractThriftReader extends DorisReader {
         this.contextId = scanOpenResult.getContextId();
         Schema schema = getDorisSchema();
         this.dorisSchema = processDorisSchema(partition, schema);
-        logger.debug("origin thrift read Schema: " + schema + ", processed schema: " + dorisSchema);
-
+        if (logger.isDebugEnabled()) {
+            logger.debug("origin thrift read Schema: " + schema + ", processed schema: " + dorisSchema);
+        }
         if (isAsync) {
             int blockingQueueSize = config.getValue(DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE);
             this.rowBatchQueue = new ArrayBlockingQueue<>(blockingQueueSize);
@@ -241,22 +242,21 @@ public abstract class AbstractThriftReader extends DorisReader {
         Schema tableSchema = frontend.getTableSchema(partition.getDatabase(), partition.getTable());
         Map<String, Field> fieldTypeMap = tableSchema.getProperties().stream()
                 .collect(Collectors.toMap(Field::getName, Function.identity()));
+        Map<String, Field> scanTypeMap = originSchema.getProperties().stream()
+                .collect(Collectors.toMap(Field::getName, Function.identity()));
         String[] readColumns = partition.getReadColumns();
         List<Field> newFieldList = new ArrayList<>();
-        int offset = 0;
-        for (int i = 0; i < readColumns.length; i++) {
-            String readColumn = readColumns[i];
-            if (!fieldTypeMap.containsKey(readColumn) && readColumn.contains(" AS ")) {
+        for (String readColumn : readColumns) {
+            if (readColumn.contains(" AS ")) {
                 int asIdx = readColumn.indexOf(" AS ");
                 String realColumn = readColumn.substring(asIdx + 4).trim().replaceAll("`", "");
-                if (fieldTypeMap.containsKey(realColumn)
+                if (fieldTypeMap.containsKey(realColumn) && scanTypeMap.containsKey(realColumn)
                         && ("BITMAP".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType())
                         || "HLL".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType()))) {
                     newFieldList.add(new Field(realColumn, TPrimitiveType.VARCHAR.name(), null, 0, 0, null));
-                    offset++;
                 }
             } else {
-                newFieldList.add(originSchema.getProperties().get(i + offset));
+                newFieldList.add(scanTypeMap.get(readColumn.trim().replaceAll("`", "")));
             }
         }
         processedSchema.setProperties(newFieldList);
