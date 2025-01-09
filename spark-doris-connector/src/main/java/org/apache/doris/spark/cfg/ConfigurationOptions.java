@@ -147,4 +147,7 @@ public interface ConfigurationOptions {
     String LOAD_MODE = "doris.sink.load.mode";
     String DEFAULT_LOAD_MODE = "stream_load";
 
+    String DORIS_THRIFT_MAX_MESSAGE_SIZE = "doris.thrift.max.message.size";
+    int DORIS_THRIFT_MAX_MESSAGE_SIZE_DEFAULT = Integer.MAX_VALUE;
+
 }
