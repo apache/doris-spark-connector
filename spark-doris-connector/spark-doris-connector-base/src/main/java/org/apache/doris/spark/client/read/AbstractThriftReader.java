@@ -71,6 +71,8 @@ public abstract class AbstractThriftReader extends DorisReader {
 
     private final Thread asyncThread;
 
+    private int readCount = 0;
+
     protected AbstractThriftReader(DorisReaderPartition partition) throws Exception {
         super(partition);
         this.frontend = new DorisFrontendClient(config);
@@ -132,6 +134,9 @@ public abstract class AbstractThriftReader extends DorisReader {
 
     @Override
     public boolean hasNext() throws DorisException {
+        if (partition.getLimit() > 0 && readCount >= partition.getLimit()) {
+            return false;
+        }
         boolean hasNext = false;
         if (isAsync && asyncThread != null && asyncThread.isAlive()) {
             if (rowBatch == null || !rowBatch.hasNext()) {
@@ -185,6 +190,9 @@ public abstract class AbstractThriftReader extends DorisReader {
     public Object next() throws DorisException {
         if (!hasNext()) {
             throw new RuntimeException("No more elements");
+        }
+        if (partition.getLimit() > 0) {
+            readCount++;
         }
         return rowBatch.next().toArray();
     }

@@ -20,17 +20,20 @@ package org.apache.doris.spark.read
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.read.expression.V2ExpressionBuilder
 import org.apache.spark.sql.connector.expressions.filter.Predicate
-import org.apache.spark.sql.connector.read.{Scan, SupportsPushDownV2Filters}
+import org.apache.spark.sql.connector.read.{Scan, SupportsPushDownLimit, SupportsPushDownV2Filters}
 import org.apache.spark.sql.types.StructType
 
 class DorisScanBuilder(config: DorisConfig, schema: StructType) extends DorisScanBuilderBase(config, schema)
-  with SupportsPushDownV2Filters {
+  with SupportsPushDownV2Filters
+  with SupportsPushDownLimit {
 
   private var pushDownPredicates: Array[Predicate] = Array[Predicate]()
 
   private val expressionBuilder = new V2ExpressionBuilder(config.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT))
 
-  override def build(): Scan = new DorisScanV2(config, schema, pushDownPredicates)
+  private var limitSize: Int = -1
+
+  override def build(): Scan = new DorisScanV2(config, schema, pushDownPredicates, limitSize)
 
   override def pushPredicates(predicates: Array[Predicate]): Array[Predicate] = {
     val (pushed, unsupported) = predicates.partition(predicate => {
@@ -41,5 +44,10 @@ class DorisScanBuilder(config: DorisConfig, schema: StructType) extends DorisSca
   }
 
   override def pushedPredicates(): Array[Predicate] = pushDownPredicates
+
+  override def pushLimit(i: Int): Boolean = {
+    limitSize = i
+    true
+  }
 
 }

@@ -35,7 +35,7 @@ abstract class AbstractDorisScan(config: DorisConfig, schema: StructType) extend
   override def toBatch: Batch = this
 
   override def planInputPartitions(): Array[InputPartition] = {
-    ReaderPartitionGenerator.generatePartitions(config, schema.names, compiledFilters()).map(toInputPartition)
+    ReaderPartitionGenerator.generatePartitions(config, schema.names, compiledFilters(), getLimit).map(toInputPartition)
   }
 
 
@@ -44,10 +44,12 @@ abstract class AbstractDorisScan(config: DorisConfig, schema: StructType) extend
   }
 
   private def toInputPartition(rp: DorisReaderPartition): DorisInputPartition =
-    DorisInputPartition(rp.getDatabase, rp.getTable, rp.getBackend, rp.getTablets.map(_.toLong), rp.getOpaquedQueryPlan, rp.getReadColumns, rp.getFilters)
+    DorisInputPartition(rp.getDatabase, rp.getTable, rp.getBackend, rp.getTablets.map(_.toLong), rp.getOpaquedQueryPlan, rp.getReadColumns, rp.getFilters, rp.getLimit)
 
   protected def compiledFilters(): Array[String]
 
+  protected def getLimit: Int = -1
+
 }
 
-case class DorisInputPartition(database: String, table: String, backend: Backend, tablets: Array[Long], opaquedQueryPlan: String, readCols: Array[String], predicates: Array[String]) extends InputPartition
+case class DorisInputPartition(database: String, table: String, backend: Backend, tablets: Array[Long], opaquedQueryPlan: String, readCols: Array[String], predicates: Array[String], limit: Int = -1) extends InputPartition
