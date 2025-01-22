@@ -17,9 +17,12 @@
 
 package org.apache.doris.spark.rest.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.List;
 import java.util.Objects;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Tablet {
     private List<String> routings;
     private int version;

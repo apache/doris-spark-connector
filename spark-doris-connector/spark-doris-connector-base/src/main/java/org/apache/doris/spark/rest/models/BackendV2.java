@@ -38,6 +38,7 @@ public class BackendV2 {
         this.backends = rows;
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class BackendRowV2 implements Cloneable{
 
         public BackendRowV2(){
