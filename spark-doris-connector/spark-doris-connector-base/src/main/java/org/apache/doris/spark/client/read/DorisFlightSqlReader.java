@@ -72,12 +72,7 @@ public class DorisFlightSqlReader extends DorisReader {
                 throw new DorisException("init adbc connection failed", e);
             }
         }
-        String tableIdentifier = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
-        String[] arr = tableIdentifier.split("\\.");
-
-        Schema tableSchema = frontendClient.getTableSchema(arr[0], arr[1]);
-        this.schema = processDorisSchema(partition, tableSchema);
-        log.debug("origin flight sql read Schema: " + tableSchema + ", processed schema: " + schema);
+        this.schema = processDorisSchema(partition);
         this.arrowReader = executeQuery();
     }
 
@@ -153,7 +148,7 @@ public class DorisFlightSqlReader extends DorisReader {
         return String.format("SELECT %s FROM %s %s%s%s", columns, fullTableName, tablets, predicates, limit);
     }
 
-    protected Schema processDorisSchema(DorisReaderPartition partition, final Schema originSchema) throws Exception {
+    protected Schema processDorisSchema(DorisReaderPartition partition) throws Exception {
         Schema processedSchema = new Schema();
         Schema tableSchema = frontendClient.getTableSchema(partition.getDatabase(), partition.getTable());
         Map<String, Field> fieldTypeMap = tableSchema.getProperties().stream()
@@ -170,7 +165,12 @@ public class DorisFlightSqlReader extends DorisReader {
                     newFieldList.add(new Field(realColumn, TPrimitiveType.VARCHAR.name(), null, 0, 0, null));
                 }
             } else {
-                newFieldList.add(fieldTypeMap.get(readColumn.trim().replaceAll("`", "")));
+                String colName = readColumn.trim().replaceAll("`", "");
+                if ("JSON".equalsIgnoreCase(fieldTypeMap.get(colName).getType())) {
+                    newFieldList.add(new Field(colName, TPrimitiveType.JSONB.name(), null, 0, 0, null));
+                } else {
+                    newFieldList.add(fieldTypeMap.get(colName));
+                }
             }
         }
         processedSchema.setProperties(newFieldList);
