@@ -21,6 +21,7 @@ import org.apache.doris.SparkLoadRunner;
 import org.apache.doris.client.DorisClient;
 import org.apache.doris.common.Constants;
 import org.apache.doris.common.enums.LoadMode;
+import org.apache.doris.common.enums.StorageType;
 import org.apache.doris.common.enums.TaskType;
 import org.apache.doris.exception.SparkLoadException;
 
@@ -72,6 +73,8 @@ public class JobConfig {
     private Map<String, String> jobProperties = Collections.emptyMap();
 
     private Map<String, String> env = Collections.emptyMap();
+
+    private StorageType storageType = StorageType.HDFS;
 
     @Data
     public static class TaskInfo {
@@ -237,29 +240,31 @@ public class JobConfig {
         if (hadoopProperties == null || hadoopProperties.isEmpty()) {
             return;
         }
-        if (!hadoopProperties.containsKey("fs.defaultFS")) {
-            throw new IllegalArgumentException("fs.defaultFS is empty");
-        }
-        // check auth
-        if (hadoopProperties.containsKey("hadoop.security.authentication")
-                && StringUtils.equalsIgnoreCase(hadoopProperties.get("hadoop.security.authentication"), "kerberos")) {
-            if (hadoopProperties.containsKey("hadoop.kerberos.principal")) {
-                if (StringUtils.isBlank(hadoopProperties.get("hadoop.kerberos.principal"))) {
-                    throw new IllegalArgumentException("hadoop kerberos principal is empty");
-                }
-                if (hadoopProperties.containsKey("hadoop.kerberos.keytab")) {
-                    if (!FileUtils.getFile(hadoopProperties.get("hadoop.kerberos.keytab")).exists()) {
-                        throw new IllegalArgumentException("hadoop kerberos keytab file is not exists, path: "
-                                + hadoopProperties.get("hadoop.kerberos.keytab"));
-                    }
-                    return;
-                }
-                throw new IllegalArgumentException("hadoop.kerberos.keytab is not set");
+        if (!workingDir.startsWith("s3")) {
+            if (!hadoopProperties.containsKey("fs.defaultFS")) {
+                throw new IllegalArgumentException("fs.defaultFS is empty");
             }
-            throw new IllegalArgumentException("hadoop.kerberos.principal is not set");
-        } else {
-            if (!hadoopProperties.containsKey("hadoop.username")) {
-                throw new IllegalArgumentException("hadoop username is empty");
+            // check auth
+            if (hadoopProperties.containsKey("hadoop.security.authentication")
+                    && StringUtils.equalsIgnoreCase(hadoopProperties.get("hadoop.security.authentication"), "kerberos")) {
+                if (hadoopProperties.containsKey("hadoop.kerberos.principal")) {
+                    if (StringUtils.isBlank(hadoopProperties.get("hadoop.kerberos.principal"))) {
+                        throw new IllegalArgumentException("hadoop kerberos principal is empty");
+                    }
+                    if (hadoopProperties.containsKey("hadoop.kerberos.keytab")) {
+                        if (!FileUtils.getFile(hadoopProperties.get("hadoop.kerberos.keytab")).exists()) {
+                            throw new IllegalArgumentException("hadoop kerberos keytab file is not exists, path: "
+                                    + hadoopProperties.get("hadoop.kerberos.keytab"));
+                        }
+                        return;
+                    }
+                    throw new IllegalArgumentException("hadoop.kerberos.keytab is not set");
+                }
+                throw new IllegalArgumentException("hadoop.kerberos.principal is not set");
+            } else {
+                if (!hadoopProperties.containsKey("hadoop.username")) {
+                    throw new IllegalArgumentException("hadoop username is empty");
+                }
             }
         }
     }

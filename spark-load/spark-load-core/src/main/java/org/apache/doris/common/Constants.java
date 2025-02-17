@@ -28,4 +28,10 @@ public interface Constants {
 
     String DEFAULT_CATALOG = "internal";
 
+    String S3_ENDPOINT = "s3.endpoint";
+    String S3_REGION = "s3.region";
+    String S3_ACCESS_KEY = "s3.access_key";
+    String S3_SECRET_KEY = "s3.secret_key";
+    String S3_TOKEN = "s3.session_token";
+
 }
