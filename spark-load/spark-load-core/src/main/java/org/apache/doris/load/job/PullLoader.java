@@ -23,6 +23,7 @@ import org.apache.doris.common.Constants;
 import org.apache.doris.common.DppResult;
 import org.apache.doris.common.LoadInfo;
 import org.apache.doris.common.enums.JobStatus;
+import org.apache.doris.common.enums.StorageType;
 import org.apache.doris.common.meta.LoadMeta;
 import org.apache.doris.common.meta.TableMeta;
 import org.apache.doris.config.EtlJobConfig;
@@ -39,6 +40,7 @@ import org.apache.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -123,6 +125,7 @@ public class PullLoader extends Loader implements Recoverable {
         statusInfo.put("status", jobStatus.name());
         statusInfo.put("msg", "");
         statusInfo.put("appId", appHandle == null ? null : appHandle.getAppId());
+        statusInfo.put("storageType", jobConfig.getStorageType().name());
         try {
             String dppResultStr = null;
             int checkCnt = 0;
@@ -143,7 +146,7 @@ public class PullLoader extends Loader implements Recoverable {
             }
             statusInfo.put("dppResult", dppResultStr);
             statusInfo.put("filePathToSize", JsonUtils.writeValueAsString(getFilePathToSize()));
-            statusInfo.put("hadoopProperties", JsonUtils.writeValueAsString(jobConfig.getHadoopProperties()));
+            statusInfo.put("hadoopProperties", JsonUtils.writeValueAsString(getHadoopProperties()));
         } catch (IOException e) {
             throw new SparkLoadException("update job status failed", e);
         }
@@ -167,6 +170,20 @@ public class PullLoader extends Loader implements Recoverable {
             }
             LockSupport.parkNanos(Duration.ofSeconds(15).toNanos());
         } while (true);
+    }
+
+    private Map<String, String> getHadoopProperties() {
+        Map<String, String> hadoopProperties = new HashMap<>(jobConfig.getHadoopProperties());
+        if (jobConfig.getStorageType() == StorageType.S3) {
+            hadoopProperties.put("AWS_ENDPOINT", hadoopProperties.get("fs.s3a.endpoint"));
+            hadoopProperties.put("AWS_ACCESS_KEY", hadoopProperties.get("fs.s3a.access.key"));
+            hadoopProperties.put("AWS_SECRET_KEY", hadoopProperties.get("fs.s3a.secret.key"));
+            hadoopProperties.put("AWS_REGION", hadoopProperties.get("fs.s3a.endpoint.region"));
+            if (hadoopProperties.containsKey("fs.s3a.session.token")) {
+                hadoopProperties.put("AWS_TOKEN", hadoopProperties.get("fs.s3a.session.token"));
+            }
+        }
+        return hadoopProperties;
     }
 
     @Override
@@ -359,7 +376,14 @@ public class PullLoader extends Loader implements Recoverable {
                 if (fileStatus.isDirectory()) {
                     continue;
                 }
-                filePathToSize.put(fileStatus.getPath().toString(), fileStatus.getLen());
+                String filePath = fileStatus.getPath().toString();
+                if (jobConfig.getStorageType() == StorageType.S3) {
+                    URI uri = fileStatus.getPath().toUri();
+                    if (uri.getScheme() != null && uri.getScheme().startsWith("s3")) {
+                        filePath = "s3:" + uri.getSchemeSpecificPart();
+                    }
+                }
+                filePathToSize.put(filePath, fileStatus.getLen());
             }
         } catch (IOException e) {
             throw new SparkLoadException("get dpp result failed", e);

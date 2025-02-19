@@ -15,23 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.common;
+package org.apache.doris.common.enums;
 
-public interface Constants {
-
-    String HIVE_METASTORE_URIS = "hive.metastore.uris";
-    String SPARK_STANDALONE_SCHEME = "spark";
-    String HADOOP_AUTH_KERBEROS = "kerberos";
-    String HADOOP_SECURITY_AUTHENTICATION = "hadoop.security.authentication";
-    String HADOOP_KERBEROS_PRINCIPAL = "hadoop.kerberos.principal";
-    String HADOOP_KERBEROS_KEYTAB = "hadoop.kerberos.keytab";
-
-    String DEFAULT_CATALOG = "internal";
-
-    String S3_ENDPOINT = "s3.endpoint";
-    String S3_REGION = "s3.region";
-    String S3_ACCESS_KEY = "s3.access_key";
-    String S3_SECRET_KEY = "s3.secret_key";
-    String S3_TOKEN = "s3.session_token";
-
+public enum StorageType {
+    HDFS,S3;
 }
