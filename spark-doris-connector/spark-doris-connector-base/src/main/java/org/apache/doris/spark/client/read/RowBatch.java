@@ -51,7 +51,6 @@ import org.apache.doris.spark.util.IPUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
