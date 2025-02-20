@@ -22,7 +22,7 @@ under the License.
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.doris</groupId>
-        <version>${revision}</version>
+        <version>25.0.0</version>
         <artifactId>spark-load</artifactId>
     </parent>
     <artifactId>spark-load-dpp</artifactId>
