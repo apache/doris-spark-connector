@@ -56,7 +56,11 @@ class DorisPartitionReader(inputPartition: InputPartition, schema: StructType, m
       values.zipWithIndex.foreach {
         case (value, index) =>
           if (value == null) row.setNullAt(index)
-          else row.update(index, RowConvertors.convertValue(value, schema.fields(index).dataType, datetimeJava8ApiEnabled))
+          else {
+            val dataType = schema.fields(index).dataType
+            val catalystValue = RowConvertors.convertValue(value, dataType, datetimeJava8ApiEnabled)
+            row.update(index, catalystValue)
+          }
       }
     }
     row

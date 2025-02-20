@@ -23,12 +23,12 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
 import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, DateTimeUtils}
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
 import java.time.LocalDate
+import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 
 object RowConvertors {
@@ -114,9 +114,9 @@ object RowConvertors {
       case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
       case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
       case _: MapType =>
-        val map = v.asInstanceOf[Map[String, String]]
-        val keys = map.keys.toArray
-        val values = map.values.toArray
+        val map = v.asInstanceOf[java.util.Map[String, String]].asScala
+        val keys = map.keys.toArray.map(UTF8String.fromString)
+        val values = map.values.toArray.map(UTF8String.fromString)
         ArrayBasedMapData(keys, values)
       case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _:DecimalType => v
       case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")

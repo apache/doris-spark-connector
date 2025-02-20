@@ -51,7 +51,6 @@ import org.apache.doris.spark.util.IPUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -484,7 +483,7 @@ public class RowBatch implements Serializable {
                                 value.put(Objects.toString(reader.key().readObject(), null),
                                         Objects.toString(reader.value().readObject(), null));
                             }
-                            addValueToRow(rowIndex, JavaConverters.mapAsScalaMapConverter(value).asScala());
+                            addValueToRow(rowIndex, value);
                         }
                         break;
                     case "STRUCT":
