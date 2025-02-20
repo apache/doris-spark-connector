@@ -484,7 +484,7 @@ public class RowBatch implements Serializable {
                                 value.put(Objects.toString(reader.key().readObject(), null),
                                         Objects.toString(reader.value().readObject(), null));
                             }
-                            addValueToRow(rowIndex, JavaConverters.mapAsScalaMapConverter(value).asScala());
+                            addValueToRow(rowIndex, value);
                         }
                         break;
                     case "STRUCT":
