@@ -269,6 +269,8 @@ class StreamLoader(settings: SparkSettings, isStreaming: Boolean) extends Loader
    */
   private def buildLoadRequest(iterator: Iterator[InternalRow], schema: StructType, label: String): HttpUriRequest = {
 
+    iterator.next().copy()
+
     currentLoadUrl = URLs.streamLoad(getNode, database, table, enableHttps)
     val put = new HttpPut(currentLoadUrl)
     addCommonHeader(put)

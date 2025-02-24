@@ -110,7 +110,7 @@ public abstract class AbstractThriftReader extends DorisReader {
             this.rowBatchQueue = null;
             this.asyncThread = null;
         }
-        this.datetimeJava8ApiEnabled = false;
+        this.datetimeJava8ApiEnabled = partition.getDateTimeJava8APIEnabled();
     }
 
     private void runAsync() throws DorisException, InterruptedException {

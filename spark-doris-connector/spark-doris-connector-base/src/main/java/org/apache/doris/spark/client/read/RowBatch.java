@@ -59,10 +59,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
@@ -72,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.TimeZone;
 
 /**
  * row batch data container.
@@ -403,8 +406,15 @@ public class RowBatch implements Serializable {
                                     addValueToRow(rowIndex, null);
                                     continue;
                                 }
-                                String value = new String(varCharVector.get(rowIndex), StandardCharsets.UTF_8);
-                                addValueToRow(rowIndex, value);
+                                String stringValue = completeMilliseconds(new String(varCharVector.get(rowIndex),
+                                        StandardCharsets.UTF_8));
+                                LocalDateTime dateTime = LocalDateTime.parse(stringValue, dateTimeV2Formatter);
+                                if (datetimeJava8ApiEnabled) {
+                                    Instant instant = dateTime.atZone(DEFAULT_ZONE_ID).toInstant();
+                                    addValueToRow(rowIndex, instant);
+                                } else {
+                                    addValueToRow(rowIndex, Timestamp.valueOf(dateTime));
+                                }
                             }
                         } else if (curFieldVector instanceof TimeStampVector) {
                             TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
@@ -414,8 +424,12 @@ public class RowBatch implements Serializable {
                                     continue;
                                 }
                                 LocalDateTime dateTime = getDateTime(rowIndex, timeStampVector);
-                                String formatted = DATE_TIME_FORMATTER.format(dateTime);
-                                addValueToRow(rowIndex, formatted);
+                                if (datetimeJava8ApiEnabled) {
+                                    Instant instant = dateTime.atZone(DEFAULT_ZONE_ID).toInstant();
+                                    addValueToRow(rowIndex, instant);
+                                } else {
+                                    addValueToRow(rowIndex, Timestamp.valueOf(dateTime));
+                                }
                             }
                         } else {
                             String errMsg = String.format("Unsupported type for DATETIMEV2, minorType %s, class is %s",
