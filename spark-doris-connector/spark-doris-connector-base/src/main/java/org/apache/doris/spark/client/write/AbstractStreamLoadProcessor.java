@@ -48,9 +48,9 @@ import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -106,7 +106,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     private boolean isFirstRecordOfBatch = true;
 
-    private final List<R> recordBuffer = new ArrayList<>();
+    private final List<R> recordBuffer = new LinkedList<>();
 
     private static final int arrowBufferSize = 1000;
 
@@ -161,6 +161,12 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     @Override
     public String stop() throws Exception {
+        // arrow format need to send all buffer data before stop
+        if (!recordBuffer.isEmpty() && "arrow".equalsIgnoreCase(format)) {
+            List<R> rs = new LinkedList<>(recordBuffer);
+            recordBuffer.clear();
+            output.write(toArrowFormat(rs));
+        }
         output.close();
         CloseableHttpResponse res = requestFuture.get();
         if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
@@ -238,13 +244,13 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             case "json":
                 return toStringFormat(row, format);
             case "arrow":
-                recordBuffer.add(row);
+                recordBuffer.add(copy(row));
                 if (recordBuffer.size() < arrowBufferSize) {
                     return new byte[0];
                 } else {
-                    R[] dataArray = (R[]) recordBuffer.toArray();
+                    LinkedList<R> rs = new LinkedList<>(recordBuffer);
                     recordBuffer.clear();
-                    return toArrowFormat(dataArray);
+                    return toArrowFormat(rs);
                 }
             default:
                 throw new IllegalArgumentException("Unsupported stream load format: " + format);
@@ -262,7 +268,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     public abstract String stringify(R row, String format);
 
-    public abstract byte[] toArrowFormat(R[] rowArray) throws IOException;
+    public abstract byte[] toArrowFormat(List<R> rows) throws IOException;
 
     public abstract String getWriteFields() throws OptionRequiredException;
 
@@ -362,5 +368,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             return frontend.getAliveBackends();
         }
     }
+
+    protected abstract R copy(R row);
 
 }

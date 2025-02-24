@@ -56,12 +56,10 @@ import org.apache.doris.sdk.thrift.TStatusCode;
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.Schema;
-import org.apache.spark.sql.internal.SQLConf;
-import org.apache.spark.sql.internal.SQLConf$;
 import org.apache.spark.sql.types.Decimal;
 import static org.hamcrest.core.StringStartsWith.startsWith;
 import org.junit.Assert;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -75,6 +73,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -275,7 +274,7 @@ public class RowBatchTest {
                 (float) 1.1,
                 (double) 1.1,
                 Date.valueOf("2008-08-08"),
-                "2008-08-08 00:00:00",
+                Timestamp.valueOf("2008-08-08 00:00:00"),
                 Decimal.apply(1234L, 4, 2),
                 "char1"
         );
@@ -289,7 +288,7 @@ public class RowBatchTest {
                 (float) 2.2,
                 (double) 2.2,
                 Date.valueOf("1900-08-08"),
-                "1900-08-08 00:00:00",
+                Timestamp.valueOf("1900-08-08 00:00:00"),
                 Decimal.apply(8888L, 4, 2),
                 "char2"
         );
@@ -303,7 +302,7 @@ public class RowBatchTest {
                 (float) 3.3,
                 (double) 3.3,
                 Date.valueOf("2100-08-08"),
-                "2100-08-08 00:00:00",
+                Timestamp.valueOf("2100-08-08 00:00:00"),
                 Decimal.apply(10L, 2, 0),
                 "char3"
         );
@@ -831,16 +830,16 @@ public class RowBatchTest {
 
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
-        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(0));
-        Assert.assertEquals("2024-03-20 00:00:00", actualRow0.get(1));
+        Assert.assertEquals(Timestamp.valueOf("2024-03-20 00:00:00"), actualRow0.get(0));
+        Assert.assertEquals(Timestamp.valueOf("2024-03-20 00:00:00"), actualRow0.get(1));
 
         List<Object> actualRow1 = rowBatch.next();
-        Assert.assertEquals("2024-03-20 00:00:01", actualRow1.get(0));
-        Assert.assertEquals("2024-03-20 00:00:00.123", actualRow1.get(1));
+        Assert.assertEquals(Timestamp.valueOf("2024-03-20 00:00:01"), actualRow1.get(0));
+        Assert.assertEquals(Timestamp.valueOf("2024-03-20 00:00:00.123"), actualRow1.get(1));
 
         List<Object> actualRow2 = rowBatch.next();
-        Assert.assertEquals("2024-03-20 00:00:02", actualRow2.get(0));
-        Assert.assertEquals("2024-03-20 00:00:00.123456", actualRow2.get(1));
+        Assert.assertEquals(Timestamp.valueOf("2024-03-20 00:00:02"), actualRow2.get(0));
+        Assert.assertEquals(Timestamp.valueOf("2024-03-20 00:00:00.123456"), actualRow2.get(1));
 
 
         Assert.assertFalse(rowBatch.hasNext());
@@ -1169,6 +1168,10 @@ public class RowBatchTest {
         ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
         childrenBuilder.add(new Field("k0", FieldType.nullable(new ArrowType.Utf8()), null));
         childrenBuilder.add(new Field("k1", FieldType.nullable(new ArrowType.Date(DateUnit.DAY)), null));
+        childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND,
+                null)), null));
+        childrenBuilder.add(new Field("k3", FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND,
+                null)), null));
 
         VectorSchemaRoot root = VectorSchemaRoot.create(
                 new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
@@ -1202,6 +1205,32 @@ public class RowBatchTest {
         date2Vector.setSafe(0, (int) date);
         vector.setValueCount(1);
 
+        LocalDateTime localDateTime = LocalDateTime.of(2025, 2, 24,
+                0, 0, 0, 123000000);
+        long second = localDateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
+        int nano = localDateTime.getNano();
+
+        vector = root.getVector("k2");
+        TimeStampMicroVector datetimeV2Vector = (TimeStampMicroVector) vector;
+        datetimeV2Vector.setInitialCapacity(1);
+        datetimeV2Vector.allocateNew();
+        datetimeV2Vector.setIndexDefined(0);
+        datetimeV2Vector.setSafe(0, second * 1000000 + nano / 1000);
+        vector.setValueCount(1);
+
+        LocalDateTime localDateTime1 = LocalDateTime.of(2025, 2, 24,
+                1, 2, 3, 123456000);
+        long second1 = localDateTime1.atZone(ZoneId.systemDefault()).toEpochSecond();
+        int nano1 = localDateTime1.getNano();
+
+        vector = root.getVector("k3");
+        TimeStampMicroVector datetimeV2Vector1 = (TimeStampMicroVector) vector;
+        datetimeV2Vector1.setInitialCapacity(1);
+        datetimeV2Vector1.allocateNew();
+        datetimeV2Vector1.setIndexDefined(0);
+        datetimeV2Vector1.setSafe(0, second1 * 1000000 + nano1 / 1000);
+        vector.setValueCount(1);
+
         arrowStreamWriter.writeBatch();
 
         arrowStreamWriter.end();
@@ -1217,7 +1246,9 @@ public class RowBatchTest {
 
         String schemaStr = "{\"properties\":[" +
                 "{\"type\":\"DATE\",\"name\":\"k0\",\"comment\":\"\"}, " +
-                "{\"type\":\"DATEV2\",\"name\":\"k1\",\"comment\":\"\"}" +
+                "{\"type\":\"DATEV2\",\"name\":\"k1\",\"comment\":\"\"}," +
+                "{\"type\":\"DATETIME\",\"name\":\"k2\",\"comment\":\"\"}," +
+                "{\"type\":\"DATETIMEV2\",\"name\":\"k3\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
         Schema schema = RestService.parseSchema(schemaStr, logger);
@@ -1228,6 +1259,8 @@ public class RowBatchTest {
         List<Object> actualRow0 = rowBatch1.next();
         Assert.assertEquals(Date.valueOf("2025-01-01"), actualRow0.get(0));
         Assert.assertEquals(Date.valueOf("2025-02-01"), actualRow0.get(1));
+        Assert.assertEquals(Timestamp.valueOf("2025-02-24 00:00:00.123"), actualRow0.get(2));
+        Assert.assertEquals(Timestamp.valueOf("2025-02-24 01:02:03.123456"), actualRow0.get(3));
 
         Assert.assertFalse(rowBatch1.hasNext());
 
@@ -1237,6 +1270,8 @@ public class RowBatchTest {
         List<Object> actualRow01 = rowBatch2.next();
         Assert.assertEquals(LocalDate.of(2025,1,1), actualRow01.get(0));
         Assert.assertEquals(localDate, actualRow01.get(1));
+        Assert.assertEquals(localDateTime.atZone(ZoneId.systemDefault()).toInstant(), actualRow01.get(2));
+        Assert.assertEquals(localDateTime1.atZone(ZoneId.systemDefault()).toInstant(), actualRow01.get(3));
 
         Assert.assertFalse(rowBatch2.hasNext());
 

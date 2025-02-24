@@ -34,6 +34,7 @@ import org.apache.spark.sql.util.ArrowUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow> {
 
@@ -50,7 +51,7 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
     }
 
     @Override
-    public byte[] toArrowFormat(InternalRow[] rowArray) throws IOException {
+    public byte[] toArrowFormat(List<InternalRow> rowArray) throws IOException {
         Schema arrowSchema = ArrowUtils.toArrowSchema(schema, "UTC");
         VectorSchemaRoot root = VectorSchemaRoot.create(arrowSchema, new RootAllocator(Integer.MAX_VALUE));
         ArrowWriter arrowWriter = ArrowWriter.create(root);
@@ -112,6 +113,8 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
         this.schema = schema;
     }
 
-
-
+    @Override
+    protected InternalRow copy(InternalRow row) {
+        return row.copy();
+    }
 }

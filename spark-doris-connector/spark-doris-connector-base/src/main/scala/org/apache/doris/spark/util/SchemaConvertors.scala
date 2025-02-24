@@ -37,8 +37,8 @@ object SchemaConvertors {
       case "DOUBLE" => DataTypes.DoubleType
       case "DATE" => DataTypes.DateType
       case "DATEV2" => DataTypes.DateType
-      case "DATETIME" => DataTypes.StringType
-      case "DATETIMEV2" => DataTypes.StringType
+      case "DATETIME" => DataTypes.TimestampType
+      case "DATETIMEV2" => DataTypes.TimestampType
       case "BINARY" => DataTypes.BinaryType
       case "DECIMAL" => DecimalType(precision, scale)
       case "CHAR" => DataTypes.StringType

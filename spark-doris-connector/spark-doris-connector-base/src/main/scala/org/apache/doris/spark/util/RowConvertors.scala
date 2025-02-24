@@ -27,7 +27,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
-import java.time.LocalDate
+import java.time.{Instant, LocalDate}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 
@@ -110,7 +110,8 @@ object RowConvertors {
   def convertValue(v: Any, dataType: DataType, datetimeJava8ApiEnabled: Boolean): Any = {
     dataType match {
       case StringType => UTF8String.fromString(v.asInstanceOf[String])
-      case TimestampType => DateTimeUtils.fromJavaTimestamp(Timestamp.valueOf(v.asInstanceOf[String]))
+      case TimestampType if datetimeJava8ApiEnabled => DateTimeUtils.instantToMicros(v.asInstanceOf[Instant])
+      case TimestampType => DateTimeUtils.fromJavaTimestamp(v.asInstanceOf[Timestamp])
       case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
       case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
       case _: MapType =>
