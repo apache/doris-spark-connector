@@ -168,6 +168,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
                     + ", msg: " + res.getStatusLine().getReasonPhrase());
         }
         String resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity()));
+        logger.info("stream load response: {}", resEntity);
         StreamLoadResponse response = MAPPER.readValue(resEntity, StreamLoadResponse.class);
         if (ArrayUtils.contains(STREAM_LOAD_SUCCESS_STATUS, response.getStatus())) {
             createNewBatch = true;
