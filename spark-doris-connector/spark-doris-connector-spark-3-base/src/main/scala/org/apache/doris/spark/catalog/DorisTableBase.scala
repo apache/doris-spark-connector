@@ -47,7 +47,8 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
   override def capabilities(): util.Set[TableCapability] = {
     Set(BATCH_READ,
       BATCH_WRITE,
-      STREAMING_WRITE).asJava
+      STREAMING_WRITE,
+      ACCEPT_ANY_SCHEMA).asJava
   }
 
   override def newScanBuilder(caseInsensitiveStringMap: CaseInsensitiveStringMap): ScanBuilder = {
