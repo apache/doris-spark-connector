@@ -59,7 +59,7 @@ public class DppResult implements Serializable {
     public long scannedBytes;
 
     public DppResult() {
-        isSuccess = true;
+        isSuccess = false;
         failedReason = "";
         scannedRows = 0;
         fileNumber = 0;
@@ -70,28 +70,5 @@ public class DppResult implements Serializable {
         partialAbnormalRows = "";
         scannedBytes = 0;
     }
-
-    // @JsonCreator
-    // public DppResult(@JsonProperty(value = "is_success", required = true) boolean isSuccess,
-    //                           @JsonProperty(value = "failed_reason", required = true) String failedReason,
-    //                           @JsonProperty(value = "scanned_rows", required = true) long scannedRows,
-    //                           @JsonProperty(value = "file_number", required = true) long fileNumber,
-    //                           @JsonProperty(value = "file_size", required = true) long fileSize,
-    //                           @JsonProperty(value = "normal_rows", required = true) long normalRows,
-    //                           @JsonProperty(value = "abnormal_rows", required = true) long abnormalRows,
-    //                           @JsonProperty(value = "unselect_rows", required = true) long unselectRows,
-    //                           @JsonProperty("partial_abnormal_rows") String partialAbnormalRows,
-    //                           @JsonProperty("scanned_bytes") long scannedBytes) {
-    //     this.isSuccess = isSuccess;
-    //     this.failedReason = failedReason;
-    //     this.scannedRows = scannedRows;
-    //     this.fileNumber = fileNumber;
-    //     this.fileSize = fileSize;
-    //     this.normalRows = normalRows;
-    //     this.abnormalRows = abnormalRows;
-    //     this.unselectRows = unselectRows;
-    //     this.partialAbnormalRows = partialAbnormalRows;
-    //     this.scannedBytes = scannedBytes;
-    // }
 
 }

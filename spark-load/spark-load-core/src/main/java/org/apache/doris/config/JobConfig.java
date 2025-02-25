@@ -240,7 +240,7 @@ public class JobConfig {
         if (hadoopProperties == null || hadoopProperties.isEmpty()) {
             return;
         }
-        if (!workingDir.startsWith("s3")) {
+        if (StringUtils.isNoneBlank(workingDir) && !workingDir.startsWith("s3")) {
             if (!hadoopProperties.containsKey("fs.defaultFS")) {
                 throw new IllegalArgumentException("fs.defaultFS is empty");
             }

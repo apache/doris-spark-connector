@@ -133,9 +133,6 @@ class PullLoaderTest {
             Files.write(file3.toPath(), Collections.singletonList("test"));
             assertThrows(SparkLoadException.class, () -> ((Recoverable)loader).canBeRecovered());
 
-            Files.write(file3.toPath(), Collections.singletonList("{}"));
-            assertThrows(SparkLoadException.class, () -> ((Recoverable)loader).canBeRecovered());
-
             Files.write(file3.toPath(), Collections.singletonList("{\"is_success\":false,\"failed_reason\":\"\"," +
                     "\"scanned_rows\":0,\"file_number\":0,\"file_size\":0,\"normal_rows\":0,\"abnormal_rows\":0," +
                     "\"unselect_rows\":0,\"partial_abnormal_rows\":\"\",\"scanned_bytes\":0}\n"));
