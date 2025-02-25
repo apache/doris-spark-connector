@@ -129,7 +129,7 @@ public class DorisFrontendClient implements Serializable {
             }
             if (frontendList == null || frontendList.isEmpty()) {
                 if (ex == null) {
-                    throw new DorisException();
+                    throw new DorisException("frontend init fetch failed, empty frontend list");
                 }
                 throw new DorisException("frontend init fetch failed", ex);
             }
@@ -313,7 +313,8 @@ public class DorisFrontendClient implements Serializable {
                 httpPost.setEntity(new StringEntity(body));
                 HttpResponse response = httpClient.execute(httpPost);
                 if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                    throw new DorisException();
+                    throw new DorisException("query plan request failed, code: " + response.getStatusLine().getStatusCode()
+                            + ", reason: " + response.getStatusLine().getReasonPhrase());
                 }
                 String entity = EntityUtils.toString(response.getEntity());
                 JsonNode dataJsonNode = extractEntity(entity, "data");
