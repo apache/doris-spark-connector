@@ -178,6 +178,7 @@ public class JobConfigTest {
     public void checkHadoopProperties() throws IOException {
 
         JobConfig jobConfig = new JobConfig();
+        jobConfig.setWorkingDir("hdfs:///xxx");
         Map<String, String> hadoopProperties = new HashMap<>();
         jobConfig.setHadoopProperties(hadoopProperties);
 
