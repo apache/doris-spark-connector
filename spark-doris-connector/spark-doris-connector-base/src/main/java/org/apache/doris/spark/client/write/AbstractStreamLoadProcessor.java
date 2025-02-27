@@ -77,8 +77,6 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
     private final String database;
     private final String table;
 
-    private static final String[] STREAM_LOAD_SUCCESS_STATUS = {"Success", "Publish Timeout"};
-
     private final boolean autoRedirect;
 
     private final boolean isHttpsEnabled;
@@ -109,7 +107,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     private static final int arrowBufferSize = 1000;
 
-    private final static ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable);
         thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
         thread.setDaemon(true);
