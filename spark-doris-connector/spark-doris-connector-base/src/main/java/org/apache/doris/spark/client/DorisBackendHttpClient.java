@@ -20,6 +20,8 @@ package org.apache.doris.spark.client;
 import org.apache.doris.spark.client.entity.Backend;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -28,6 +30,7 @@ import java.util.function.BiFunction;
 
 public class DorisBackendHttpClient implements Serializable {
 
+    private static final Logger log = LoggerFactory.getLogger(DorisBackendHttpClient.class);
     private final List<Backend> backends;
 
     private transient CloseableHttpClient httpClient;
@@ -45,7 +48,7 @@ public class DorisBackendHttpClient implements Serializable {
             try {
                 return reqFunc.apply(backend, httpClient);
             } catch (Exception e) {
-                // todo
+                log.warn("Failed to execute request on backend: {}:{}", backend.getHost(), backend.getHttpPort(), e);
                 ex = e;
             }
         }
@@ -57,7 +60,7 @@ public class DorisBackendHttpClient implements Serializable {
             try {
                 httpClient.close();
             } catch (IOException e) {
-                // todo
+                log.warn("Failed to close http client", e);
             }
         }
     }
