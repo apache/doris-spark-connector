@@ -107,7 +107,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     private static final int arrowBufferSize = 1000;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+    private transient final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable);
         thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
         thread.setDaemon(true);
