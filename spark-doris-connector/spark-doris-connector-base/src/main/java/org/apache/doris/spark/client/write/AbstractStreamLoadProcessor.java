@@ -107,7 +107,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     private static final int arrowBufferSize = 1000;
 
-    private transient final ExecutorService executor;
+    private transient ExecutorService executor;
 
     private Future<CloseableHttpResponse> requestFuture = null;
 
@@ -137,12 +137,6 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             groupCommit = properties.get(GROUP_COMMIT).toLowerCase();
         }
         this.isPassThrough = config.getValue(DorisOptions.DORIS_SINK_STREAMING_PASSTHROUGH);
-        this.executor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable);
-            thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
-            thread.setDaemon(true);
-            return thread;
-        });
     }
 
     public void load(R row) throws Exception {
@@ -347,14 +341,16 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             entity = new GzipCompressingEntity(entity);
         }
         httpPut.setEntity(entity);
-        return executor.submit(() -> client.execute(httpPut));
+        return getExecutors().submit(() -> client.execute(httpPut));
     }
 
     @Override
     public void close() throws IOException {
         createNewBatch = true;
         frontend.close();
-        executor.shutdown();
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdown();
+        }
     }
 
     private List<Backend> getBackends() throws Exception {
@@ -371,5 +367,17 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
     }
 
     protected abstract R copy(R row);
+
+    private synchronized ExecutorService getExecutors() {
+        if (executor == null) {
+            executor = Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable);
+                thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+        return executor;
+    }
 
 }
