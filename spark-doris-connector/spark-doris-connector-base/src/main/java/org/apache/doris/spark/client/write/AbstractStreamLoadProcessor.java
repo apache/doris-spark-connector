@@ -107,12 +107,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     private static final int arrowBufferSize = 1000;
 
-    private transient final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable);
-        thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
-        thread.setDaemon(true);
-        return thread;
-    });
+    private transient final ExecutorService executor;
 
     private Future<CloseableHttpResponse> requestFuture = null;
 
@@ -142,6 +137,12 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             groupCommit = properties.get(GROUP_COMMIT).toLowerCase();
         }
         this.isPassThrough = config.getValue(DorisOptions.DORIS_SINK_STREAMING_PASSTHROUGH);
+        this.executor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
+        });
     }
 
     public void load(R row) throws Exception {
