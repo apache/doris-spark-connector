@@ -123,7 +123,7 @@ public class DorisFrontendClient implements Serializable {
                         return parseFrontends(columnNames, rows);
                     });
                 } catch (Exception e) {
-                    LOG.warn("fetch fe request on " + frontendNode + " failed, err: " + e.getMessage());
+                    LOG.warn("fetch fe request on {} failed, err: {}", frontendNode, e.getMessage());
                     ex = e;
                 }
             }
@@ -135,8 +135,10 @@ public class DorisFrontendClient implements Serializable {
             }
             return frontendList;
         } else {
-            int queryPort = config.contains(DorisOptions.DORIS_QUERY_PORT) ? config.getValue(DorisOptions.DORIS_QUERY_PORT) : -1;
-            int flightSqlPort = config.contains(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) ? config.getValue(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) : -1;
+            int queryPort = config.contains(DorisOptions.DORIS_QUERY_PORT) ?
+                    config.getValue(DorisOptions.DORIS_QUERY_PORT) : -1;
+            int flightSqlPort = config.contains(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) ?
+                    config.getValue(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) : -1;
             return Arrays.stream(frontendNodeArray)
                     .map(node -> {
                         String[] nodeParts = node.split(":");
@@ -159,7 +161,7 @@ public class DorisFrontendClient implements Serializable {
             try {
                 return reqFunc.apply(frontEnd, httpClient);
             } catch (Exception e) {
-                LOG.warn("fe http request on " + frontEnd.hostHttpPortString() + " failed, err: " + e.getMessage());
+                LOG.warn("fe http request on {} failed, err: {}", frontEnd.hostHttpPortString(), e.getMessage());
                 ex = e;
             }
         }
@@ -181,7 +183,7 @@ public class DorisFrontendClient implements Serializable {
             try (Connection conn = DriverManager.getConnection("jdbc:mysql://" + frontEnd.getHost() + ":" + frontEnd.getQueryPort(), username, password)) {
                 return function.apply(conn);
             } catch (SQLException e) {
-                LOG.warn("fe jdbc query on " + frontEnd.hostQueryPortString() + " failed, err: " + e.getMessage());
+                LOG.warn("fe jdbc query on {} failed, err: {}", frontEnd.hostQueryPortString(), e.getMessage());
                 ex = e;
             }
         }

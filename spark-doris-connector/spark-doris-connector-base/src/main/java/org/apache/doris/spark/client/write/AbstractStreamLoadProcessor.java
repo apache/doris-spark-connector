@@ -19,7 +19,6 @@ package org.apache.doris.spark.client.write;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.doris.spark.client.DorisBackendHttpClient;
 import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.client.entity.Backend;
@@ -78,8 +77,6 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
     private final String database;
     private final String table;
 
-    private static final String[] STREAM_LOAD_SUCCESS_STATUS = {"Success", "Publish Timeout"};
-
     private final boolean autoRedirect;
 
     private final boolean isHttpsEnabled;
@@ -110,12 +107,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     private static final int arrowBufferSize = 1000;
 
-    private final static ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable);
-        thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
-        thread.setDaemon(true);
-        return thread;
-    });
+    private transient ExecutorService executor;
 
     private Future<CloseableHttpResponse> requestFuture = null;
 
@@ -136,9 +128,11 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
         this.isGzipCompressionEnabled = properties.containsKey("compress_type") && "gzip".equals(properties.get("compress_type"));
         if (properties.containsKey(GROUP_COMMIT)) {
             String message = "";
-            if (!isTwoPhaseCommitEnabled) message = "1";// todo
-            if (properties.containsKey(PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(PARTIAL_COLUMNS))) message = "2";// todo
-            if (!VALID_GROUP_MODE.contains(properties.get(GROUP_COMMIT).toLowerCase())) message = "3";// todo
+            if (!isTwoPhaseCommitEnabled) message = "group commit does not support two-phase commit";
+            if (properties.containsKey(PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(PARTIAL_COLUMNS)))
+                message = "group commit does not support partial column updates";
+            if (!VALID_GROUP_MODE.contains(properties.get(GROUP_COMMIT).toLowerCase()))
+                message = "Unsupported group commit mode: " + properties.get(GROUP_COMMIT);
             if (!message.isEmpty()) throw new IllegalArgumentException(message);
             groupCommit = properties.get(GROUP_COMMIT).toLowerCase();
         }
@@ -176,12 +170,11 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
         String resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity()));
         logger.info("stream load response: {}", resEntity);
         StreamLoadResponse response = MAPPER.readValue(resEntity, StreamLoadResponse.class);
-        if (ArrayUtils.contains(STREAM_LOAD_SUCCESS_STATUS, response.getStatus())) {
+        if (response != null && response.isSuccess()) {
             createNewBatch = true;
             return isTwoPhaseCommitEnabled ? String.valueOf(response.getTxnId()) : null;
         } else {
-            throw new StreamLoadException("stream load execute failed, status: " + response.getStatus()
-                    + ", msg: " + response.getMessage() + ", errUrl: " + response.getErrorURL());
+            throw new StreamLoadException("stream load execute failed, response: " + resEntity);
         }
     }
 
@@ -348,13 +341,16 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             entity = new GzipCompressingEntity(entity);
         }
         httpPut.setEntity(entity);
-        return executor.submit(() -> client.execute(httpPut));
+        return getExecutors().submit(() -> client.execute(httpPut));
     }
 
     @Override
     public void close() throws IOException {
         createNewBatch = true;
         frontend.close();
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdown();
+        }
     }
 
     private List<Backend> getBackends() throws Exception {
@@ -371,5 +367,17 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
     }
 
     protected abstract R copy(R row);
+
+    private synchronized ExecutorService getExecutors() {
+        if (executor == null) {
+            executor = Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable);
+                thread.setName("stream-load-worker-" + new AtomicInteger().getAndIncrement());
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+        return executor;
+    }
 
 }
