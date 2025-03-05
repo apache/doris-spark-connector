@@ -37,13 +37,13 @@ object DorisDialects {
         if (values.isEmpty || values.length >= inValueLengthLimit) {
           null
         } else {
-          s"${quote(attribute)} IN (${compileValue(values)})"
+          s"${quote(attribute)} IN ${values.map(compileValue).mkString("(",",",")")}"
         }
       case Not(In(attribute, values)) =>
         if (values.isEmpty || values.length >= inValueLengthLimit) {
           null
         } else {
-          s"${quote(attribute)} NOT IN (${compileValue(values)})"
+          s"${quote(attribute)} NOT IN ${values.map(compileValue).mkString("(",",",")")}"
         }
       case IsNull(attribute) => s"${quote(attribute)} IS NULL"
       case IsNotNull(attribute) => s"${quote(attribute)} IS NOT NULL"
