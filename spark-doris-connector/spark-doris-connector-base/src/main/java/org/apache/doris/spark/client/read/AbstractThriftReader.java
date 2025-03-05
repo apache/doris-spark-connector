@@ -232,8 +232,6 @@ public abstract class AbstractThriftReader extends DorisReader {
         params.setUser(config.getValue(DorisOptions.DORIS_USER));
         params.setPasswd(config.getValue(DorisOptions.DORIS_PASSWORD));
 
-        logger.debug("Open scan params: cluster: {}, database: {}, table: {}, tabletId: {}, batch size: {}, query timeout: {}, execution memory limit: {}, user: {}, query plan: {}",
-                params.getCluster(), params.getDatabase(), params.getTable(), params.getTabletIds(), batchSize, queryDorisTimeout, execMemLimit, params.getUser(), params.getOpaquedQueryPlan());
         return params;
     }
 
