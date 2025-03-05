@@ -113,7 +113,7 @@ class RowConvertorsTest {
     Assert.assertTrue(RowConvertors.convertValue(Decimal(BigDecimal(8910.11), 20, 4), DecimalType(20, 4), false).isInstanceOf[Decimal])
     Assert.assertTrue(RowConvertors.convertValue(Date.valueOf("2024-01-01"), DataTypes.DateType, false).isInstanceOf[Int])
     Assert.assertTrue(RowConvertors.convertValue(LocalDate.now(), DataTypes.DateType, true).isInstanceOf[Int])
-    Assert.assertTrue(RowConvertors.convertValue("2024-01-01 12:34:56", DataTypes.TimestampType, false).isInstanceOf[Long])
+    Assert.assertTrue(RowConvertors.convertValue(Timestamp.valueOf("2024-01-01 12:34:56"), DataTypes.TimestampType, false).isInstanceOf[Long])
     val map = new util.HashMap[String, String]()
     map.put("a", "1")
     Assert.assertTrue(RowConvertors.convertValue(map, MapType(DataTypes.StringType, DataTypes.StringType), false).isInstanceOf[MapData])
