@@ -362,6 +362,18 @@ public class DorisFrontendClient implements Serializable {
         });
     }
 
+    public void truncateTable(String database, String table) throws Exception {
+        queryFrontends(conn -> {
+            String sql = "TRUNCATE TABLE " + database + "." + table;
+            try (PreparedStatement preparedStatement = conn.prepareStatement(sql)) {
+                preparedStatement.execute();
+                return null;
+            } catch (SQLException e) {
+                throw new RuntimeException("truncate table failed", e);
+            }
+        });
+    }
+
     public List<Frontend> getFrontends() {
         return frontends;
     }

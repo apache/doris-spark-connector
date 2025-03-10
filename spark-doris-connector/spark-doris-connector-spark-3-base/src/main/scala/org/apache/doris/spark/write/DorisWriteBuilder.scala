@@ -17,14 +17,22 @@
 
 package org.apache.doris.spark.write
 
-import org.apache.doris.spark.config.DorisConfig
+import org.apache.doris.spark.client.DorisFrontendClient
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite
-import org.apache.spark.sql.connector.write.{BatchWrite, WriteBuilder}
+import org.apache.spark.sql.connector.write.{BatchWrite, SupportsTruncate, WriteBuilder}
 import org.apache.spark.sql.types.StructType
 
-class DorisWriteBuilder(config: DorisConfig, schema: StructType) extends WriteBuilder {
+class DorisWriteBuilder(config: DorisConfig, schema: StructType) extends WriteBuilder with SupportsTruncate {
+
+  private var isTruncate = false
 
   override def buildForBatch(): BatchWrite = {
+    if (isTruncate) {
+      val client = new DorisFrontendClient(config)
+      val tableDb = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER).split("\\.")
+      client.truncateTable(tableDb(0), tableDb(1))
+    }
     new DorisWrite(config, schema)
   }
 
@@ -32,4 +40,8 @@ class DorisWriteBuilder(config: DorisConfig, schema: StructType) extends WriteBu
     new DorisWrite(config, schema)
   }
 
+  override def truncate(): WriteBuilder = {
+    isTruncate = true
+    this
+  }
 }
