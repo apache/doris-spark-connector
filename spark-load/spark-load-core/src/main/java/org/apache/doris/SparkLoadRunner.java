@@ -37,6 +37,8 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
@@ -74,7 +76,7 @@ public class SparkLoadRunner {
 
         JobConfig jobConfig = readConfig(cmdOptions.getConfigPath());
         try {
-            handleS3Config(jobConfig);
+            preprocessConfig(jobConfig);
             checkConfig(jobConfig);
         } catch (IllegalArgumentException e) {
             System.err.println("check config failed, msg: " + ExceptionUtils.getStackTrace(e));
@@ -154,6 +156,36 @@ public class SparkLoadRunner {
         jobConfig.checkTaskInfo();
         jobConfig.checkSparkInfo();
         jobConfig.checkHadoopProperties();
+    }
+
+    private static void preprocessConfig(JobConfig jobConfig) {
+        loadHadoopConfig(jobConfig);
+        handleS3Config(jobConfig);
+    }
+
+    protected static void loadHadoopConfig(JobConfig jobConfig) {
+        if (jobConfig.getEnv().containsKey("HADOOP_CONF_DIR")) {
+            Configuration conf = new Configuration();
+            String hadoopConfDir = jobConfig.getEnv().get("HADOOP_CONF_DIR");
+            if (new File(hadoopConfDir + "/core-site.xml").exists()) {
+                System.out.println("core-site.xml was found at " + hadoopConfDir + "/core-site.xml");
+                conf.addResource(new Path(hadoopConfDir, "core-site.xml"));
+            }
+            if (new File(hadoopConfDir + "/hdfs-site.xml").exists()) {
+                System.out.println("hdfs-site.xml was found at " + hadoopConfDir + "/hdfs-site.xml");
+                conf.addResource(new Path(hadoopConfDir, "hdfs-site.xml"));
+            }
+            if (new File(hadoopConfDir + "/yarn-site.xml").exists()) {
+                System.out.println("yarn-site.xml was found at " + hadoopConfDir + "/yarn-site.xml");
+                conf.addResource(new Path(hadoopConfDir, "yarn-site.xml"));
+            }
+            Map<String, String> newHadoopProps = new HashMap<>();
+            for (Map.Entry<String, String> confEntry : conf) {
+                newHadoopProps.put(confEntry.getKey(), confEntry.getValue());
+            }
+            newHadoopProps.putAll(jobConfig.getHadoopProperties());
+            jobConfig.setHadoopProperties(newHadoopProps);
+        }
     }
 
     private static void handleS3Config(JobConfig jobConfig) {
