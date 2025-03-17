@@ -155,27 +155,30 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
 
     @Override
     public String stop() throws Exception {
-        // arrow format need to send all buffer data before stop
-        if (!recordBuffer.isEmpty() && "arrow".equalsIgnoreCase(format)) {
-            List<R> rs = new LinkedList<>(recordBuffer);
-            recordBuffer.clear();
-            output.write(toArrowFormat(rs));
+        if (requestFuture != null) {
+            // arrow format need to send all buffer data before stop
+            if (!recordBuffer.isEmpty() && "arrow".equalsIgnoreCase(format)) {
+                List<R> rs = new LinkedList<>(recordBuffer);
+                recordBuffer.clear();
+                output.write(toArrowFormat(rs));
+            }
+            output.close();
+            CloseableHttpResponse res = requestFuture.get();
+            if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new StreamLoadException("stream load execute failed, status: " + res.getStatusLine().getStatusCode()
+                        + ", msg: " + res.getStatusLine().getReasonPhrase());
+            }
+            String resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity()));
+            logger.info("stream load response: {}", resEntity);
+            StreamLoadResponse response = MAPPER.readValue(resEntity, StreamLoadResponse.class);
+            if (response != null && response.isSuccess()) {
+                createNewBatch = true;
+                return isTwoPhaseCommitEnabled ? String.valueOf(response.getTxnId()) : null;
+            } else {
+                throw new StreamLoadException("stream load execute failed, response: " + resEntity);
+            }
         }
-        output.close();
-        CloseableHttpResponse res = requestFuture.get();
-        if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-            throw new StreamLoadException("stream load execute failed, status: " + res.getStatusLine().getStatusCode()
-                    + ", msg: " + res.getStatusLine().getReasonPhrase());
-        }
-        String resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity()));
-        logger.info("stream load response: {}", resEntity);
-        StreamLoadResponse response = MAPPER.readValue(resEntity, StreamLoadResponse.class);
-        if (response != null && response.isSuccess()) {
-            createNewBatch = true;
-            return isTwoPhaseCommitEnabled ? String.valueOf(response.getTxnId()) : null;
-        } else {
-            throw new StreamLoadException("stream load execute failed, response: " + resEntity);
-        }
+        return null;
     }
 
     @Override
