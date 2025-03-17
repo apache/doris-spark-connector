@@ -142,7 +142,7 @@ public class DorisFrontendClient implements Serializable {
             return Arrays.stream(frontendNodeArray)
                     .map(node -> {
                         String[] nodeParts = node.split(":");
-                        return new Frontend(nodeParts[0], Integer.parseInt(nodeParts[1]), queryPort, flightSqlPort);
+                        return new Frontend(nodeParts[0], nodeParts.length > 1 ? Integer.parseInt(nodeParts[1]) : -1, queryPort, flightSqlPort);
                     })
                     .collect(Collectors.toList());
         }
