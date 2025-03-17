@@ -51,15 +51,22 @@ object URLs {
     s"${schema(enableHttps)}://$feNode/api/$database/_stream_load_2pc"
 
   def streamLoad2PC(host: String, port: Int, database: String, enableHttps: Boolean): String =
-    streamLoad2PC(s"$host:$port", database, enableHttps)
+    streamLoad2PC(s"${assemblePath(host, port)}", database, enableHttps)
 
   def getFrontEndNodes(host: String, port: Int, enableHttps: Boolean = false) =
-    s"${schema(enableHttps)}://$host:$port/rest/v2/manager/node/frontends"
+    s"${schema(enableHttps)}://${assemblePath(host, port)}/rest/v2/manager/node/frontends"
 
   def copyIntoUpload(host: String, port: Int, enableHttps: Boolean = false) =
-    s"${schema(enableHttps)}://$host:$port/copy/upload"
+    s"${schema(enableHttps)}://${assemblePath(host, port)}/copy/upload"
 
   def copyIntoQuery(host: String, port: Int, enableHttps: Boolean = false) =
-    s"${schema(enableHttps)}://$host:$port/copy/query"
+    s"${schema(enableHttps)}://${assemblePath(host, port)}/copy/query"
 
+  private def assemblePath(host: String, port: Int): String = {
+    if (port > 0) {
+      s"$host:$port"
+    } else {
+      s"$host"
+    }
+  }
 }
