@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.rdd
 
-import org.apache.doris.spark.cfg.ConfigurationOptions.{DORIS_FILTER_QUERY, DORIS_TABLE_IDENTIFIER}
+import org.apache.doris.spark.config.DorisOptions
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
@@ -28,8 +28,8 @@ object DorisSpark {
       query: Option[String] = None,
       cfg: Option[Map[String, String]] = None): RDD[AnyRef] = {
     val params = collection.mutable.Map(cfg.getOrElse(Map.empty).toSeq: _*)
-    query.map { s => params += (DORIS_FILTER_QUERY -> s) }
-    tableIdentifier.map { s => params += (DORIS_TABLE_IDENTIFIER -> s) }
+    query.map { s => params += (DorisOptions.DORIS_FILTER_QUERY.getName -> s) }
+    tableIdentifier.map { s => params += (DorisOptions.DORIS_TABLE_IDENTIFIER.getName -> s) }
     new DorisRDD[AnyRef](sc, params.toMap)
   }
 }

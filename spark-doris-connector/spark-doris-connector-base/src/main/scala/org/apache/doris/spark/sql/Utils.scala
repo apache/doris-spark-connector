@@ -18,9 +18,8 @@
 package org.apache.doris.spark.sql
 
 import org.apache.commons.lang3.StringUtils
-import org.apache.doris.spark.cfg.ConfigurationOptions
+import org.apache.doris.spark.config.DorisOptions
 import org.apache.doris.spark.exception.DorisException
-import org.apache.doris.spark.rest.PartitionDefinition
 import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.sql.sources._
 import org.slf4j.Logger
@@ -29,7 +28,6 @@ import java.sql.{Date, Timestamp}
 import java.time.{Duration, LocalDate}
 import java.util.concurrent.locks.LockSupport
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
@@ -137,49 +135,48 @@ private[spark] object Utils {
       }
     }
 
-    val preferredTableIdentifier = dottedParams.get(ConfigurationOptions.DORIS_TABLE_IDENTIFIER)
-      .orElse(dottedParams.get(ConfigurationOptions.TABLE_IDENTIFIER))
+    val preferredTableIdentifier = dottedParams.get(DorisOptions.DORIS_TABLE_IDENTIFIER.getName)
     logger.debug(s"preferred Table Identifier is '$preferredTableIdentifier'.")
 
     // Convert simple parameters into internal properties, and prefix other parameters
     // Convert password parameters from "password" into internal password properties
     // reuse credentials mask method in spark ExternalCatalogUtils￿#maskCredentials
     val processedParams = dottedParams.map {
-      case (ConfigurationOptions.DORIS_PASSWORD, _) =>
-        logger.error(s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource.")
-        throw new DorisException(s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource," +
+      case ("doris.password", _) =>
+        logger.error(s"${DorisOptions.DORIS_PASSWORD.getName} cannot use in Doris Datasource.")
+        throw new DorisException(s"${DorisOptions.DORIS_PASSWORD.getName} cannot use in Doris Datasource," +
           s" use 'password' option to set password.")
-      case (ConfigurationOptions.DORIS_USER, _) =>
-        logger.error(s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource.")
-        throw new DorisException(s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource," +
+      case ("doris.user", _) =>
+        logger.error(s"${DorisOptions.DORIS_USER.getName} cannot use in Doris Datasource.")
+        throw new DorisException(s"${DorisOptions.DORIS_USER.getName} cannot use in Doris Datasource," +
           s" use 'user' option to set user.")
       case (k, v) =>
         if (k.startsWith("doris.")) (k, v)
         else ("doris." + k, v)
     }.map {
-      case (ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD, _) =>
-        logger.error(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource.")
-        throw new DorisException(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in" +
+      case (DorisOptions.DORIS_REQUEST_AUTH_PASSWORD, _) =>
+        logger.error(s"${DorisOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource.")
+        throw new DorisException(s"${DorisOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in" +
           s" Doris Datasource, use 'password' option to set password.")
-      case (ConfigurationOptions.DORIS_REQUEST_AUTH_USER, _) =>
-        logger.error(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource.")
-        throw new DorisException(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in" +
+      case (DorisOptions.DORIS_REQUEST_AUTH_USER, _) =>
+        logger.error(s"${DorisOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource.")
+        throw new DorisException(s"${DorisOptions.DORIS_REQUEST_AUTH_USER} cannot use in" +
           s" Doris Datasource, use 'user' option to set user.")
-      case (ConfigurationOptions.DORIS_PASSWORD, v) =>
-        (ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD, v)
-      case (ConfigurationOptions.DORIS_USER, v) =>
-        (ConfigurationOptions.DORIS_REQUEST_AUTH_USER, v)
+      case ("doris.password", v) =>
+        (DorisOptions.DORIS_REQUEST_AUTH_PASSWORD, v)
+      case ("doris.user", v) =>
+        (DorisOptions.DORIS_REQUEST_AUTH_USER, v)
       case (k, v) => (k, v)
     }
 
     // Set the preferred resource if it was specified originally
     val finalParams = preferredTableIdentifier match {
-      case Some(tableIdentifier) => processedParams + (ConfigurationOptions.DORIS_TABLE_IDENTIFIER -> tableIdentifier)
+      case Some(tableIdentifier) => processedParams + (DorisOptions.DORIS_TABLE_IDENTIFIER.getName -> tableIdentifier)
       case None => processedParams
     }
 
     // validate path is available
-    finalParams.getOrElse(ConfigurationOptions.DORIS_TABLE_IDENTIFIER,
+    finalParams.getOrElse(DorisOptions.DORIS_TABLE_IDENTIFIER.getName,
       throw new DorisException("table identifier must be specified for doris table identifier."))
 
     finalParams
@@ -202,33 +199,6 @@ private[spark] object Utils {
         retry(retryTimes - 1, interval, logger)(f)(h)
       case Failure(exception) => Failure(exception)
     }
-  }
-
-  def generateQueryStatement(readColumns: Array[String], bitmapColumns: Array[String], hllColumns: Array[String],
-                             tableName: String, queryFilter: String, partitionOpt: Option[PartitionDefinition] = None): String = {
-
-    val columns = {
-      val finalReadColumns = readColumns.clone()
-      if (finalReadColumns(0) != "*" && bitmapColumns.nonEmpty && hllColumns.nonEmpty) {
-        for (i <- finalReadColumns.indices) {
-          finalReadColumns(i)
-          val readFieldName = finalReadColumns(i).replaceAll("`", "")
-          if (bitmapColumns.contains(readFieldName) || hllColumns.contains(readFieldName)) {
-            finalReadColumns(i) = "'READ UNSUPPORTED' AS " + finalReadColumns(i)
-          }
-        }
-      }
-      finalReadColumns.mkString(",")
-    }
-
-    val tabletClause = partitionOpt match {
-      case Some(partition) => s"TABLET(${partition.getTabletIds.asScala.mkString(",")})"
-      case None => ""
-    }
-    val whereClause = if (queryFilter.isEmpty) "" else s"WHERE $queryFilter"
-
-    s"SELECT $columns FROM $tableName $tabletClause $whereClause".trim
-
   }
 
 }

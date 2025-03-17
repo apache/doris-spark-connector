@@ -17,16 +17,13 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.cfg.{ConfigurationOptions, PropertiesSettings, Settings}
+import org.apache.doris.spark.config.DorisOptions
 import org.apache.doris.spark.exception.DorisException
-import org.apache.doris.spark.rest.PartitionDefinition
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sources._
 import org.hamcrest.core.StringStartsWith.startsWith
 import org.junit._
 import org.slf4j.LoggerFactory
-
-import scala.collection.JavaConverters._
 
 class TestUtils extends ExpectedExceptionTest {
   private lazy val logger = LoggerFactory.getLogger(classOf[TestUtils])
@@ -88,73 +85,52 @@ class TestUtils extends ExpectedExceptionTest {
   @Test
   def testParams(): Unit = {
     val parameters1 = Map(
-      ConfigurationOptions.DORIS_TABLE_IDENTIFIER -> "a.b",
+      DorisOptions.DORIS_TABLE_IDENTIFIER.getName -> "a.b",
       "test_underline" -> "x_y",
       "user" -> "user",
       "password" -> "password"
     )
     val result1 = Utils.params(parameters1, logger)
-    Assert.assertEquals("a.b", result1(ConfigurationOptions.DORIS_TABLE_IDENTIFIER))
+    Assert.assertEquals("a.b", result1(DorisOptions.DORIS_TABLE_IDENTIFIER.getName))
     Assert.assertEquals("x_y", result1("doris.test.underline"))
     Assert.assertEquals("user", result1("doris.request.auth.user"))
     Assert.assertEquals("password", result1("doris.request.auth.password"))
 
 
     val parameters2 = Map(
-      ConfigurationOptions.TABLE_IDENTIFIER -> "a.b"
+      DorisOptions.DORIS_TABLE_IDENTIFIER.getName -> "a.b"
     )
     val result2 = Utils.params(parameters2, logger)
-    Assert.assertEquals("a.b", result2(ConfigurationOptions.DORIS_TABLE_IDENTIFIER))
+    Assert.assertEquals("a.b", result2(DorisOptions.DORIS_TABLE_IDENTIFIER.getName))
 
     val parameters3 = Map(
-      ConfigurationOptions.DORIS_PASSWORD -> "a.b"
+      DorisOptions.DORIS_PASSWORD.getName -> "a.b"
     )
     thrown.expect(classOf[DorisException])
-    thrown.expectMessage(startsWith(s"${ConfigurationOptions.DORIS_PASSWORD} cannot use in Doris Datasource,"))
+    thrown.expectMessage(startsWith(s"${DorisOptions.DORIS_PASSWORD.getName} cannot use in Doris Datasource,"))
     Utils.params(parameters3, logger)
 
     val parameters4 = Map(
-      ConfigurationOptions.DORIS_USER -> "a.b"
+      DorisOptions.DORIS_USER.getName -> "a.b"
     )
     thrown.expect(classOf[DorisException])
-    thrown.expectMessage(startsWith(s"${ConfigurationOptions.DORIS_USER} cannot use in Doris Datasource,"))
+    thrown.expectMessage(startsWith(s"${DorisOptions.DORIS_USER.getName} cannot use in Doris Datasource,"))
     Utils.params(parameters4, logger)
 
     val parameters5 = Map(
-      ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD -> "a.b"
+      DorisOptions.DORIS_REQUEST_AUTH_PASSWORD -> "a.b"
     )
     thrown.expect(classOf[DorisException])
     thrown.expectMessage(
-      startsWith(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource,"))
+      startsWith(s"${DorisOptions.DORIS_REQUEST_AUTH_PASSWORD} cannot use in Doris Datasource,"))
     Utils.params(parameters5, logger)
 
     val parameters6 = Map(
-      ConfigurationOptions.DORIS_REQUEST_AUTH_USER -> "a.b"
+      DorisOptions.DORIS_REQUEST_AUTH_USER -> "a.b"
     )
     thrown.expect(classOf[DorisException])
-    thrown.expectMessage(startsWith(s"${ConfigurationOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource,"))
+    thrown.expectMessage(startsWith(s"${DorisOptions.DORIS_REQUEST_AUTH_USER} cannot use in Doris Datasource,"))
     Utils.params(parameters6, logger)
-  }
-
-  @Test
-  def testGenerateQueryStatement(): Unit = {
-
-    val readColumns = Array[String]("*")
-
-    val partition = new PartitionDefinition("db", "tbl1", new PropertiesSettings(), "127.0.0.1:8060", Set[java.lang.Long](1L).asJava, "")
-    Assert.assertEquals("SELECT * FROM `db`.`tbl1` TABLET(1)",
-      Utils.generateQueryStatement(readColumns, Array[String](), Array[String](), "`db`.`tbl1`", "", Some(partition)))
-
-    val readColumns1 = Array[String]("`c1`","`c2`","`c3`")
-
-    val bitmapColumns = Array[String]("c2")
-    val hllColumns = Array[String]("c3")
-
-    val where = "c1 = 10"
-
-    Assert.assertEquals("SELECT `c1`,'READ UNSUPPORTED' AS `c2`,'READ UNSUPPORTED' AS `c3` FROM `db`.`tbl1`  WHERE c1 = 10",
-      Utils.generateQueryStatement(readColumns1, bitmapColumns, hllColumns, "`db`.`tbl1`", where))
-
   }
 
 }

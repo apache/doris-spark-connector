@@ -17,6 +17,7 @@
 
 package org.apache.doris.spark.client.read;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.memory.ArrowBuf;
@@ -54,7 +55,6 @@ import org.apache.doris.sdk.thrift.TScanBatchResult;
 import org.apache.doris.sdk.thrift.TStatus;
 import org.apache.doris.sdk.thrift.TStatusCode;
 import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.rest.RestService;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.spark.sql.types.Decimal;
 import static org.hamcrest.core.StringStartsWith.startsWith;
@@ -65,7 +65,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -84,6 +83,8 @@ import java.util.NoSuchElementException;
 public class RowBatchTest {
 
     private final static Logger logger = LoggerFactory.getLogger(RowBatchTest.class);
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Rule
     public ExpectedException thrown = ExpectedException.none();
@@ -261,7 +262,7 @@ public class RowBatchTest {
                 + "\"type\":\"DECIMAL\",\"precision\":\"9\",\"aggregation_type\":\"\"},{\"type\":\"CHAR\",\"name\":\"k6\",\"comment\":\"\",\"aggregation_type\":\"REPLACE_IF_NOT_NULL\"}],"
                 + "\"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -375,7 +376,7 @@ public class RowBatchTest {
 
         String schemaStr = "{\"properties\":[{\"type\":\"BINARY\",\"name\":\"k7\",\"comment\":\"\"}], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -439,7 +440,7 @@ public class RowBatchTest {
                 + "\"precision\": 9, \"name\":\"k7\",\"comment\":\"\"}], "
                 + "\"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -527,7 +528,7 @@ public class RowBatchTest {
                 "{\"type\":\"DATEV2\",\"name\":\"k3\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -602,7 +603,7 @@ public class RowBatchTest {
                 "{\"type\":\"LARGEINT\",\"name\":\"k2\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -683,7 +684,7 @@ public class RowBatchTest {
                 "], \"status\":200}";
 
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
         Assert.assertTrue(rowBatch.hasNext());
@@ -746,7 +747,7 @@ public class RowBatchTest {
         String schemaStr = "{\"properties\":[{\"type\":\"STRUCT\",\"name\":\"col_struct\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
         Assert.assertTrue(rowBatch.hasNext());
@@ -824,7 +825,7 @@ public class RowBatchTest {
                 "{\"type\":\"DATETIMEV2\",\"name\":\"k2\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -899,7 +900,7 @@ public class RowBatchTest {
                 "{\"type\":\"VARIANT\",\"name\":\"k\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -1004,7 +1005,7 @@ public class RowBatchTest {
                         + "{\"type\":\"IPV4\",\"name\":\"k3\",\"comment\":\"\"}"
                         + "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -1112,7 +1113,7 @@ public class RowBatchTest {
                         + "{\"type\":\"IPV6\",\"name\":\"k2\",\"comment\":\"\"}"
                         + "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
 
@@ -1234,7 +1235,7 @@ public class RowBatchTest {
                 "{\"type\":\"DATETIMEV2\",\"name\":\"k3\",\"comment\":\"\"}" +
                 "], \"status\":200}";
 
-        Schema schema = RestService.parseSchema(schemaStr, logger);
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
 
         RowBatch rowBatch1 = new RowBatch(scanBatchResult, schema, false);
 

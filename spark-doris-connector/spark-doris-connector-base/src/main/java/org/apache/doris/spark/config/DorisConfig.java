@@ -21,16 +21,11 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.doris.spark.exception.OptionRequiredException;
 
 import java.io.Serializable;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class DorisConfig implements Serializable {
-
-    private final String DORIS_REQUEST_AUTH_USER = "doris.request.auth.user";
-    private final String DORIS_REQUEST_AUTH_PASSWORD = "doris.request.auth.password";
 
     private Map<String, String> configOptions;
     private boolean ignoreTableCheck;
@@ -70,11 +65,11 @@ public class DorisConfig implements Serializable {
                 }
             }
         }
-        if (processedOptions.containsKey(DORIS_REQUEST_AUTH_USER)) {
-            processedOptions.put(DorisOptions.DORIS_USER.getName(), processedOptions.get(DORIS_REQUEST_AUTH_USER));
+        if (processedOptions.containsKey(DorisOptions.DORIS_REQUEST_AUTH_USER)) {
+            processedOptions.put(DorisOptions.DORIS_USER.getName(), processedOptions.get(DorisOptions.DORIS_REQUEST_AUTH_USER));
         }
-        if (processedOptions.containsKey(DORIS_REQUEST_AUTH_PASSWORD)) {
-            processedOptions.put(DorisOptions.DORIS_PASSWORD.getName(), processedOptions.remove(DORIS_REQUEST_AUTH_PASSWORD));
+        if (processedOptions.containsKey(DorisOptions.DORIS_REQUEST_AUTH_PASSWORD)) {
+            processedOptions.put(DorisOptions.DORIS_PASSWORD.getName(), processedOptions.remove(DorisOptions.DORIS_REQUEST_AUTH_PASSWORD));
         }
         return processedOptions;
     }
