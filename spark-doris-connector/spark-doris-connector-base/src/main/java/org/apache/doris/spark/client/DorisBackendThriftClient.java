@@ -17,6 +17,7 @@
 
 package org.apache.doris.spark.client;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.doris.sdk.thrift.TDorisExternalService;
 import org.apache.doris.sdk.thrift.TScanBatchResult;
 import org.apache.doris.sdk.thrift.TScanCloseParams;
@@ -124,6 +125,7 @@ public class DorisBackendThriftClient {
      * @throws ConnectedFailedException throw if cannot connect to Doris BE
      */
     public TScanOpenResult openScanner(TScanOpenParams openParams) throws ConnectedFailedException {
+        logger.info("OpenScanner to '{}' tablets: [{}].", backend, StringUtils.join(openParams.tablet_ids, ","));
         if (logger.isDebugEnabled()) {
             TScanOpenParams logParams = new TScanOpenParams(openParams);
             logParams.setPasswd("********");
@@ -146,6 +148,8 @@ public class DorisBackendThriftClient {
                             backend, result.getStatus().getStatusCode(), result.getStatus().getErrorMsgs());
                     continue;
                 }
+                logger.info("OpenScanner to '{}' tablets: [{}] success, context id: {}.", backend,
+                        StringUtils.join(openParams.tablet_ids, ","), result.getContextId());
                 return result;
             } catch (TException e) {
                 logger.warn("Open scanner from {} failed.", backend, e);
