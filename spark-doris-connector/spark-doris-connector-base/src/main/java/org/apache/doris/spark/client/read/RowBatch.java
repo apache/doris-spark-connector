@@ -348,6 +348,7 @@ public class RowBatch implements Serializable {
                     case "DECIMALV2":
                     case "DECIMAL32":
                     case "DECIMAL64":
+                    case "DECIMAL128":
                     case "DECIMAL128I":
                         Preconditions.checkArgument(mt.equals(MinorType.DECIMAL),
                                 typeMismatchMessage(colName, currentType, mt));
