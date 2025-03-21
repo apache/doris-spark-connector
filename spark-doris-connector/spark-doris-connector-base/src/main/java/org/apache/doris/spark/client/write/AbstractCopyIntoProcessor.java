@@ -59,7 +59,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public abstract class AbstractCopyIntoProcessor<R> implements DorisWriter<R>, DorisCommitter {
+public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implements DorisCommitter {
 
     protected static final Logger LOG = LoggerFactory.getLogger("CopyIntoProcessor");
 
@@ -97,6 +97,7 @@ public abstract class AbstractCopyIntoProcessor<R> implements DorisWriter<R>, Do
     private boolean isNewBatch = true;
 
     public AbstractCopyIntoProcessor(DorisConfig config) throws Exception {
+        super(config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE));
         this.config = config;
         this.frontend = new DorisFrontendClient(config);
         this.properties = config.getSinkProperties();

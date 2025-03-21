@@ -22,7 +22,7 @@ import org.apache.doris.spark.client.read.DorisFlightSqlReader
 import org.apache.doris.spark.config.DorisOptions
 import org.apache.doris.spark.exception.ShouldNeverHappenException
 
-import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.collection.JavaConverters.{asScalaBufferConverter, mapAsScalaMapConverter}
 
 class DorisRowFlightSqlReader(partition: DorisReaderPartition) extends DorisFlightSqlReader(partition)  {
 
@@ -34,6 +34,8 @@ class DorisRowFlightSqlReader(partition: DorisReaderPartition) extends DorisFlig
     }
     val row: DorisRow = new DorisRow(rowOrder)
     rowBatch.next.asScala.zipWithIndex.foreach {
+      case (s, index) if index < row.values.size && s.isInstanceOf[java.util.HashMap[String, String]] =>
+        row.values.update(index, s.asInstanceOf[java.util.HashMap[String, String]].asScala)
       case (s, index) if index < row.values.size => row.values.update(index, s)
       case _ => // nothing
     }

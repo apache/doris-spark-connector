@@ -27,10 +27,13 @@ import org.apache.spark.sql.connector.write.{DataWriter, WriterCommitMessage}
 import org.apache.spark.sql.types.StructType
 
 import java.time.Duration
+import java.util.concurrent.locks.LockSupport
 import scala.collection.mutable
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int, taskId: Long, epochId: Long = -1) extends DataWriter[InternalRow] with Logging {
+
+  private val batchSize = config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE)
 
   private val (writer: DorisWriter[InternalRow], committer: DorisCommitter) =
     config.getValue(DorisOptions.LOAD_MODE) match {
@@ -39,43 +42,25 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
       case mode => throw new IllegalArgumentException("Unsupported load mode: " + mode)
     }
 
-  private val batchSize = config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE)
-
   private val batchIntervalMs = config.getValue(DorisOptions.DORIS_SINK_BATCH_INTERVAL_MS)
 
   private val retries = config.getValue(DorisOptions.DORIS_SINK_MAX_RETRIES)
 
   private val twoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC)
 
-  private var currentBatchCount = 0
-
   private val committedMessages = mutable.Buffer[String]()
 
   private lazy val recordBuffer = mutable.Buffer[InternalRow]()
 
-  override def write(record: InternalRow): Unit = {
-    if (currentBatchCount >= batchSize) {
-      val txnId = Some(writer.stop())
-      if (txnId.isDefined) {
-        committedMessages += txnId.get
-        currentBatchCount = 0
-        if (retries != 0) {
-          recordBuffer.clear()
-        }
-      } else {
-        throw new Exception()
-      }
-    }
-    loadWithRetries(record)
-  }
+  override def write(record: InternalRow): Unit = loadBatchWithRetries(record)
 
   override def commit(): WriterCommitMessage = {
-    val txnId = writer.stop()
+    val txnId = Option(writer.stop())
     if (twoPhaseCommitEnabled) {
-      if (StringUtils.isNotBlank(txnId)) {
-        committedMessages += txnId
+      if (txnId.isDefined) {
+        committedMessages += txnId.get
       } else {
-        throw new Exception()
+        throw new Exception("Failed to commit batch")
       }
     }
     DorisWriterCommitMessage(partitionId, taskId, epochId, committedMessages.toArray)
@@ -95,26 +80,43 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
   }
 
   @throws[Exception]
-  private def loadWithRetries(record: InternalRow): Unit = {
+  private def loadBatchWithRetries(record: InternalRow): Unit = {
     var isRetrying = false
     Retry.exec[Unit, Exception](retries, Duration.ofMillis(batchIntervalMs.toLong), log) {
       if (isRetrying) {
+        // retrying, reload data from buffer
         do {
-          writer.load(recordBuffer(currentBatchCount))
-          currentBatchCount += 1
-        } while (currentBatchCount < recordBuffer.size)
+          val idx = writer.getBatchCount
+          writer.load(recordBuffer(idx))
+        } while (writer.getBatchCount < recordBuffer.size)
         isRetrying = false
       }
+      if (writer.endOfBatch()) {
+        // end of batch, stop batch write
+        val txnId = Option(writer.stop())
+        if (twoPhaseCommitEnabled) {
+          if (txnId.isDefined) {
+            committedMessages += txnId.get
+          } else {
+            throw new Exception("Failed to end batch write")
+          }
+        }
+        // clear buffer if retry is enabled
+        if (retries > 0) {
+          recordBuffer.clear()
+        }
+        writer.resetBatchCount()
+        LockSupport.parkNanos(batchIntervalMs.toLong)
+      }
       writer.load(record)
-      currentBatchCount += 1
     } {
+      // batch write failed, set retry flag and reset batch count
       isRetrying = true
-      currentBatchCount = 0
+      writer.resetBatchCount()
     } match {
       case Success(_) => if (retries > 0) recordBuffer += record
       case Failure(exception) => throw new Exception(exception)
     }
-
   }
 
 }

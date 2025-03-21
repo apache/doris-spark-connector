@@ -59,7 +59,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, DorisCommitter {
+public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> implements DorisCommitter {
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass().getName().replaceAll("\\$", ""));
 
@@ -112,6 +112,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
     private Future<CloseableHttpResponse> requestFuture = null;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
+        super(config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE));
         this.config = config;
         String tableIdentifier = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
         String[] dbTableArr = tableIdentifier.split("\\.");
@@ -151,11 +152,13 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             createNewBatch = false;
         }
         output.write(toFormat(row, format));
+        currentBatchCount++;
     }
 
     @Override
     public String stop() throws Exception {
         if (requestFuture != null) {
+            createNewBatch = true;
             // arrow format need to send all buffer data before stop
             if (!recordBuffer.isEmpty() && "arrow".equalsIgnoreCase(format)) {
                 List<R> rs = new LinkedList<>(recordBuffer);
@@ -172,7 +175,6 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             logger.info("stream load response: {}", resEntity);
             StreamLoadResponse response = MAPPER.readValue(resEntity, StreamLoadResponse.class);
             if (response != null && response.isSuccess()) {
-                createNewBatch = true;
                 return isTwoPhaseCommitEnabled ? String.valueOf(response.getTxnId()) : null;
             } else {
                 throw new StreamLoadException("stream load execute failed, response: " + resEntity);
