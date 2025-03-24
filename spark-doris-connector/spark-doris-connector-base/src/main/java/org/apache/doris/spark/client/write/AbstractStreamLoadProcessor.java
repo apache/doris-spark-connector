@@ -29,9 +29,8 @@ import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.load.DataFormat;
 import org.apache.doris.spark.util.HttpUtils;
-import org.apache.doris.spark.util.StreamloadEntity;
+import org.apache.doris.spark.util.StreamLoadEntity;
 import org.apache.doris.spark.util.URLs;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.entity.GzipCompressingEntity;
@@ -96,7 +95,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private final boolean isPassThrough;
 
-    private StreamloadEntity output;
+    private StreamLoadEntity output;
 
     private boolean createNewBatch = true;
 
@@ -372,7 +371,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         } catch (OptionRequiredException e) {
             throw new RuntimeException("stream load handle properties failed", e);
         }
-        output = new StreamloadEntity();
+        output = new StreamLoadEntity();
         if (isGzipCompressionEnabled) {
             httpPut.setEntity(new GzipCompressingEntity(output));
         } else {
