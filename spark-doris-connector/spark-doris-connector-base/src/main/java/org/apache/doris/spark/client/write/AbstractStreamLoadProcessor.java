@@ -162,6 +162,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             output.write(lineDelimiter);
         }
         output.write(toFormat(row, format));
+        currentBatchCount++;
     }
 
     @Override
