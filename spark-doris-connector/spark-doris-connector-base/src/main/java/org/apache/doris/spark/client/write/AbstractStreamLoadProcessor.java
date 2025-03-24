@@ -297,12 +297,13 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     }
 
     private byte[] toStringFormat(R row, DataFormat format) {
-        return isPassThrough ? getPassThroughData(row) : stringify(row, format);
+        String stringRow = isPassThrough ? getPassThroughData(row) : stringify(row, format);
+        return stringRow.getBytes(StandardCharsets.UTF_8);
     }
 
-    protected abstract byte[] getPassThroughData(R row);
+    protected abstract String getPassThroughData(R row);
 
-    public abstract byte[] stringify(R row, DataFormat format);
+    public abstract String stringify(R row, DataFormat format);
 
     public abstract byte[] toArrowFormat(List<R> rows) throws IOException;
 
