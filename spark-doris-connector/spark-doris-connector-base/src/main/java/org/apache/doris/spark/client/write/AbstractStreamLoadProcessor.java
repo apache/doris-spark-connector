@@ -170,7 +170,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             createNewBatch = true;
             isFirstRecordOfBatch = true;
             // arrow format need to send all buffer data before stop
-            if (!recordBuffer.isEmpty() && DataFormat.ARROW == format) {
+            if (!recordBuffer.isEmpty() && DataFormat.ARROW.equals(format)) {
                 List<R> rs = new LinkedList<>(recordBuffer);
                 recordBuffer.clear();
                 output.write(toArrowFormat(rs));
