@@ -29,7 +29,7 @@ import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.load.DataFormat;
 import org.apache.doris.spark.util.HttpUtils;
-import org.apache.doris.spark.util.StreamLoadEntity;
+import org.apache.doris.spark.load.StreamLoadEntity;
 import org.apache.doris.spark.util.URLs;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
