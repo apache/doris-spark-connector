@@ -45,8 +45,12 @@ object RowConvertors {
     }).mkString(sep)
   }
 
-  def convertToCSVBytes(row: InternalRow, schema: StructType, sep: String): Array[Byte] = {
-    convertToCsv(row, schema, sep).getBytes(StandardCharsets.UTF_8)
+  def convertToJson(row: InternalRow, schema: StructType): String = {
+    val map = new java.util.HashMap[String, Any](schema.fields.size)
+    (0 until schema.length).foreach(i => {
+      map.put(schema.fields(i).name, asScalaValue(row, schema.fields(i).dataType, i))
+    })
+    MAPPER.writeValueAsString(map)
   }
 
   def convertToJsonBytes(row: InternalRow, schema: StructType): Array[Byte] = {
@@ -55,6 +59,10 @@ object RowConvertors {
       map.put(schema.fields(i).name, asScalaValue(row, schema.fields(i).dataType, i))
     })
     MAPPER.writeValueAsBytes(map)
+  }
+
+  def convertToCSVBytes(row: InternalRow, schema: StructType, sep: String): Array[Byte] = {
+    convertToCsv(row, schema, sep).getBytes(StandardCharsets.UTF_8)
   }
 
   private def asScalaValue(row: SpecializedGetters, dataType: DataType, ordinal: Int): Any = {
