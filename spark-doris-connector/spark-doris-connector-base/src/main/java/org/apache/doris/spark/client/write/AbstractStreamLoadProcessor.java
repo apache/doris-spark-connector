@@ -392,7 +392,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         createNewBatch = true;
         isFirstRecordOfBatch = true;
         frontend.close();
-        backendHttpClient.close();
+        if (backendHttpClient != null) {
+            backendHttpClient.close();
+        }
         if (executor != null && !executor.isShutdown()) {
             executor.shutdown();
         }
