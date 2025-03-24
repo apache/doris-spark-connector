@@ -17,14 +17,40 @@
 
 package org.apache.doris.spark.client.write;
 
+import org.apache.doris.spark.config.DorisOptions;
+
 import java.io.IOException;
 import java.io.Serializable;
 
-public interface DorisWriter<R> extends Serializable {
+public abstract class DorisWriter<R> implements Serializable {
 
-    void load(R row) throws Exception;
+    protected int batchSize;
 
-    String stop() throws Exception;
+    protected int currentBatchCount = 0;
 
-    void close() throws IOException;
+    public DorisWriter(int batchSize) {
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException(DorisOptions.DORIS_SINK_BATCH_SIZE.getName() + " must be greater than 0");
+        }
+        this.batchSize = batchSize;
+    }
+
+    public abstract void load(R row) throws Exception;
+
+    public abstract String stop() throws Exception;
+
+    public abstract void close() throws IOException;
+
+    public boolean endOfBatch() {
+        return currentBatchCount >= batchSize;
+    }
+
+    public int getBatchCount() {
+        return currentBatchCount;
+    }
+
+    public void resetBatchCount() {
+        currentBatchCount = 0;
+    }
+
 }

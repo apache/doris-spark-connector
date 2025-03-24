@@ -282,18 +282,19 @@ public class RowBatch implements Serializable {
                         }
                         break;
                     case "IPV4":
-                        Preconditions.checkArgument(mt.equals(MinorType.UINT4) || mt.equals(MinorType.INT),
+                        Preconditions.checkArgument(mt.equals(MinorType.UINT4) || mt.equals(MinorType.INT) || mt.equals(MinorType.VARCHAR),
                                 typeMismatchMessage(colName, currentType, mt));
-                        BaseIntVector ipv4Vector;
-                        if (mt.equals(MinorType.INT)) {
-                            ipv4Vector = (IntVector) curFieldVector;
+
+                        if (mt.equals(MinorType.VARCHAR)) {
+                            VarCharVector vector = (VarCharVector) curFieldVector;
+                            for (int i = 0; i < rowCountInOneBatch; i++) {
+                                addValueToRow(i, vector.isNull(i) ? null : new String(vector.get(i)));
+                            }
                         } else {
-                            ipv4Vector = (UInt4Vector) curFieldVector;
-                        }
-                        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                            Object fieldValue = ipv4Vector.isNull(rowIndex) ? null :
-                                    IPUtils.convertLongToIPv4Address(ipv4Vector.getValueAsLong(rowIndex));
-                            addValueToRow(rowIndex, fieldValue);
+                            BaseIntVector vector = (mt.equals(MinorType.INT)) ? (IntVector) curFieldVector : (UInt4Vector) curFieldVector;
+                            for (int i = 0; i < rowCountInOneBatch; i++) {
+                                addValueToRow(i, vector.isNull(i) ? null : IPUtils.convertLongToIPv4Address(vector.getValueAsLong(i)));
+                            }
                         }
                         break;
                     case "FLOAT":
@@ -348,6 +349,7 @@ public class RowBatch implements Serializable {
                     case "DECIMALV2":
                     case "DECIMAL32":
                     case "DECIMAL64":
+                    case "DECIMAL128":
                     case "DECIMAL128I":
                         Preconditions.checkArgument(mt.equals(MinorType.DECIMAL),
                                 typeMismatchMessage(colName, currentType, mt));
@@ -463,9 +465,15 @@ public class RowBatch implements Serializable {
                                 addValueToRow(rowIndex, null);
                                 break;
                             }
+                            // Compatible with IPv6  in Doris 2.1.3 and above.
                             String ipv6Str = new String(ipv6VarcharVector.get(rowIndex));
-                            String ipv6Address = IPUtils.fromBigInteger(new BigInteger(ipv6Str));
-                            addValueToRow(rowIndex, ipv6Address);
+                            if (ipv6Str.contains(":")){
+                                addValueToRow(rowIndex, ipv6Str);
+                            }else {
+                                String ipv6Address = IPUtils.fromBigInteger(new BigInteger(ipv6Str));
+                                addValueToRow(rowIndex, ipv6Address);
+                            }
+
                         }
                         break;
                     case "ARRAY":

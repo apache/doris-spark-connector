@@ -34,7 +34,7 @@ protected[spark] abstract class DorisScanBuilderBase(config: DorisConfig, schema
   }
 
   override def pruneColumns(requiredSchema: StructType): Unit = {
-    doPruneColumns(readSchema, requiredSchema.fieldNames)
+    readSchema = doPruneColumns(readSchema, requiredSchema.fieldNames)
   }
 
   private def doPruneColumns(originSchema: StructType, requiredCols: Array[String]): StructType = {
