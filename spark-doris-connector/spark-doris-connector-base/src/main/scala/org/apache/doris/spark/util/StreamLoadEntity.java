@@ -9,17 +9,17 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.entity.AbstractHttpEntity;
 
-public class StreamloadEntity extends AbstractHttpEntity {
+public class StreamLoadEntity extends AbstractHttpEntity {
 
   private BlockingQueue<byte[]> bufferQueue;
 
   private volatile boolean closed = false;
 
-  public StreamloadEntity() {
+  public StreamLoadEntity() {
     this.bufferQueue = new LinkedBlockingDeque<>(1024);
   }
 
-  public StreamloadEntity(BlockingQueue<byte[]> bufferQueue) {
+  public StreamLoadEntity(BlockingQueue<byte[]> bufferQueue) {
     this.bufferQueue = bufferQueue;
   }
 
