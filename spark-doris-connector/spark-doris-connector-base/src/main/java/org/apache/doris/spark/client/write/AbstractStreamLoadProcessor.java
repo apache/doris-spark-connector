@@ -60,7 +60,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, DorisCommitter {
+public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> implements DorisCommitter {
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass().getName().replaceAll("\\$", ""));
 
@@ -113,6 +113,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
     private Future<CloseableHttpResponse> requestFuture = null;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
+        super(config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE));
         this.config = config;
         String tableIdentifier = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
         String[] dbTableArr = tableIdentifier.split("\\.");
@@ -181,7 +182,7 @@ public abstract class AbstractStreamLoadProcessor<R> implements DorisWriter<R>, 
             CloseableHttpResponse res = requestFuture.get();
             if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
                 throw new StreamLoadException("stream load execute failed, status: " + res.getStatusLine().getStatusCode()
-                    + ", msg: " + res.getStatusLine().getReasonPhrase());
+                        + ", msg: " + res.getStatusLine().getReasonPhrase());
             }
             String resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity()));
             logger.info("stream load response: {}", resEntity);
