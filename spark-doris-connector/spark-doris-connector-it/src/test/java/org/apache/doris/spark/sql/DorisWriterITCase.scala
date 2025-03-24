@@ -18,10 +18,11 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.DorisTestBase
-import org.apache.spark.sql.{SaveMode, SparkSession}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, DecimalType, MapType, StructField, StructType}
+import org.apache.spark.sql.{Row, SaveMode, SparkSession}
 import org.junit.Test
 
-import java.sql.{ResultSet, Statement}
+import java.sql.{Date, ResultSet, Statement, Timestamp}
 import scala.collection.mutable.ListBuffer
 
 class DorisWriterITCase extends DorisTestBase {

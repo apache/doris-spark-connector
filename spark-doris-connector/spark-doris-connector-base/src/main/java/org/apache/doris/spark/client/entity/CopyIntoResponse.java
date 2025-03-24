@@ -15,28 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.spark.util;
+package org.apache.doris.spark.client.entity;
 
-import org.junit.Assert;
-import org.junit.Test;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+public class CopyIntoResponse {
 
-public class TestListUtils {
+    private Integer code;
+    private String msg;
+    private String content;
 
-    @Test
-    public void testGetSerializedList() throws Exception {
-        int size = 15000;
-        List<Map<Object, Object>> batch = new ArrayList<>();
-        for (int i = 0; i < size; i++) {
-            Map<Object, Object> entity = new HashMap<>();
-            batch.add(entity);
-        }
-        Assert.assertEquals(ListUtils.getSerializedList(batch, "\n").size(), 1);
+    public CopyIntoResponse(Integer code, String msg, String content) {
+        this.code = code;
+        this.msg = msg;
+        this.content = content;
+    }
 
-        Assert.assertEquals(ListUtils.getSerializedList(new ArrayList<>(), "\n").size(), 1);
+    public Integer getCode() {
+        return code;
+    }
 
+    public String getMsg() {
+        return msg;
+    }
+
+    public String getContent() {
+        return content;
     }
 }

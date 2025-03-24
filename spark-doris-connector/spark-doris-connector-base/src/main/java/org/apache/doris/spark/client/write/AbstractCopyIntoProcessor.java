@@ -20,12 +20,12 @@ package org.apache.doris.spark.client.write;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.doris.spark.client.DorisFrontendClient;
+import org.apache.doris.spark.client.entity.CopyIntoResponse;
 import org.apache.doris.spark.client.entity.Frontend;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.CopyIntoException;
 import org.apache.doris.spark.exception.OptionRequiredException;
-import org.apache.doris.spark.load.CopyIntoResponse;
 import org.apache.doris.spark.rest.models.RespContent;
 import org.apache.doris.spark.util.CopySQLBuilder;
 import org.apache.doris.spark.util.HttpPostBuilder;
@@ -141,11 +141,11 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
         String statusMessage = uploadRes.getStatusLine().getReasonPhrase();
         String responseContent = EntityUtils.toString(new BufferedHttpEntity(uploadRes.getEntity()), StandardCharsets.UTF_8);
         CopyIntoResponse loadResponse = new CopyIntoResponse(statusCode, statusMessage, responseContent);
-        if (loadResponse.code() != HttpStatus.SC_OK) {
-            LOG.error(String.format("Upload file status is not OK, status: %d, response: %s", loadResponse.code(), loadResponse));
-            throw new CopyIntoException(String.format("Upload file error, http status:%d, response:%s", loadResponse.code(), loadResponse));
+        if (loadResponse.getCode() != HttpStatus.SC_OK) {
+            LOG.error(String.format("Upload file status is not OK, status: %d, response: %s", loadResponse.getCode(), loadResponse));
+            throw new CopyIntoException(String.format("Upload file error, http status:%d, response:%s", loadResponse.getCode(), loadResponse));
         } else {
-            LOG.info(String.format("Upload file success, status: %d, response: %s", loadResponse.code(), loadResponse));
+            LOG.info(String.format("Upload file success, status: %d, response: %s", loadResponse.getCode(), loadResponse));
         }
         isNewBatch = true;
         return fileName;
@@ -171,13 +171,14 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
         String reasonPhrase = uploadRes.getStatusLine().getReasonPhrase();
         String content = EntityUtils.toString(new BufferedHttpEntity(uploadRes.getEntity()), StandardCharsets.UTF_8);
         CopyIntoResponse loadResponse = new CopyIntoResponse(statusCode, reasonPhrase, content);
-        if (loadResponse.code() == HttpStatus.SC_TEMPORARY_REDIRECT) {
+        if (loadResponse.getCode() == HttpStatus.SC_TEMPORARY_REDIRECT) {
             String uploadAddress = uploadRes.getFirstHeader("location").getValue();
             LOG.info("Get upload address Response: " + loadResponse);
             LOG.info("Redirect to s3: " + uploadAddress);
             return uploadAddress;
         } else {
-            LOG.error("Failed to get the redirected address, status " + loadResponse.code() + ", reason " + loadResponse.msg() + ", response " + loadResponse.content());
+            LOG.error("Failed to get the redirected address, status " + loadResponse.getCode() +
+                    ", reason " + loadResponse.getMsg() + ", response " + loadResponse.getContent());
             throw new RuntimeException("Could not get the redirected address.");
         }
 
@@ -234,14 +235,14 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
         String responseContent = EntityUtils.toString(new BufferedHttpEntity(queryRes.getEntity()), StandardCharsets.UTF_8);
         CopyIntoResponse loadResponse = new CopyIntoResponse(statusCode, statusMessage, responseContent);
 
-        if (loadResponse.code() != HttpStatus.SC_OK) {
+        if (loadResponse.getCode() != HttpStatus.SC_OK) {
             LOG.error(String.format("Execute copy sql status is not OK, status: %d, response: %s",
-                    loadResponse.code(), loadResponse));
+                    loadResponse.getCode(), loadResponse));
             throw new CopyIntoException(String.format("Execute copy sql, http status:%d, response:%s",
-                    loadResponse.code(), loadResponse));
+                    loadResponse.getCode(), loadResponse));
         } else {
             try {
-                RespContent responseContentObject = MAPPER.readValue(loadResponse.content(), RespContent.class);
+                RespContent responseContentObject = MAPPER.readValue(loadResponse.getContent(), RespContent.class);
                 if (!responseContentObject.isCopyIntoSuccess()) {
                     LOG.error(String.format("Execute copy sql status is not success, status: %s, response: %s",
                             responseContentObject.getStatus(), loadResponse));
