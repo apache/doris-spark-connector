@@ -1,4 +1,4 @@
-package org.apache.doris.spark.util;
+package org.apache.doris.spark.load;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
