@@ -28,6 +28,7 @@ import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.load.DataFormat;
+import org.apache.doris.spark.load.StreamLoadEntity;
 import org.apache.doris.spark.util.HttpUtils;
 import org.apache.doris.spark.util.URLs;
 import org.apache.http.HttpEntity;
@@ -38,15 +39,12 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.BufferedHttpEntity;
-import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -98,7 +96,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private final boolean isPassThrough;
 
-    private PipedOutputStream output;
+    private StreamLoadEntity output;
 
     private boolean createNewBatch = true;
 
@@ -299,13 +297,12 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     }
 
     private byte[] toStringFormat(R row, DataFormat format) {
-        String stringRow = isPassThrough ? getPassThroughData(row) : stringify(row, format);
-        return stringRow.getBytes(StandardCharsets.UTF_8);
+        return isPassThrough ? getPassThroughData(row) : stringify(row, format);
     }
 
-    protected abstract String getPassThroughData(R row);
+    protected abstract byte[] getPassThroughData(R row);
 
-    public abstract String stringify(R row, DataFormat format);
+    public abstract byte[] stringify(R row, DataFormat format);
 
     public abstract byte[] toArrowFormat(List<R> rows) throws IOException;
 
@@ -375,13 +372,10 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         } catch (OptionRequiredException e) {
             throw new RuntimeException("stream load handle properties failed", e);
         }
-        PipedInputStream pipedInputStream = new PipedInputStream(4096);
-        try {
-            output = new PipedOutputStream(pipedInputStream);
-        } catch (IOException e) {
-            throw new RuntimeException("stream load create output failed", e);
-        }
-        HttpEntity entity = new InputStreamEntity(pipedInputStream);
+        int bufferSize = Integer.valueOf(properties.getOrDefault("buffer_size", "1000"));
+        logger.info("using buffer size {}", bufferSize);
+        output = new StreamLoadEntity(bufferSize);
+        HttpEntity entity = output;
         if (isGzipCompressionEnabled) {
             entity = new GzipCompressingEntity(entity);
         }
