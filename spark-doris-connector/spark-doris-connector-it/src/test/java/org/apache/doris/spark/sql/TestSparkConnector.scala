@@ -17,10 +17,12 @@
 
 package org.apache.doris.spark.sql
 
+import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
-import org.junit.Ignore
-import org.junit.Test
+import org.junit.{Ignore, Test}
+
+import java.util
 
 // This test need real connect info to run.
 // Set the connect info before comment out this @Ignore
@@ -58,18 +60,18 @@ class TestSparkConnector {
       ("zhangsan", "m"),
       ("lisi", "f"),
       ("wangwu", "m")
-    )).toDF("name","gender")
+    )).toDF("name", "gender")
     df.write
       .format("doris")
       .option("doris.fenodes", dorisFeNodes)
       .option("doris.table.identifier", dorisTable)
       .option("user", dorisUser)
       .option("password", dorisPwd)
-//      .option("sink.auto-redirect", "true")
+      //      .option("sink.auto-redirect", "true")
       //specify your field
       .option("doris.write.fields", "name,gender")
-      .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.batch.size", 2)
+      .option("sink.max-retries", 2)
       .save()
     session.stop()
   }
@@ -111,11 +113,34 @@ class TestSparkConnector {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
-      .option("sink.batch.size",2)
-      .option("sink.max-retries",2)
+      .option("sink.batch.size", 2)
+      .option("sink.max-retries", 2)
       .start().awaitTermination()
     spark.stop()
   }
 
+  @Test
+  def dorisConfigCheckTest(): Unit = {
+    val map = new util.HashMap[String, String]()
+    map.put(DorisOptions.DORIS_TABLE_IDENTIFIER.getName, "db.table")
+    map.put(DorisOptions.DORIS_USER.getName, "user")
+    map.put(DorisOptions.DORIS_PASSWORD.getName, "pwd")
+    for (url <- List("fe1:8080,fe2:8120", "nginx/test")) {
+      map.put(DorisOptions.DORIS_FENODES.getName, url)
+      DorisConfig.fromMap(map, false)
+    }
+
+    for (url <- List("fe1:8080,fe2:8120,", "fe1:8080;fe2:8120")) {
+      var exRaised = false
+      try {
+        map.put(DorisOptions.DORIS_FENODES.getName, url)
+        DorisConfig.fromMap(map, false)
+      } catch {
+        case _:IllegalArgumentException =>
+          exRaised = true
+      }
+      assert(exRaised)
+    }
+  }
 }
 
