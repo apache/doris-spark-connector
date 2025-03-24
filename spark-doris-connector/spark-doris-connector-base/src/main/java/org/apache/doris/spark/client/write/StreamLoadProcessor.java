@@ -16,6 +16,7 @@
 // under the License.
 package org.apache.doris.spark.client.write;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -24,7 +25,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
-import org.apache.doris.spark.util.RowConvertors;
+import org.apache.doris.spark.load.DataFormat;
+import org.apache.doris.spark.util.DataUtil;
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.arrow.ArrowWriter;
@@ -34,6 +36,7 @@ import org.apache.spark.sql.util.ArrowUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow> {
@@ -67,21 +70,26 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
     }
 
     @Override
-    protected String getPassThroughData(InternalRow row) {
-        return row.getString(0);
+    protected byte[] getPassThroughData(InternalRow row) {
+        return row.getString(0).getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
-    public String stringify(InternalRow row, String format) {
-        switch (format) {
-            case "csv":
-                return RowConvertors.convertToCsv(row, schema, columnSeparator);
-            case "json":
-                return RowConvertors.convertToJson(row, schema);
-            default:
-                return null;
+    public byte[] stringify(InternalRow row, DataFormat format) {
+        try {
+            switch (format) {
+                case CSV:
+                    return DataUtil.rowToCsvBytes(row, schema, columnSeparator, false);
+                case JSON:
+                    return DataUtil.rowToJsonBytes(row, schema);
+                default:
+                    return null;
+            }
+        } catch (JsonProcessingException e) {
+          throw new RuntimeException(e);
         }
     }
+
 
     @Override
     public String getWriteFields() throws OptionRequiredException {

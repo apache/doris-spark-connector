@@ -34,7 +34,6 @@ object Retry {
     val result = Try(f)
     result match {
       case Success(result) =>
-        LockSupport.parkNanos(interval.toNanos)
         Success(result)
       case Failure(exception: T) if retryTimes > 0 =>
         logger.warn("Execution failed caused by: ", exception)

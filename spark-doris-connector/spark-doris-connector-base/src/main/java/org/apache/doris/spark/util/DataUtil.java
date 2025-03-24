@@ -75,8 +75,8 @@ public class DataUtil {
         StructField[] fields = schema.fields();
         Map<String, Object> rowMap = new HashMap<>(row.numFields());
         for (int i = 0; i < fields.length; i++) {
-            // rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
-            rowMap.put(fields[i].name(), null);
+            rowMap.put(fields[i].name(), SchemaUtils.rowColumnValue(row, i, fields[i].dataType()));
+            //rowMap.put(fields[i].name(), null);
         }
         return MAPPER.writeValueAsString(rowMap);
     }
