@@ -27,6 +27,7 @@ import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.load.DataFormat;
 import org.apache.doris.spark.util.DataUtil;
+import org.apache.doris.spark.util.RowConvertors;
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.arrow.ArrowWriter;
@@ -70,23 +71,19 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
     }
 
     @Override
-    protected byte[] getPassThroughData(InternalRow row) {
-        return row.getString(0).getBytes(StandardCharsets.UTF_8);
+    protected String getPassThroughData(InternalRow row) {
+        return row.getString(0);
     }
 
     @Override
-    public byte[] stringify(InternalRow row, DataFormat format) {
-        try {
-            switch (format) {
-                case CSV:
-                    return DataUtil.rowToCsvBytes(row, schema, columnSeparator, false);
-                case JSON:
-                    return DataUtil.rowToJsonBytes(row, schema);
-                default:
-                    return null;
-            }
-        } catch (JsonProcessingException e) {
-          throw new RuntimeException(e);
+    public String stringify(InternalRow row, DataFormat format) {
+        switch (format) {
+            case CSV:
+                return RowConvertors.convertToCsv(row, schema, columnSeparator);
+            case JSON:
+                return RowConvertors.convertToJson(row, schema);
+            default:
+                return null;
         }
     }
 
