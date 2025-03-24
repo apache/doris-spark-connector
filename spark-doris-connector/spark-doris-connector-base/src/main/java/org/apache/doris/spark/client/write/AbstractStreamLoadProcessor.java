@@ -29,8 +29,8 @@ import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.load.DataFormat;
 import org.apache.doris.spark.util.HttpUtils;
-import org.apache.doris.spark.load.StreamLoadEntity;
 import org.apache.doris.spark.util.URLs;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.entity.GzipCompressingEntity;
@@ -38,12 +38,15 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.BufferedHttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -95,7 +98,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private final boolean isPassThrough;
 
-    private StreamLoadEntity output;
+    private PipedOutputStream output;
 
     private boolean createNewBatch = true;
 
@@ -372,12 +375,17 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         } catch (OptionRequiredException e) {
             throw new RuntimeException("stream load handle properties failed", e);
         }
-        output = new StreamLoadEntity();
-        if (isGzipCompressionEnabled) {
-            httpPut.setEntity(new GzipCompressingEntity(output));
-        } else {
-            httpPut.setEntity(output);
+        PipedInputStream pipedInputStream = new PipedInputStream(4096);
+        try {
+            output = new PipedOutputStream(pipedInputStream);
+        } catch (IOException e) {
+            throw new RuntimeException("stream load create output failed", e);
         }
+        HttpEntity entity = new InputStreamEntity(pipedInputStream);
+        if (isGzipCompressionEnabled) {
+            entity = new GzipCompressingEntity(entity);
+        }
+        httpPut.setEntity(entity);
         return getExecutors().submit(() -> client.execute(httpPut));
     }
 
