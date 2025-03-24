@@ -71,17 +71,17 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
     }
 
     @Override
-    protected String getPassThroughData(InternalRow row) {
-        return row.getString(0);
+    protected byte[] getPassThroughData(InternalRow row) {
+        return row.getString(0).getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
-    public String stringify(InternalRow row, DataFormat format) {
+    public byte[] stringify(InternalRow row, DataFormat format) {
         switch (format) {
             case CSV:
-                return RowConvertors.convertToCsv(row, schema, columnSeparator);
+                return RowConvertors.convertToCSVBytes(row, schema, columnSeparator);
             case JSON:
-                return RowConvertors.convertToJson(row, schema);
+                return RowConvertors.convertToJsonBytes(row, schema);
             default:
                 return null;
         }
