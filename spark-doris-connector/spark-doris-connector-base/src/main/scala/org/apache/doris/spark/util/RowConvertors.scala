@@ -29,6 +29,7 @@ import org.apache.spark.unsafe.types.UTF8String
 import java.nio.charset.StandardCharsets
 import java.sql.{Date, Timestamp}
 import java.time.{Instant, LocalDate}
+import java.util
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 
@@ -46,11 +47,21 @@ object RowConvertors {
   }
 
   def convertToJson(row: InternalRow, schema: StructType): String = {
-    val map = new java.util.HashMap[String, Any](schema.fields.size)
+    val map: util.HashMap[String, Any] = convertRowToMap(row, schema)
+    MAPPER.writeValueAsString(map)
+  }
+
+  private def convertRowToMap(row: InternalRow, schema: StructType) = {
+    val map = new util.HashMap[String, Any](schema.fields.size)
     (0 until schema.length).foreach(i => {
       map.put(schema.fields(i).name, asScalaValue(row, schema.fields(i).dataType, i))
     })
-    MAPPER.writeValueAsString(map)
+    map
+  }
+
+  def convertToJsonBytes(row: InternalRow, schema: StructType): Array[Byte] = {
+    val map: util.HashMap[String, Any] = convertRowToMap(row, schema)
+    MAPPER.writeValueAsBytes(map)
   }
 
   private def asScalaValue(row: SpecializedGetters, dataType: DataType, ordinal: Int): Any = {
