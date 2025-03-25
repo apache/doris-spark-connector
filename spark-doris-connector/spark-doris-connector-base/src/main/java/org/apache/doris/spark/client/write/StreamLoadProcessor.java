@@ -76,12 +76,13 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
     }
 
     @Override
-    public String stringify(InternalRow row, DataFormat format) {
+    public byte[] stringify(InternalRow row, DataFormat format) {
         switch (format) {
             case CSV:
-                return RowConvertors.convertToCsv(row, schema, columnSeparator);
+                return RowConvertors.convertToCsv(row, schema, columnSeparator).getBytes(
+                    StandardCharsets.UTF_8);
             case JSON:
-                return RowConvertors.convertToJson(row, schema);
+                return RowConvertors.convertToJsonBytes(row, schema);
             default:
                 return null;
         }
