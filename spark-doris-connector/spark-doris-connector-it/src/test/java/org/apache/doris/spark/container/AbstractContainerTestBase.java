@@ -17,20 +17,21 @@
 
 package org.apache.doris.spark.container;
 
-import java.sql.Connection;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 import org.apache.doris.spark.container.instance.ContainerService;
 import org.apache.doris.spark.container.instance.DorisContainer;
 import org.apache.doris.spark.container.instance.DorisCustomerContainer;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import org.junit.BeforeClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.sql.Connection;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public abstract class AbstractContainerTestBase {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractContainerTestBase.class);
@@ -56,6 +57,10 @@ public abstract class AbstractContainerTestBase {
 
     protected static Connection getDorisQueryConnection() {
         return dorisContainerService.getQueryConnection();
+    }
+
+    protected static Connection getDorisQueryConnection(String database) {
+        return dorisContainerService.getQueryConnection(database);
     }
 
     protected String getFenodes() {

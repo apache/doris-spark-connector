@@ -24,7 +24,7 @@ import org.apache.doris.spark.sparkContextFunctions
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.junit.Assert.fail
-import org.junit.Test
+import org.junit.{Before, Test}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.slf4j.LoggerFactory
@@ -52,6 +52,13 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   val TABLE_READ_TBL = "tbl_read_tbl"
   val TABLE_READ_TBL_ALL_TYPES = "tbl_read_tbl_all_types"
   val TABLE_READ_TBL_BIT_MAP = "tbl_read_tbl_bitmap"
+
+  @Before
+  def setUp(): Unit = {
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection,
+      LOG,
+      String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE))
+  }
 
   @Test
   @throws[Exception]
@@ -191,8 +198,8 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
 
   @Test
   def testReadAllType(): Unit = {
-    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/read_all_type.sql")
-    ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, sourceInitSql: _*)
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
     session.sql(
@@ -249,8 +256,8 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
 
   @Test
   def testBitmapRead(): Unit = {
-    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/read_bitmap.sql")
-    ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, sourceInitSql: _*)
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_bitmap.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
     session.sql(
       s"""
@@ -280,8 +287,8 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     if(readMode.equals("thrift")){
       return
     }
-    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/read_bitmap.sql")
-    ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, sourceInitSql: _*)
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_bitmap.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
     session.sql(
       s"""
@@ -313,8 +320,8 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     if(readMode.equals("thrift")){
       return
     }
-    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/read_bitmap.sql")
-    ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, sourceInitSql: _*)
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_bitmap.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
     session.sql(
       s"""
@@ -343,8 +350,8 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
 
   @Test
   def testReadPushDownProject(): Unit = {
-    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/read_all_type.sql")
-    ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, sourceInitSql: _*)
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
     session.sql(
       s"""

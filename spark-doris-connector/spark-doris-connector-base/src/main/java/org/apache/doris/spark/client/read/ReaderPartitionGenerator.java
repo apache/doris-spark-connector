@@ -17,15 +17,6 @@
 
 package org.apache.doris.spark.client.read;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.client.entity.Backend;
 import org.apache.doris.spark.client.entity.DorisReaderPartition;
@@ -35,8 +26,18 @@ import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.util.DorisDialects;
+
+import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ReaderPartitionGenerator {
 
@@ -131,7 +132,8 @@ public class ReaderPartitionGenerator {
 
     protected static String[] getFinalReadColumns(DorisConfig config, DorisFrontendClient frontendClient, String db, String table, String[] readFields) throws Exception {
         Schema tableSchema = frontendClient.getTableSchema(db, table);
-        Map<String, String> fieldTypeMap = tableSchema.getProperties().stream().collect(Collectors.toMap(Field::getName, Field::getType));
+        Map<String, String> fieldTypeMap = tableSchema.getProperties().stream().collect(
+                Collectors.toMap(Field::getName, Field::getType));
         Boolean bitmapToString = config.getValue(DorisOptions.DORIS_READ_BITMAP_TO_STRING);
         Boolean bitmapToBase64 = config.getValue(DorisOptions.DORIS_READ_BITMAP_TO_BASE64);
         return Arrays.stream(readFields).filter(fieldTypeMap::containsKey).map(readField -> {

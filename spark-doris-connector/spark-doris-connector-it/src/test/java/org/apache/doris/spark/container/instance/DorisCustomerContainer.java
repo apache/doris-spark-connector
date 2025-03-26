@@ -17,16 +17,17 @@
 
 package org.apache.doris.spark.container.instance;
 
+import org.apache.doris.spark.exception.DorisRuntimeException;
+
+import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-
-import com.google.common.base.Preconditions;
-import org.apache.doris.spark.exception.DorisRuntimeException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Using a custom Doris environment */
 public class DorisCustomerContainer implements ContainerService {
@@ -76,12 +77,18 @@ public class DorisCustomerContainer implements ContainerService {
 
     @Override
     public Connection getQueryConnection() {
+        return getQueryConnection("");
+    }
+
+    @Override
+    public Connection getQueryConnection(String database) {
         LOG.info("Try to get query connection from doris.");
         String jdbcUrl =
                 String.format(
                         JDBC_URL,
                         System.getProperty("doris_host"),
                         System.getProperty("doris_query_port"));
+        jdbcUrl = jdbcUrl + "/" + database;
         try {
             return DriverManager.getConnection(jdbcUrl, getUsername(), getPassword());
         } catch (SQLException e) {

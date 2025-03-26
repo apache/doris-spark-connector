@@ -17,9 +17,9 @@
 
 package org.apache.doris.spark.container.instance;
 
-import java.sql.Connection;
-
 import org.apache.doris.spark.exception.DorisRuntimeException;
+
+import java.sql.Connection;
 
 public interface ContainerService {
     void startContainer();
@@ -31,6 +31,8 @@ public interface ContainerService {
     boolean isRunning();
 
     Connection getQueryConnection();
+
+    Connection getQueryConnection(String database);
 
     String getJdbcUrl();
 

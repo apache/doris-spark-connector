@@ -17,14 +17,17 @@
 
 package org.apache.doris.spark.client.read;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import org.apache.doris.sdk.thrift.TPrimitiveType;
+import org.apache.doris.spark.client.DorisFrontendClient;
+import org.apache.doris.spark.client.entity.DorisReaderPartition;
+import org.apache.doris.spark.client.entity.Frontend;
+import org.apache.doris.spark.config.DorisConfig;
+import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.exception.OptionRequiredException;
+import org.apache.doris.spark.exception.ShouldNeverHappenException;
+import org.apache.doris.spark.rest.models.Field;
+import org.apache.doris.spark.rest.models.Schema;
 
 import org.apache.arrow.adbc.core.AdbcConnection;
 import org.apache.arrow.adbc.core.AdbcDatabase;
@@ -37,19 +40,17 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.doris.sdk.thrift.TPrimitiveType;
-import org.apache.doris.spark.client.DorisFrontendClient;
-import org.apache.doris.spark.client.entity.DorisReaderPartition;
-import org.apache.doris.spark.client.entity.Frontend;
-import org.apache.doris.spark.config.DorisConfig;
-import org.apache.doris.spark.config.DorisOptions;
-import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.exception.OptionRequiredException;
-import org.apache.doris.spark.exception.ShouldNeverHappenException;
-import org.apache.doris.spark.rest.models.Field;
-import org.apache.doris.spark.rest.models.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class DorisFlightSqlReader extends DorisReader {
 
