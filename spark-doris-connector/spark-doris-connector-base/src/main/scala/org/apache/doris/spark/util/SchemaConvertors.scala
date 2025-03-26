@@ -42,7 +42,7 @@ object SchemaConvertors {
       case "BINARY" => DataTypes.BinaryType
       case "DECIMAL" => DecimalType(precision, scale)
       case "CHAR" => DataTypes.StringType
-      case "LARGEINT" => DecimalType(38, 0)
+      case "LARGEINT" => DataTypes.StringType
       case "VARCHAR" => DataTypes.StringType
       case "JSON" => DataTypes.StringType
       case "JSONB" => DataTypes.StringType

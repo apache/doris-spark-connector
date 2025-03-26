@@ -17,15 +17,17 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.DorisTestBase
-import org.apache.spark.sql.types.{ArrayType, DataTypes, DecimalType, MapType, StructField, StructType}
-import org.apache.spark.sql.{Row, SaveMode, SparkSession}
+import org.apache.doris.spark.container.AbstractContainerTestBase.{assertEqualsInAnyOrder, getDorisQueryConnection}
+import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.junit.Test
+import org.slf4j.LoggerFactory
 
-import java.sql.{Date, ResultSet, Statement, Timestamp}
-import scala.collection.mutable.ListBuffer
+import java.util
+import scala.collection.JavaConverters._
+class DorisWriterITCase extends AbstractContainerTestBase {
 
-class DorisWriterITCase extends DorisTestBase {
+  private val LOG = LoggerFactory.getLogger(classOf[DorisReaderITCase])
 
   val DATABASE: String = "test"
   val TABLE_CSV: String = "tbl_csv"
@@ -43,10 +45,10 @@ class DorisWriterITCase extends DorisTestBase {
     )).toDF("name", "age")
     df.write
       .format("doris")
-      .option("doris.fenodes", DorisTestBase.getFenodes)
+      .option("doris.fenodes", getFenodes)
       .option("doris.table.identifier", DATABASE + "." + TABLE_CSV)
-      .option("user", DorisTestBase.USERNAME)
-      .option("password", DorisTestBase.PASSWORD)
+      .option("user", getDorisUsername)
+      .option("password", getDorisPassword)
       .option("sink.properties.column_separator", ",")
       .option("sink.properties.line_delimiter", "\n")
       .option("sink.properties.format", "csv")
@@ -55,9 +57,13 @@ class DorisWriterITCase extends DorisTestBase {
     session.stop()
 
     Thread.sleep(10000)
-    val actual = queryResult(TABLE_CSV);
-    val expected = ListBuffer(List("doris_csv", 1), List("spark_csv", 2))
-    assert(expected.equals(actual))
+    val actual = ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("select * from %s.%s", DATABASE, TABLE_CSV),
+      2)
+    val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
+    checkResultInAnyOrder("testSinkCsvFormat", expected.toArray(), actual.toArray)
   }
 
   @Test
@@ -71,10 +77,10 @@ class DorisWriterITCase extends DorisTestBase {
     )).toDF("name", "age")
     df.write
       .format("doris")
-      .option("doris.fenodes", DorisTestBase.getFenodes)
+      .option("doris.fenodes", getFenodes)
       .option("doris.table.identifier", DATABASE + "." + TABLE_JSON)
-      .option("user", DorisTestBase.USERNAME)
-      .option("password", DorisTestBase.PASSWORD)
+      .option("user", getDorisUsername)
+      .option("password", getDorisPassword)
       .option("sink.properties.read_json_by_line", "true")
       .option("sink.properties.format", "json")
       .option("doris.sink.auto-redirect", "false")
@@ -83,9 +89,13 @@ class DorisWriterITCase extends DorisTestBase {
     session.stop()
 
     Thread.sleep(10000)
-    val actual = queryResult(TABLE_JSON);
-    val expected = ListBuffer(List("doris_json", 1), List("spark_json", 2))
-    assert(expected.equals(actual))
+    val actual = ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("select * from %s.%s", DATABASE, TABLE_JSON),
+      2)
+    val expected = util.Arrays.asList("doris_json,1", "spark_json,2");
+    checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
   }
 
   @Test
@@ -104,9 +114,9 @@ class DorisWriterITCase extends DorisTestBase {
          |USING doris
          |OPTIONS(
          | "table.identifier"="${DATABASE + "." + TABLE_JSON_TBL}",
-         | "fenodes"="${DorisTestBase.getFenodes}",
-         | "user"="${DorisTestBase.USERNAME}",
-         | "password"="${DorisTestBase.PASSWORD}"
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}"
          |)
          |""".stripMargin)
     session.sql(
@@ -116,40 +126,34 @@ class DorisWriterITCase extends DorisTestBase {
     session.stop()
 
     Thread.sleep(10000)
-    val actual = queryResult(TABLE_JSON_TBL);
-    val expected = ListBuffer(List("doris_tbl", 1), List("spark_tbl", 2))
-    assert(expected.equals(actual))
+    val actual = ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL),
+      2)
+    val expected = util.Arrays.asList("doris_tbl,1", "spark_tbl,2");
+    checkResultInAnyOrder("testSQLSinkFormat", expected.toArray, actual.toArray)
   }
 
-  private def queryResult(table: String): ListBuffer[Any] = {
-    val actual = new ListBuffer[Any]
-    try {
-      val sinkStatement: Statement = DorisTestBase.connection.createStatement
-      try {
-        val sinkResultSet: ResultSet = sinkStatement.executeQuery(String.format("select name,age from %s.%s order by 1", DATABASE, table))
-        while (sinkResultSet.next) {
-          val row = List(sinkResultSet.getString("name"), sinkResultSet.getInt("age"))
-          actual += row
-        }
-      } finally if (sinkStatement != null) sinkStatement.close()
-    }
-    actual
-  }
 
   @throws[Exception]
   private def initializeTable(table: String): Unit = {
-    try {
-      val statement: Statement = DorisTestBase.connection.createStatement
-      try {
-        statement.execute(String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE))
-        statement.execute(String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table))
-        statement.execute(String.format(
-          "CREATE TABLE %s.%s ( \n" + "`name` varchar(256),\n" + "`age` int\n" + ") " +
+    ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE),
+      String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table),
+      String.format(
+        "CREATE TABLE %s.%s ( \n" + "`name` varchar(256),\n" + "`age` int\n" + ") " +
           "DISTRIBUTED BY HASH(`name`) BUCKETS 1\n" +
           "PROPERTIES (\n" +
-          "\"replication_num\" = \"1\"\n" + ")\n", DATABASE, table))
-      } finally if (statement != null) statement.close()
-    }
+          "\"replication_num\" = \"1\"\n" + ")\n", DATABASE, table)
+    )
+  }
+
+  private def checkResultInAnyOrder(testName: String, expected: Array[AnyRef], actual: Array[AnyRef]): Unit = {
+    LOG.info("Checking DorisSourceITCase result. testName={}, actual={}, expected={}", testName, actual, expected)
+    assertEqualsInAnyOrder(expected.toList.asJava, actual.toList.asJava)
   }
 
 }

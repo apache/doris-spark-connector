@@ -17,6 +17,11 @@
 
 package org.apache.doris.spark.client.read;
 
+import org.apache.doris.sdk.thrift.TScanBatchResult;
+import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.rest.models.Schema;
+import org.apache.doris.spark.util.IPUtils;
+
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
@@ -44,10 +49,6 @@ import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.doris.sdk.thrift.TScanBatchResult;
-import org.apache.doris.spark.exception.DorisException;
-import org.apache.doris.spark.rest.models.Schema;
-import org.apache.doris.spark.util.IPUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +65,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
@@ -74,7 +74,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.TimeZone;
 
 /**
  * row batch data container.
@@ -266,7 +265,7 @@ public class RowBatch implements Serializable {
                                 byte[] bytes = largeIntVector.get(rowIndex);
                                 ArrayUtils.reverse(bytes);
                                 BigInteger largeInt = new BigInteger(bytes);
-                                addValueToRow(rowIndex, Decimal.apply(largeInt));
+                                addValueToRow(rowIndex, largeInt.toString());
                             }
                         } else {
                             VarCharVector largeIntVector = (VarCharVector) curFieldVector;
@@ -276,8 +275,7 @@ public class RowBatch implements Serializable {
                                     continue;
                                 }
                                 String stringValue = new String(largeIntVector.get(rowIndex));
-                                BigInteger largeInt = new BigInteger(stringValue);
-                                addValueToRow(rowIndex, Decimal.apply(largeInt));
+                                addValueToRow(rowIndex, stringValue);
                             }
                         }
                         break;

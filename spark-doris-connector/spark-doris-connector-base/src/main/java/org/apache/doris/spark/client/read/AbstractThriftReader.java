@@ -32,6 +32,7 @@ import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.Schema;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -259,7 +260,7 @@ public abstract class AbstractThriftReader extends DorisReader {
             if (readColumn.contains(" AS ")) {
                 int asIdx = readColumn.indexOf(" AS ");
                 String realColumn = readColumn.substring(asIdx + 4).trim().replaceAll("`", "");
-                if (fieldTypeMap.containsKey(realColumn) && scanTypeMap.containsKey(realColumn)
+                if (fieldTypeMap.containsKey(realColumn)
                         && ("BITMAP".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType())
                         || "HLL".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType()))) {
                     newFieldList.add(new Field(realColumn, TPrimitiveType.VARCHAR.name(), null, 0, 0, null));
