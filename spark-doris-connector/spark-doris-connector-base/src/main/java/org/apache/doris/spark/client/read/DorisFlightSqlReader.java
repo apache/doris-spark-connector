@@ -17,6 +17,15 @@
 
 package org.apache.doris.spark.client.read;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import org.apache.arrow.adbc.core.AdbcConnection;
 import org.apache.arrow.adbc.core.AdbcDatabase;
 import org.apache.arrow.adbc.core.AdbcDriver;
@@ -42,18 +51,10 @@ import org.apache.doris.spark.rest.models.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 public class DorisFlightSqlReader extends DorisReader {
 
     private static final Logger log = LoggerFactory.getLogger(DorisFlightSqlReader.class);
+    private static final String PREFIX = "/* ApplicationName=Spark ArrowFlightSQL Query */";
     private final AtomicBoolean endOfStream = new AtomicBoolean(false);
     private final DorisFrontendClient frontendClient;
     private final Schema schema;
@@ -136,6 +137,7 @@ public class DorisFlightSqlReader extends DorisReader {
     private ArrowReader executeQuery() throws AdbcException, OptionRequiredException {
         AdbcStatement statement = connection.createStatement();
         String flightSql = generateQuerySql(partition);
+        log.info("Query SQL Sending to Doris FE is: {}", flightSql);
         statement.setSqlQuery(flightSql);
         AdbcStatement.QueryResult queryResult = statement.executeQuery();
         return queryResult.getReader();
@@ -147,7 +149,7 @@ public class DorisFlightSqlReader extends DorisReader {
         String tablets = String.format("TABLET(%s)", StringUtils.join(partition.getTablets(), ","));
         String predicates = partition.getFilters().length == 0 ? "" : " WHERE " + String.join(" AND ", partition.getFilters());
         String limit = partition.getLimit() > 0 ? " LIMIT " + partition.getLimit() : "";
-        return String.format("SELECT %s FROM %s %s%s%s", columns, fullTableName, tablets, predicates, limit);
+        return PREFIX + String.format("SELECT %s FROM %s %s%s%s", columns, fullTableName, tablets, predicates, limit);
     }
 
     protected Schema processDorisSchema(DorisReaderPartition partition) throws Exception {

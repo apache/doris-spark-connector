@@ -17,6 +17,14 @@
 
 package org.apache.doris.spark.client.read;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.client.entity.Backend;
@@ -29,14 +37,6 @@ import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.util.DorisDialects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 public class ReaderPartitionGenerator {
 
@@ -54,7 +54,7 @@ public class ReaderPartitionGenerator {
             originReadCols = new String[0];
         }
         String[] filters = config.contains(DorisOptions.DORIS_FILTER_QUERY) ?
-                config.getValue(DorisOptions.DORIS_FILTER_QUERY).split("\\.") : new String[0];
+                new String[]{config.getValue(DorisOptions.DORIS_FILTER_QUERY)} : new String[0];
         return generatePartitions(config, originReadCols, filters, -1, datetimeJava8ApiEnabled);
     }
 

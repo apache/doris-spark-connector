@@ -17,6 +17,28 @@
 
 package org.apache.doris.spark.client.read;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
 import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
@@ -51,30 +73,6 @@ import org.apache.doris.spark.util.IPUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.Serializable;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.TimeZone;
 
 /**
  * row batch data container.
@@ -266,7 +264,7 @@ public class RowBatch implements Serializable {
                                 byte[] bytes = largeIntVector.get(rowIndex);
                                 ArrayUtils.reverse(bytes);
                                 BigInteger largeInt = new BigInteger(bytes);
-                                addValueToRow(rowIndex, Decimal.apply(largeInt));
+                                addValueToRow(rowIndex, largeInt.toString());
                             }
                         } else {
                             VarCharVector largeIntVector = (VarCharVector) curFieldVector;
@@ -276,8 +274,7 @@ public class RowBatch implements Serializable {
                                     continue;
                                 }
                                 String stringValue = new String(largeIntVector.get(rowIndex));
-                                BigInteger largeInt = new BigInteger(stringValue);
-                                addValueToRow(rowIndex, Decimal.apply(largeInt));
+                                addValueToRow(rowIndex, stringValue);
                             }
                         }
                         break;

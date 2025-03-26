@@ -17,6 +17,20 @@
 
 package org.apache.doris.spark.client.read;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import org.apache.doris.sdk.thrift.TPrimitiveType;
 import org.apache.doris.sdk.thrift.TScanBatchResult;
 import org.apache.doris.sdk.thrift.TScanCloseParams;
@@ -34,20 +48,6 @@ import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public abstract class AbstractThriftReader extends DorisReader {
 
@@ -259,7 +259,7 @@ public abstract class AbstractThriftReader extends DorisReader {
             if (readColumn.contains(" AS ")) {
                 int asIdx = readColumn.indexOf(" AS ");
                 String realColumn = readColumn.substring(asIdx + 4).trim().replaceAll("`", "");
-                if (fieldTypeMap.containsKey(realColumn) && scanTypeMap.containsKey(realColumn)
+                if (fieldTypeMap.containsKey(realColumn)
                         && ("BITMAP".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType())
                         || "HLL".equalsIgnoreCase(fieldTypeMap.get(realColumn).getType()))) {
                     newFieldList.add(new Field(realColumn, TPrimitiveType.VARCHAR.name(), null, 0, 0, null));
