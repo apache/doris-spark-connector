@@ -21,7 +21,6 @@ import org.apache.doris.spark.container.AbstractContainerTestBase.getDorisQueryC
 import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
 import org.apache.doris.spark.rest.models.DataModel
 import org.apache.doris.spark.sparkContextFunctions
-import org.apache.spark.sql.types.Decimal
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.junit.Assert.fail
@@ -30,9 +29,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.slf4j.LoggerFactory
 
-import java.math.BigInteger
 import java.sql.{Date, Timestamp}
-import java.util
 
 object DorisReaderITCase {
   @Parameterized.Parameters(name = "readMode: {0}, flightSqlPort: {1}")
@@ -72,7 +69,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
         "doris.request.auth.password" -> getDorisPassword,
         "doris.fe.init.fetch" -> "false",
         "doris.read.mode" -> readMode,
-        "doris.read.arrow-flight-sql.port" -> flightSqlPort.toString,
+        "doris.read.arrow-flight-sql.port" -> flightSqlPort.toString
       ))
     )
     val result = dorisSparkRDD.collect()

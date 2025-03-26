@@ -12,6 +12,8 @@ header:
     - '.github/PULL_REQUEST_TEMPLATE.md'
     - '.licenserc.yaml'
     - 'custom_env.sh.tpl'
+    - '**/*.csv'
+    - '**/jmockit/**'
     - 'spark-doris-connector/spark-doris-connector-it/src/test/resources/container/'
 
   comment: on-failure

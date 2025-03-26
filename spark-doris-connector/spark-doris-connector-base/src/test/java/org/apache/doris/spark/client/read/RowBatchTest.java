@@ -610,8 +610,8 @@ public class RowBatchTest {
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> actualRow0 = rowBatch.next();
 
-        Assert.assertEquals(Decimal.apply(new BigInteger("9223372036854775808")), actualRow0.get(0));
-        Assert.assertEquals(Decimal.apply(new BigInteger("9223372036854775809")), actualRow0.get(1));
+        Assert.assertEquals("9223372036854775808", actualRow0.get(0));
+        Assert.assertEquals("9223372036854775809", actualRow0.get(1));
 
         Assert.assertFalse(rowBatch.hasNext());
         thrown.expect(NoSuchElementException.class);
