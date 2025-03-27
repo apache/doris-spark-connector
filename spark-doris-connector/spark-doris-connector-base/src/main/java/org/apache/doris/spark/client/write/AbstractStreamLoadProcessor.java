@@ -159,7 +159,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         }
         if (isFirstRecordOfBatch) {
             isFirstRecordOfBatch = false;
-        } else {
+        } else if (lineDelimiter != null){
             output.write(lineDelimiter);
         }
         output.write(toFormat(row, format));
@@ -338,6 +338,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                 }
                 lineDelimiter = properties.get("line_delimiter").getBytes(StandardCharsets.UTF_8);
                 properties.put("read_json_by_line", "true");
+                break;
+            case ARROW:
+                lineDelimiter = null;
                 break;
         }
         properties.forEach(httpPut::setHeader);
