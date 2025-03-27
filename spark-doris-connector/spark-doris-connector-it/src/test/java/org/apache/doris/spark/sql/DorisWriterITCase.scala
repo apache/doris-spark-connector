@@ -307,7 +307,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
          |""".stripMargin)
     session.sql(
       """
-        |insert overwrite test_sink select  name,age from mock_source
+        |insert overwrite table test_sink select  name,age from mock_source
         |""".stripMargin)
     session.stop()
 
