@@ -20,7 +20,7 @@ package org.apache.doris.spark.sql
 import org.apache.doris.spark.container.AbstractContainerTestBase.getDorisQueryConnection
 import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
 import org.apache.spark.sql.SparkSession
-import org.junit.Test
+import org.junit.{Before, Test}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.slf4j.LoggerFactory
@@ -49,6 +49,12 @@ class Doris2DorisE2ECase(readMode: String, flightSqlPort: Int) extends AbstractC
   val TABLE_READ_TBL_ALL_TYPES = "tbl_read_tbl_all_types"
   val TABLE_WRITE_TBL_ALL_TYPES = "tbl_write_tbl_all_types"
 
+  @Before
+  def setUp(): Unit = {
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection,
+      LOG,
+      String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE))
+  }
 
   @Test
   def testAllTypeE2ESQL(): Unit = {
