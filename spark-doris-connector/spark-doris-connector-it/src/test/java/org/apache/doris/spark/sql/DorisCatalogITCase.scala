@@ -47,7 +47,21 @@ class DorisCatalogITCase extends AbstractContainerTestBase {
     conf.set("spark.sql.catalog.doris_catalog.doris.user", getDorisUsername)
     conf.set("spark.sql.catalog.doris_catalog.doris.password", getDorisPassword)
     val session = SparkSession.builder().config(conf).master("local[*]").getOrCreate()
-    session.sessionState.catalogManager.setCurrentCatalog("doris_catalog")
+
+    // session.sessionState.catalogManager.setCurrentCatalog("doris_catalog")
+    // spark 2 no catalogManager property, used reflect
+    try {
+      val stateObj = session.sessionState
+      val catalogManagerObj = stateObj.getClass.getMethod("catalogManager").invoke(stateObj)
+      val setCurrentCatalogMethod = catalogManagerObj.getClass.getMethod("setCurrentCatalog", classOf[String])
+      setCurrentCatalogMethod.invoke(catalogManagerObj, "doris_catalog")
+    } catch {
+      case e: Exception =>
+        // if Spark 2，will throw NoSuchMethodException
+        println("Catalog API not available, skipping catalog operations")
+        e.printStackTrace()
+        return
+    }
 
     // show databases
     val showDatabaseActual = new util.ArrayList[String](session.sql("show databases").collect().map(_.getAs[String]("namespace")).toList.asJava)
