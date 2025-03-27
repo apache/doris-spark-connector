@@ -17,7 +17,6 @@
 
 package org.apache.doris.spark.write
 
-import org.apache.commons.lang3.StringUtils
 import org.apache.doris.spark.client.write.{CopyIntoProcessor, DorisCommitter, DorisWriter, StreamLoadProcessor}
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.util.Retry

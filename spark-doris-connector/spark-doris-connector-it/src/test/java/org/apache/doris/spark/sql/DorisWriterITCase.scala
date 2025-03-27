@@ -26,9 +26,13 @@ import org.slf4j.LoggerFactory
 
 import java.util
 import scala.collection.JavaConverters._
+
+/**
+ * it case for doris writer.
+ */
 class DorisWriterITCase extends AbstractContainerTestBase {
 
-  private val LOG = LoggerFactory.getLogger(classOf[DorisReaderITCase])
+  private val LOG = LoggerFactory.getLogger(classOf[DorisWriterITCase])
 
   val DATABASE: String = "test_doris_write"
   val TABLE_CSV: String = "tbl_csv"

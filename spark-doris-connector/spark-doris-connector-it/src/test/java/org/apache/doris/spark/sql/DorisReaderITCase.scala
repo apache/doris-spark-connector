@@ -42,6 +42,9 @@ object DorisReaderITCase {
   }
 }
 
+/**
+ * it case for doris reader.
+ */
 @RunWith(classOf[Parameterized])
 class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractContainerTestBase {
 
@@ -121,7 +124,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
          | "user"="${getDorisUsername}",
          | "password"="${getDorisPassword}",
          | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+         | "doris.fe.auto.fetch"="true"
          |)
          |""".stripMargin)
 

@@ -33,13 +33,13 @@ object Doris2DorisE2ECase {
     import java.util.Arrays
     Arrays.asList(
       Array("thrift": java.lang.String, -1: java.lang.Integer),
-      Array("arrow": java.lang.String, 29747: java.lang.Integer)
+      Array("arrow": java.lang.String, 9611: java.lang.Integer)
     )
   }
 }
 
 /**
- * Read Doris to Write Doris
+ * Read Doris to Write Doris.
  */
 @RunWith(classOf[Parameterized])
 class Doris2DorisE2ECase(readMode: String, flightSqlPort: Int) extends AbstractContainerTestBase{
