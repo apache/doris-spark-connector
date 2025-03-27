@@ -79,6 +79,10 @@ public abstract class AbstractContainerTestBase {
         return dorisContainerService.getPassword();
     }
 
+    protected int getQueryPort() {
+        return dorisContainerService.getQueryPort();
+    }
+
     protected String getDorisQueryUrl() {
         return dorisContainerService.getJdbcUrl();
     }

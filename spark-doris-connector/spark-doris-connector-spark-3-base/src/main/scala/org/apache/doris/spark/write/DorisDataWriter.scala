@@ -60,7 +60,7 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
       if (txnId.isDefined) {
         committedMessages += txnId.get
       } else {
-        throw new Exception("Failed to commit batch")
+        log.warn("No txn {} to commit batch", txnId)
       }
     }
     DorisWriterCommitMessage(partitionId, taskId, epochId, committedMessages.toArray)
@@ -106,7 +106,7 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
           recordBuffer.clear()
         }
         writer.resetBatchCount()
-        LockSupport.parkNanos(batchIntervalMs.toLong)
+        LockSupport.parkNanos(Duration.ofMillis(batchIntervalMs.toLong).toNanos)
       }
       writer.load(record)
     } {
