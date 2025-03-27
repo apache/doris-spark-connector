@@ -126,7 +126,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
       .option("doris.table.identifier", DATABASE + "." + TABLE_GROUP_COMMIT)
       .option("user", getDorisUsername)
       .option("password", getDorisPassword)
-      .option("sink.properties.group_commit", "async_mode")
+      .option("sink.properties.group_commit", "sync_mode")
       .mode(SaveMode.Append)
       .save()
     session.stop()
@@ -202,7 +202,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
       String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL_ARROW),
       2)
     val expected = util.Arrays.asList("doris_json,1", "spark_json,2");
-    checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+    checkResultInAnyOrder("testSinkArrowFormat", expected.toArray, actual.toArray)
   }
 
   @Test
