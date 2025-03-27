@@ -17,7 +17,9 @@
 
 package org.apache.doris.spark.client.write;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.apache.doris.spark.client.DorisBackendHttpClient;
 import org.apache.doris.spark.client.DorisFrontendClient;
@@ -210,7 +212,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                         .getReasonPhrase());
             } else {
                 String resEntity = EntityUtils.toString(new BufferedHttpEntity(response.getEntity()));
-                this.logger.info("commit: {} response: {}", msg, resEntity);
+                if(!checkTransResponse(resEntity)) {
+                    throw new RuntimeException("commit transaction failed, transaction: " + msg + ", resp: " + resEntity);
+                } else {
+                    this.logger.info("commit: {} response: {}", msg, resEntity);
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException("commit transaction failed, transaction: " + msg, e);
@@ -251,11 +257,28 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                         .getReasonPhrase());
             } else {
                 String resEntity = EntityUtils.toString(new BufferedHttpEntity(response.getEntity()));
-                this.logger.info("abort: {} response: {}", msg, resEntity);
+                if(!checkTransResponse(resEntity)) {
+                    throw new RuntimeException("abort transaction failed, transaction: " + msg + ", resp: " + resEntity);
+                } else {
+                    this.logger.info("abort: {} response: {}", msg, resEntity);
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException("abort transaction failed, transaction: " + msg, e);
         }
+    }
+
+    private boolean checkTransResponse(String resEntity) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            String status = objectMapper.readTree(resEntity).get("status").asText();
+                if ("Success".equalsIgnoreCase(status)) {
+                    return true;
+                }
+        } catch (JsonProcessingException e) {
+            logger.warn("invalid json response: " +  resEntity, e);
+        }
+        return false;
     }
 
     @Override
