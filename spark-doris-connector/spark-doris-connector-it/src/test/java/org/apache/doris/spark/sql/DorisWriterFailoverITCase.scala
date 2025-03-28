@@ -71,7 +71,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
          | "password"="${getDorisPassword}",
          | "doris.sink.batch.interval.ms"="1000",
          | "doris.sink.batch.size"="1",
-         | "doris.sink.max-retries"="30",
+         | "doris.sink.max-retries"="100",
          | "doris.sink.enable-2pc"="false"
          |)
          |""".stripMargin)
@@ -126,7 +126,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
   @Test
   def testFailoverForTaskRetry(): Unit = {
     initializeTable(TABLE_WRITE_TBL_TASK_RETRY, DataModel.DUPLICATE)
-    val session = SparkSession.builder().master("local[1,50]").getOrCreate()
+    val session = SparkSession.builder().master("local[1,100]").getOrCreate()
     val df = session.createDataFrame(Seq(
       ("doris", "cn"),
       ("spark", "us"),
