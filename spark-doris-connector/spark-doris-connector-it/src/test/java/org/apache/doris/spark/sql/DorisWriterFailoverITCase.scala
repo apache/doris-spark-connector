@@ -85,11 +85,12 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
 
     val query = String.format("SELECT * FROM %s.%s", DATABASE, TABLE_WRITE_TBL_RETRY)
     var result: util.List[String] = null
+    val connection = getDorisQueryConnection(DATABASE)
     breakable {
       while (true) {
         try {
-          // restart may be make query failed
-          result = ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, query, 2)
+          // query may be failed
+          result = ContainerUtils.executeSQLStatement(connection, LOG, query, 2)
         } catch {
           case ex: Exception =>
             LOG.error("Failed to query result, cause " + ex.getMessage)
@@ -99,7 +100,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
         if (result.size >= 1){
           Thread.sleep(5000)
           ContainerUtils.executeSQLStatement(
-            getDorisQueryConnection(DATABASE),
+            connection,
             LOG,
             String.format("ALTER TABLE %s.%s MODIFY COLUMN address varchar(256)", DATABASE, TABLE_WRITE_TBL_RETRY))
           break
@@ -160,11 +161,12 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
 
     val query = "show transaction from " + DATABASE + " where label like '" + uuid + "%'"
     var result: List[String] = null
+    val connection = getDorisQueryConnection(DATABASE)
     breakable {
       while (true) {
         try {
           // query may be failed
-          result = ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, query, 15).asScala.toList
+          result = ContainerUtils.executeSQLStatement(connection, LOG, query, 15).asScala.toList
         } catch {
           case ex: Exception =>
             LOG.error("Failed to query result, cause " + ex.getMessage)
