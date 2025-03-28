@@ -159,19 +159,19 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
     })
 
     val query = "show transaction from " + DATABASE + " where label like '" + uuid + "%'"
-    var result: util.List[String] = null
+    var result: List[String] = null
     breakable {
       while (true) {
         try {
           // query may be failed
-          result = ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, query, 15)
+          result = ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, query, 15).asScala.toList
         } catch {
           case ex: Exception =>
             LOG.error("Failed to query result, cause " + ex.getMessage)
         }
 
         // until insert 1 rows
-        if (result.size() >= 1 && result.stream().allMatch(s => s.contains("PRECOMMITTED"))){
+        if (result.size >= 1 && result.forall(s => s.contains("PRECOMMITTED"))){
           faultInjectionOpen()
           Thread.sleep(5000)
           faultInjectionClear()
