@@ -16,15 +16,17 @@
 // under the License.
 package org.apache.doris.spark.client.write;
 
+import org.apache.doris.spark.config.DorisConfig;
+import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.exception.OptionRequiredException;
+import org.apache.doris.spark.util.RowConvertors;
+
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.doris.spark.config.DorisConfig;
-import org.apache.doris.spark.config.DorisOptions;
-import org.apache.doris.spark.exception.OptionRequiredException;
-import org.apache.doris.spark.util.RowConvertors;
+import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.arrow.ArrowWriter;

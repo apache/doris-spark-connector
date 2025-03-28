@@ -22,6 +22,7 @@ import org.apache.http.HttpHeaders
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.http.conn.ssl.{SSLConnectionSocketFactory, TrustAllStrategy}
 import org.apache.http.impl.client.{CloseableHttpClient, DefaultRedirectStrategy, HttpClients}
+import org.apache.http.protocol.HttpRequestExecutor
 import org.apache.http.ssl.SSLContexts
 
 import java.io.{File, FileInputStream}
@@ -33,9 +34,11 @@ import scala.util.{Failure, Success, Try}
 object HttpUtils {
 
   def getHttpClient(config: DorisConfig): CloseableHttpClient = {
-    val builder = HttpClients.custom().setRedirectStrategy(new DefaultRedirectStrategy {
-      override def isRedirectable(method: String): Boolean = true
-    })
+    val builder = HttpClients.custom()
+      .setRequestExecutor(new HttpRequestExecutor(60000))
+      .setRedirectStrategy(new DefaultRedirectStrategy {
+        override def isRedirectable(method: String): Boolean = true
+      })
     val enableHttps = config.getValue(DorisOptions.DORIS_ENABLE_HTTPS)
     if (enableHttps) {
       require(config.contains(DorisOptions.DORIS_HTTPS_KEY_STORE_PATH))

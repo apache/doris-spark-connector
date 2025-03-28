@@ -21,6 +21,13 @@ import org.apache.doris.spark.container.instance.ContainerService;
 import org.apache.doris.spark.container.instance.DorisContainer;
 import org.apache.doris.spark.container.instance.DorisCustomerContainer;
 
+import org.apache.commons.codec.binary.Base64;
+import org.apache.http.HttpHeaders;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -28,6 +35,8 @@ import org.junit.BeforeClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.util.List;
 import java.util.Objects;
@@ -118,5 +127,55 @@ public abstract class AbstractContainerTestBase {
         assertTrue(expected != null && actual != null);
         assertEquals(expected.size(), actual.size());
         assertArrayEquals(expected.toArray(new Object[0]), actual.toArray(new Object[0]));
+    }
+
+    protected void faultInjectionOpen() throws IOException {
+        String pointName = "FlushToken.submit_flush_error";
+        String apiUrl =
+                String.format(
+                        "http://%s/api/debug_point/add/%s",
+                        dorisContainerService.getBenodes(), pointName);
+        HttpPost httpPost = new HttpPost(apiUrl);
+        httpPost.addHeader(
+                HttpHeaders.AUTHORIZATION,
+                auth(dorisContainerService.getUsername(), dorisContainerService.getPassword()));
+        try (CloseableHttpClient httpClient = HttpClients.custom().build()) {
+            try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+                int statusCode = response.getStatusLine().getStatusCode();
+                String reason = response.getStatusLine().toString();
+                if (statusCode == 200 && response.getEntity() != null) {
+                    LOG.info("Debug point response {}", EntityUtils.toString(response.getEntity()));
+                } else {
+                    LOG.info("Debug point failed, statusCode: {}, reason: {}", statusCode, reason);
+                }
+            }
+        }
+    }
+
+    protected void faultInjectionClear() throws IOException {
+        String apiUrl =
+                String.format(
+                        "http://%s/api/debug_point/clear", dorisContainerService.getBenodes());
+        HttpPost httpPost = new HttpPost(apiUrl);
+        httpPost.addHeader(
+                HttpHeaders.AUTHORIZATION,
+                auth(dorisContainerService.getUsername(), dorisContainerService.getPassword()));
+        try (CloseableHttpClient httpClient = HttpClients.custom().build()) {
+            try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+                int statusCode = response.getStatusLine().getStatusCode();
+                String reason = response.getStatusLine().toString();
+                if (statusCode == 200 && response.getEntity() != null) {
+                    LOG.info("Debug point response {}", EntityUtils.toString(response.getEntity()));
+                } else {
+                    LOG.info("Debug point failed, statusCode: {}, reason: {}", statusCode, reason);
+                }
+            }
+        }
+    }
+
+    protected String auth(String user, String password) {
+        final String authInfo = user + ":" + password;
+        byte[] encoded = Base64.encodeBase64(authInfo.getBytes(StandardCharsets.UTF_8));
+        return "Basic " + new String(encoded);
     }
 }

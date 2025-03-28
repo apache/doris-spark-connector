@@ -341,7 +341,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   }
 
   private def checkResultInAnyOrder(testName: String, expected: Array[AnyRef], actual: Array[AnyRef]): Unit = {
-    LOG.info("Checking DorisSourceITCase result. testName={}, actual={}, expected={}", testName, actual, expected)
+    LOG.info("Checking DorisWriterFailoverITCase result. testName={}, actual={}, expected={}", testName, actual, expected)
     assertEqualsInAnyOrder(expected.toList.asJava, actual.toList.asJava)
   }
 }
