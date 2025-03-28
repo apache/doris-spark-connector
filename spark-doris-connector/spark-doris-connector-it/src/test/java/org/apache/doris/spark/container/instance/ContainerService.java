@@ -49,4 +49,6 @@ public interface ContainerService {
     String getBenodes();
 
     void close();
+
+    int getQueryPort();
 }

@@ -53,9 +53,7 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
   // for batch write
   override def abort(writerCommitMessages: Array[WriterCommitMessage]): Unit = {
     LOG.info("writerCommitMessages size: " + writerCommitMessages.length)
-    writerCommitMessages.foreach(x => println(x))
     if (writerCommitMessages.exists(_ != null) && writerCommitMessages.nonEmpty) {
-      writerCommitMessages.foreach(x => println(x))
       writerCommitMessages.filter(_ != null)
         .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.abort))
     }

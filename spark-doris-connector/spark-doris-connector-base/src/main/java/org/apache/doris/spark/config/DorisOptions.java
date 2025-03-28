@@ -81,7 +81,7 @@ public class DorisOptions {
      */
     public static final ConfigOption<Boolean> DORIS_SINK_TASK_USE_REPARTITION = ConfigOptions.name("doris.sink.task.use.repartition").booleanType().defaultValue(false).withDescription("");
 
-    public static final ConfigOption<Integer> DORIS_SINK_BATCH_INTERVAL_MS = ConfigOptions.name("doris.sink.batch.interval.ms").intType().defaultValue(50).withDescription("");
+    public static final ConfigOption<Integer> DORIS_SINK_BATCH_INTERVAL_MS = ConfigOptions.name("doris.sink.batch.interval.ms").intType().defaultValue(0).withDescription("");
 
     public static final ConfigOption<Boolean> DORIS_SINK_ENABLE_2PC = ConfigOptions.name("doris.sink.enable-2pc").booleanType().defaultValue(false).withDescription("");
 
