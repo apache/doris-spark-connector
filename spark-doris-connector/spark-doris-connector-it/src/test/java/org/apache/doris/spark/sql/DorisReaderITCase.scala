@@ -453,12 +453,12 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
         |   select
         |    id,
         |    (case when c5 > 10 then c2 else null end) as cc1,
-        |    (case when c10 < '2025-3-28' then c3 else null end) as cc2
+        |    (case when c4 < 5 then c3 else null end) as cc2
         |   from test_source where c2 is not null
         |) where !(cc1 is null and cc2 is null)
         |""".stripMargin)
 
-    assert("List([1,127,32767])".equals(resultData.collect().toList.toString()))
+    assert("List([3,null,0], [1,127,null], [2,null,-32768])".equals(resultData.collect().toList.toString()))
 
     session.stop()
 
