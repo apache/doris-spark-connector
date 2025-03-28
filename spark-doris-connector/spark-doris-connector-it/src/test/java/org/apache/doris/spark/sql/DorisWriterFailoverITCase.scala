@@ -175,7 +175,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
         // until insert 1 rows
         if (result.size >= 1 && result.forall(s => s.contains("PRECOMMITTED"))){
           faultInjectionOpen()
-          Thread.sleep(5000)
+          Thread.sleep(3000)
           faultInjectionClear()
           break
         }
