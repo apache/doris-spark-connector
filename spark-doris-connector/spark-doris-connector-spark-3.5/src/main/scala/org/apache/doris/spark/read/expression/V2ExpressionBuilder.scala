@@ -55,6 +55,21 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) {
             case "<=" => s"`${build(e.children()(0))}` <= ${build(e.children()(1))}"
             case ">" => s"`${build(e.children()(0))}` > ${build(e.children()(1))}"
             case ">=" => s"`${build(e.children()(0))}` >= ${build(e.children()(1))}"
+            case "CASE_WHEN" =>
+              val fragment = new StringBuilder("CASE ")
+              val expressions = e.children()
+
+              for(i<- 0 until expressions.size - 1 by 2){
+                fragment.append(s" WHEN ${build(expressions(i))} THEN ${build(expressions(i+1))} ")
+              }
+
+              if (expressions.length % 2 != 0) {
+                val last = expressions(expressions.length - 1)
+                fragment.append(s" ELSE ${build(last)} ")
+              }
+              fragment.append(" END")
+
+              fragment.mkString
             case _ => null
           }
         }
