@@ -81,8 +81,10 @@ public class DorisConfig implements Serializable {
             String feNodes = options.get(DorisOptions.DORIS_FENODES.getName());
             if (feNodes.isEmpty()) {
                 throw new IllegalArgumentException("option [" + DorisOptions.DORIS_FENODES.getName() + "] is empty");
-            } else if (!feNodes.contains(":")) {
-                throw new IllegalArgumentException("option [" + DorisOptions.DORIS_FENODES.getName() + "] is not in correct format, for example: host:port[,host2:port]");
+            } else if (feNodes.contains(":")) {
+                if (!feNodes.matches("([\\w-.]+:\\d+,)*([\\w-.]+:\\d+)")) {
+                    throw new IllegalArgumentException("option [" + DorisOptions.DORIS_FENODES.getName() + "] is not in correct format, for example: host:port[,host2:port]");
+                }
             }
         }
         if (!ignoreTableCheck) {

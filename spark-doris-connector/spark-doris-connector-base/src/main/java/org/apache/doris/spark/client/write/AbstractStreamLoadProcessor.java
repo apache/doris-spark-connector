@@ -17,7 +17,9 @@
 
 package org.apache.doris.spark.client.write;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.apache.doris.spark.client.DorisBackendHttpClient;
 import org.apache.doris.spark.client.DorisFrontendClient;
@@ -27,6 +29,8 @@ import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
+import org.apache.doris.spark.load.DataFormat;
+import org.apache.doris.spark.load.StreamLoadEntity;
 import org.apache.doris.spark.util.HttpUtils;
 import org.apache.doris.spark.util.URLs;
 import org.apache.http.HttpEntity;
@@ -37,15 +41,12 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.BufferedHttpEntity;
-import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -85,11 +86,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private final Map<String, String> properties;
 
-    private final String format;
+    private final DataFormat format;
 
     protected String columnSeparator;
 
-    private String lineDelimiter;
+    private byte[] lineDelimiter;
 
     private final boolean isGzipCompressionEnabled;
 
@@ -97,7 +98,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private final boolean isPassThrough;
 
-    private PipedOutputStream output;
+    private StreamLoadEntity output;
 
     private boolean createNewBatch = true;
 
@@ -125,7 +126,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         this.properties = config.getSinkProperties();
         // init stream load props
         this.isTwoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC);
-        this.format = properties.getOrDefault("format", "csv");
+        this.format = DataFormat.valueOf(properties.getOrDefault("format", "csv").toUpperCase());
         this.isGzipCompressionEnabled = properties.containsKey("compress_type") && "gzip".equals(properties.get("compress_type"));
         if (properties.containsKey(GROUP_COMMIT)) {
             String message = "";
@@ -144,12 +145,18 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         if (createNewBatch) {
             if (autoRedirect) {
                 requestFuture = frontend.requestFrontends((frontEnd, httpClient) ->
-                        buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient));
+                    buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient)
+                );
             } else {
                 requestFuture = backendHttpClient.executeReq((backend, httpClient) ->
                         buildReqAndExec(backend.getHost(), backend.getHttpPort(), httpClient));
             }
             createNewBatch = false;
+        }
+        if (isFirstRecordOfBatch) {
+            isFirstRecordOfBatch = false;
+        } else if (lineDelimiter != null){
+            output.write(lineDelimiter);
         }
         output.write(toFormat(row, format));
         currentBatchCount++;
@@ -159,8 +166,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     public String stop() throws Exception {
         if (requestFuture != null) {
             createNewBatch = true;
+            isFirstRecordOfBatch = true;
             // arrow format need to send all buffer data before stop
-            if (!recordBuffer.isEmpty() && "arrow".equalsIgnoreCase(format)) {
+            if (!recordBuffer.isEmpty() && DataFormat.ARROW.equals(format)) {
                 List<R> rs = new LinkedList<>(recordBuffer);
                 recordBuffer.clear();
                 output.write(toArrowFormat(rs));
@@ -183,66 +191,115 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         return null;
     }
 
+    private void execCommitReq(String host, int port, String msg, CloseableHttpClient httpClient) {
+        HttpPut httpPut = new HttpPut(URLs.streamLoad2PC(host, port, database, isHttpsEnabled));
+        try {
+            handleCommitHeaders(httpPut, msg);
+        } catch (OptionRequiredException e) {
+            throw new RuntimeException("stream load handle commit props failed", e);
+        }
+        try {
+            CloseableHttpResponse response = httpClient.execute(httpPut);
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new RuntimeException("commit transaction failed, transaction: " + msg + ", status: "
+                        + response.getStatusLine().getStatusCode() + ", reason: " + response.getStatusLine()
+                        .getReasonPhrase());
+            } else {
+                String resEntity = EntityUtils.toString(new BufferedHttpEntity(response.getEntity()));
+                if(!checkTransResponse(resEntity)) {
+                    throw new RuntimeException("commit transaction failed, transaction: " + msg + ", resp: " + resEntity);
+                } else {
+                    this.logger.info("commit: {} response: {}", msg, resEntity);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("commit transaction failed, transaction: " + msg, e);
+        }
+    }
+
     @Override
     public void commit(String msg) throws Exception {
         if (isTwoPhaseCommitEnabled) {
             logger.info("begin to commit transaction {}", msg);
-            frontend.requestFrontends((frontEnd, httpClient) -> {
-                HttpPut httpPut = new HttpPut(URLs.streamLoad2PC(frontEnd.getHost(), frontEnd.getHttpPort(), database, isHttpsEnabled));
-                try {
-                    handleCommitHeaders(httpPut, msg);
-                } catch (OptionRequiredException e) {
-                    throw new RuntimeException("stream load handle commit props failed", e);
-                }
-                try {
-                    CloseableHttpResponse response = httpClient.execute(httpPut);
-                    if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                        throw new RuntimeException("commit transaction failed, transaction: " + msg
-                                + ", status: " + response.getStatusLine().getStatusCode()
-                                + ", reason: " + response.getStatusLine().getReasonPhrase());
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException("commit transaction failed, transaction: " + msg, e);
-                }
-                return null;
-            });
+            if (autoRedirect) {
+                frontend.requestFrontends((frontEnd, httpClient) -> {
+                    execCommitReq(frontEnd.getHost(), frontEnd.getHttpPort(), msg, httpClient);
+                    return null;
+                });
+            } else {
+                backendHttpClient.executeReq((backend, httpClient) -> {
+                    execCommitReq(backend.getHost(), backend.getHttpPort(), msg, httpClient);
+                    return null;
+                });
+            }
             logger.info("success to commit transaction {}", msg);
         }
+    }
+
+    private void execAbortReq(String host, int port, String msg, CloseableHttpClient httpClient) {
+        HttpPut httpPut = new HttpPut(URLs.streamLoad2PC(host, port, database, isHttpsEnabled));
+        try {
+            handleAbortHeaders(httpPut, msg);
+        } catch (OptionRequiredException e) {
+            throw new RuntimeException("stream load handle abort props failed", e);
+        }
+        try {
+            CloseableHttpResponse response = httpClient.execute(httpPut);
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new RuntimeException("abort transaction failed, transaction: " + msg + ", status: "
+                        + response.getStatusLine().getStatusCode() + ", reason: " + response.getStatusLine()
+                        .getReasonPhrase());
+            } else {
+                String resEntity = EntityUtils.toString(new BufferedHttpEntity(response.getEntity()));
+                if(!checkTransResponse(resEntity)) {
+                    throw new RuntimeException("abort transaction failed, transaction: " + msg + ", resp: " + resEntity);
+                } else {
+                    this.logger.info("abort: {} response: {}", msg, resEntity);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("abort transaction failed, transaction: " + msg, e);
+        }
+    }
+
+    private boolean checkTransResponse(String resEntity) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            String status = objectMapper.readTree(resEntity).get("status").asText();
+                if ("Success".equalsIgnoreCase(status)) {
+                    return true;
+                }
+        } catch (JsonProcessingException e) {
+            logger.warn("invalid json response: " +  resEntity, e);
+        }
+        return false;
     }
 
     @Override
     public void abort(String msg) throws Exception {
         if (isTwoPhaseCommitEnabled) {
             logger.info("begin to abort transaction {}", msg);
-            frontend.requestFrontends((frontEnd, httpClient) -> {
-                HttpPut httpPut = new HttpPut(URLs.streamLoad2PC(frontEnd.getHost(), frontEnd.getHttpPort(), database, isHttpsEnabled));
-                try {
-                    handleAbortHeaders(httpPut, msg);
-                } catch (OptionRequiredException e) {
-                    throw new RuntimeException("stream load handle abort props failed", e);
-                }
-                try {
-                    CloseableHttpResponse response = httpClient.execute(httpPut);
-                    if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                        throw new RuntimeException("abort transaction failed, transaction: " + msg
-                                + ", status: " + response.getStatusLine().getStatusCode()
-                                + ", reason: " + response.getStatusLine().getReasonPhrase());
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException("abort transaction failed, transaction: " + msg, e);
-                }
-                return null; // Returning null as the callback does not return anything
-            });
+            if (autoRedirect) {
+                frontend.requestFrontends((frontEnd, httpClient) -> {
+                    execAbortReq(frontEnd.getHost(), frontEnd.getHttpPort(), msg, httpClient);
+                    return null; // Returning null as the callback does not return anything
+                });
+            } else {
+                backendHttpClient.executeReq((backend, httpClient) -> {
+                    execAbortReq(backend.getHost(), backend.getHttpPort(), msg, httpClient);
+                    return null; // Returning null as the callback does not return anything
+                });
+            }
             logger.info("success to abort transaction {}", msg);
         }
     }
 
-    private byte[] toFormat(R row, String format) throws IOException {
-        switch (format.toLowerCase()) {
-            case "csv":
-            case "json":
+    private byte[] toFormat(R row, DataFormat format) throws IOException {
+        switch (format) {
+            case CSV:
+            case JSON:
                 return toStringFormat(row, format);
-            case "arrow":
+            case ARROW:
                 recordBuffer.add(copy(row));
                 if (recordBuffer.size() < arrowBufferSize) {
                     return new byte[0];
@@ -256,16 +313,13 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         }
     }
 
-    private byte[] toStringFormat(R row, String format) {
-        String prefix = isFirstRecordOfBatch ? "" : lineDelimiter;
-        isFirstRecordOfBatch = false;
-        String stringRow = isPassThrough ? getPassThroughData(row) : stringify(row, format);
-        return (prefix + stringRow).getBytes(StandardCharsets.UTF_8);
+    private byte[] toStringFormat(R row, DataFormat format) {
+        return isPassThrough ? getPassThroughData(row).getBytes(StandardCharsets.UTF_8) : stringify(row, format);
     }
 
     protected abstract String getPassThroughData(R row);
 
-    public abstract String stringify(R row, String format);
+    public abstract byte[] stringify(R row, DataFormat format);
 
     public abstract byte[] toArrowFormat(List<R> rows) throws IOException;
 
@@ -284,8 +338,8 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         }
         if (isTwoPhaseCommitEnabled) httpPut.setHeader("two_phase_commit", "true");
 
-        switch (format.toLowerCase()) {
-            case "csv":
+        switch (format) {
+            case CSV:
                 if (!properties.containsKey("column_separator")) {
                     properties.put("column_separator", "\t");
                 }
@@ -293,14 +347,17 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                 if (!properties.containsKey("line_delimiter")) {
                     properties.put("line_delimiter", "\n");
                 }
-                lineDelimiter = properties.get("line_delimiter");
+                lineDelimiter = properties.get("line_delimiter").getBytes(StandardCharsets.UTF_8);
                 break;
-            case "json":
+            case JSON:
                 if (!properties.containsKey("line_delimiter")) {
                     properties.put("line_delimiter", "\n");
                 }
-                lineDelimiter = properties.get("line_delimiter");
+                lineDelimiter = properties.get("line_delimiter").getBytes(StandardCharsets.UTF_8);
                 properties.put("read_json_by_line", "true");
+                break;
+            case ARROW:
+                lineDelimiter = null;
                 break;
         }
         properties.forEach(httpPut::setHeader);
@@ -335,13 +392,10 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         } catch (OptionRequiredException e) {
             throw new RuntimeException("stream load handle properties failed", e);
         }
-        PipedInputStream pipedInputStream = new PipedInputStream(4096);
-        try {
-            output = new PipedOutputStream(pipedInputStream);
-        } catch (IOException e) {
-            throw new RuntimeException("stream load create output failed", e);
-        }
-        HttpEntity entity = new InputStreamEntity(pipedInputStream);
+        int bufferSize = Integer.valueOf(properties.getOrDefault("buffer_size", "1000"));
+        logger.info("using buffer size {}", bufferSize);
+        output = new StreamLoadEntity(bufferSize);
+        HttpEntity entity = output;
         if (isGzipCompressionEnabled) {
             entity = new GzipCompressingEntity(entity);
         }
@@ -352,7 +406,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     @Override
     public void close() throws IOException {
         createNewBatch = true;
+        isFirstRecordOfBatch = true;
         frontend.close();
+        if (backendHttpClient != null) {
+            backendHttpClient.close();
+        }
         if (executor != null && !executor.isShutdown()) {
             executor.shutdown();
         }

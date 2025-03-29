@@ -101,7 +101,7 @@ public class DorisFrontendClient implements Serializable {
             for (String frontendNode : frontendNodeArray) {
                 String[] nodeDetails = frontendNode.split(":");
                 try {
-                    List<Frontend> list = Collections.singletonList(new Frontend(nodeDetails[0], Integer.parseInt(nodeDetails[1])));
+                    List<Frontend> list = Collections.singletonList(new Frontend(nodeDetails[0], nodeDetails.length > 1 ? Integer.parseInt(nodeDetails[1]) : -1));
                     frontendList = requestFrontends(list, (frontend, client) -> {
                         HttpGet httpGet = new HttpGet(URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled));
                         HttpUtils.setAuth(httpGet, username, password);
@@ -142,7 +142,7 @@ public class DorisFrontendClient implements Serializable {
             return Arrays.stream(frontendNodeArray)
                     .map(node -> {
                         String[] nodeParts = node.split(":");
-                        return new Frontend(nodeParts[0], Integer.parseInt(nodeParts[1]), queryPort, flightSqlPort);
+                        return new Frontend(nodeParts[0], nodeParts.length > 1 ? Integer.parseInt(nodeParts[1]) : -1, queryPort, flightSqlPort);
                     })
                     .collect(Collectors.toList());
         }
