@@ -144,15 +144,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     public void load(R row) throws Exception {
         if (createNewBatch) {
             if (autoRedirect) {
-                requestFuture = frontend.requestFrontends((frontEnd, httpClient) -> {
-                    if (isTwoPhaseCommitEnabled && frontEnd.getHttpPort() <= 0) {
-                        throw new IllegalArgumentException("option [" + DorisOptions.DORIS_FENODES.getName()
-                                + "] is not in correct format when ["
-                                + DorisOptions.DORIS_SINK_ENABLE_2PC.getName() + " = true"
-                                + "], for example: host:port[,host2:port]");
-                    }
-                    return buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient);
-                });
+                requestFuture = frontend.requestFrontends((frontEnd, httpClient) ->
+                    buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient)
+                );
             } else {
                 requestFuture = backendHttpClient.executeReq((backend, httpClient) ->
                         buildReqAndExec(backend.getHost(), backend.getHttpPort(), httpClient));
