@@ -51,6 +51,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
 
   @Test
   def testFailoverForRetry(): Unit = {
+    LOG.info("start to test testFailoverForRetry.")
     initializeTable(TABLE_WRITE_TBL_RETRY, DataModel.DUPLICATE)
     val session = SparkSession.builder().master("local[1]").getOrCreate()
     val df = session.createDataFrame(Seq(
@@ -58,7 +59,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
       ("spark", "123456"),
       ("catalog", "12345678")
     )).toDF("name", "address")
-    df.createTempView("mock_source")
+    df.createTempView("mock_retry_source")
 
     session.sql(
       s"""
@@ -79,7 +80,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
     val service = Executors.newSingleThreadExecutor()
     val future = service.submit(new Runnable {
       override def run(): Unit = {
-        session.sql("INSERT INTO test_sink SELECT * FROM mock_source")
+        session.sql("INSERT INTO test_sink SELECT * FROM mock_retry_source")
       }
     })
 
@@ -125,6 +126,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
    */
   @Test
   def testFailoverForTaskRetry(): Unit = {
+    LOG.info("start to test testFailoverForTaskRetry.")
     initializeTable(TABLE_WRITE_TBL_TASK_RETRY, DataModel.DUPLICATE)
     val session = SparkSession.builder().master("local[1,100]").getOrCreate()
     val df = session.createDataFrame(Seq(
@@ -132,7 +134,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
       ("spark", "us"),
       ("catalog", "uk")
     )).toDF("name", "address")
-    df.createTempView("mock_source")
+    df.createTempView("mock_task_retry_source")
 
     var uuid = UUID.randomUUID().toString
     session.sql(
@@ -155,7 +157,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
     val service = Executors.newSingleThreadExecutor()
     val future = service.submit(new Runnable {
       override def run(): Unit = {
-        session.sql("INSERT INTO test_sink SELECT * FROM mock_source")
+        session.sql("INSERT INTO test_sink SELECT * FROM mock_task_retry_source")
       }
     })
 
@@ -167,6 +169,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
         try {
           // query may be failed
           result = ContainerUtils.executeSQLStatement(connection, LOG, query, 15).asScala.toList
+          Thread.sleep(100)
         } catch {
           case ex: Exception =>
             LOG.error("Failed to query result, cause " + ex.getMessage)
