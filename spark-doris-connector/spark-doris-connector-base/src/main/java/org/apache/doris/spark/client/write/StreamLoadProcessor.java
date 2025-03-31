@@ -16,18 +16,18 @@
 // under the License.
 package org.apache.doris.spark.client.write;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import java.nio.charset.StandardCharsets;
+import org.apache.doris.spark.config.DorisConfig;
+import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.exception.OptionRequiredException;
+import org.apache.doris.spark.load.DataFormat;
+import org.apache.doris.spark.util.RowConvertors;
+
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.doris.spark.config.DorisConfig;
-import org.apache.doris.spark.config.DorisOptions;
-import org.apache.doris.spark.exception.OptionRequiredException;
-import org.apache.doris.spark.load.DataFormat;
-import org.apache.doris.spark.util.DataUtil;
-import org.apache.doris.spark.util.RowConvertors;
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.arrow.ArrowWriter;
@@ -37,7 +37,6 @@ import org.apache.spark.sql.util.ArrowUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow> {
@@ -87,7 +86,6 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
                 return null;
         }
     }
-
 
     @Override
     public String getWriteFields() throws OptionRequiredException {

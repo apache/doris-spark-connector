@@ -32,8 +32,10 @@ import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.load.DataFormat;
+import org.apache.doris.spark.util.EscapeHandler;
 import org.apache.doris.spark.util.HttpUtils;
 import org.apache.doris.spark.util.URLs;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
@@ -113,6 +115,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     private transient ExecutorService executor;
 
     private Future<CloseableHttpResponse> requestFuture = null;
+    private volatile String currentLabel;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
         super(config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE));
@@ -132,7 +135,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         this.isGzipCompressionEnabled = properties.containsKey("compress_type") && "gzip".equals(properties.get("compress_type"));
         if (properties.containsKey(GROUP_COMMIT)) {
             String message = "";
-            if (!isTwoPhaseCommitEnabled) message = "group commit does not support two-phase commit";
+            if (isTwoPhaseCommitEnabled) message = "group commit does not support two-phase commit";
             if (properties.containsKey(PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(PARTIAL_COLUMNS)))
                 message = "group commit does not support partial column updates";
             if (!VALID_GROUP_MODE.contains(properties.get(GROUP_COMMIT).toLowerCase()))
@@ -147,8 +150,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         if (createNewBatch) {
             if (autoRedirect) {
                 requestFuture = frontend.requestFrontends((frontEnd, httpClient) ->
-                    buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient)
-                );
+                        buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient));
             } else {
                 requestFuture = backendHttpClient.executeReq((backend, httpClient) ->
                         buildReqAndExec(backend.getHost(), backend.getHttpPort(), httpClient));
@@ -176,6 +178,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                 output.write(toArrowFormat(rs));
             }
             output.close();
+            logger.info("stream load stopped with {}", currentLabel != null ? currentLabel : "group commit");
             CloseableHttpResponse res = requestFuture.get();
             if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
                 throw new StreamLoadException("stream load execute failed, status: " + res.getStatusLine().getStatusCode()
@@ -330,8 +333,8 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     private void handleStreamLoadProperties(HttpPut httpPut) throws OptionRequiredException {
         addCommonHeaders(httpPut);
         if (groupCommit == null || groupCommit.equals("off_mode")) {
-            String label = generateStreamLoadLabel();
-            httpPut.setHeader("label", label);
+            currentLabel = generateStreamLoadLabel();
+            httpPut.setHeader("label", currentLabel);
         }
         String writeFields = getWriteFields();
         httpPut.setHeader("columns", writeFields);
@@ -342,20 +345,14 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
         switch (format) {
             case CSV:
-                if (!properties.containsKey("column_separator")) {
-                    properties.put("column_separator", "\t");
-                }
-                columnSeparator = properties.get("column_separator");
-                if (!properties.containsKey("line_delimiter")) {
-                    properties.put("line_delimiter", "\n");
-                }
-                lineDelimiter = properties.get("line_delimiter").getBytes(StandardCharsets.UTF_8);
+                // Handling hidden delimiters
+                columnSeparator = EscapeHandler.escapeString(properties.getOrDefault("column_separator", "\t"));
+                lineDelimiter = EscapeHandler.escapeString(properties.getOrDefault("line_delimiter", "\n")
+                ).getBytes(StandardCharsets.UTF_8);
                 break;
             case JSON:
-                if (!properties.containsKey("line_delimiter")) {
-                    properties.put("line_delimiter", "\n");
-                }
-                lineDelimiter = properties.get("line_delimiter").getBytes(StandardCharsets.UTF_8);
+                lineDelimiter = properties.getOrDefault("line_delimiter", "\n").getBytes(
+                    StandardCharsets.UTF_8);
                 properties.put("read_json_by_line", "true");
                 break;
             case ARROW:
@@ -405,6 +402,8 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             entity = new GzipCompressingEntity(entity);
         }
         httpPut.setEntity(entity);
+
+        logger.info("table {}.{} stream load started for {} on host {}:{}", database, table, currentLabel != null ? currentLabel : "group commit", host, port);
         return getExecutors().submit(() -> client.execute(httpPut));
     }
 
