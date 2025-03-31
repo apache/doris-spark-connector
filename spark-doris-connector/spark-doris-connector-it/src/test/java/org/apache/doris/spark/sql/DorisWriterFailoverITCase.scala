@@ -128,7 +128,10 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
   def testFailoverForTaskRetry(): Unit = {
     LOG.info("start to test testFailoverForTaskRetry.")
     initializeTable(TABLE_WRITE_TBL_TASK_RETRY, DataModel.DUPLICATE)
-    val session = SparkSession.builder().master("local[1,100]").getOrCreate()
+    val session = SparkSession.builder()
+      .master("local[1,100]")
+      .config("spark.task.maxFailures", "100")
+      .getOrCreate()
     val df = session.createDataFrame(Seq(
       ("doris", "cn"),
       ("spark", "us"),
