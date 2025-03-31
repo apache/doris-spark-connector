@@ -427,4 +427,43 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     assert("List([3])".equals(likeFilter.toList.toString()))
     session.stop()
   }
+
+
+  @Test
+  def buildCaseWhenTest(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+
+    session.sql(
+      s"""
+         |CREATE TEMPORARY VIEW test_source
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}",
+         | "doris.read.mode"="${readMode}",
+         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+         |)
+         |""".stripMargin)
+
+    val resultData = session.sql(
+      """
+        |select * from (
+        |   select
+        |    id,
+        |    (case when c5 > 10 then c2 else null end) as cc1,
+        |    (case when c4 < 5 then c3 else null end) as cc2
+        |   from test_source where c2 is not null
+        |) where !(cc1 is null and cc2 is null) order by id
+        |""".stripMargin)
+
+    assert("List([1,127,null], [2,null,-32768], [3,null,0])".equals(resultData.collect().toList.toString()))
+
+    session.stop()
+
+  }
 }
