@@ -84,6 +84,8 @@ class DorisStreamingWriterITCase extends AbstractContainerTestBase {
       })
 
     dorissink.awaitTermination()
+
+    spark.stop()
     val cnt = ContainerUtils.executeSQLStatement(
       getDorisQueryConnection(DATABASE),
       LOG,
