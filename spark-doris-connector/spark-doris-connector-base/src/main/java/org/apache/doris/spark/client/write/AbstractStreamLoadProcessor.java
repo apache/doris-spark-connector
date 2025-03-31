@@ -21,6 +21,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import org.apache.doris.spark.client.DorisBackendHttpClient;
 import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.client.entity.Backend;
@@ -30,7 +32,6 @@ import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.load.DataFormat;
-import org.apache.doris.spark.load.StreamLoadEntity;
 import org.apache.doris.spark.util.HttpUtils;
 import org.apache.doris.spark.util.URLs;
 import org.apache.http.HttpEntity;
@@ -41,6 +42,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.BufferedHttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
@@ -98,7 +100,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private final boolean isPassThrough;
 
-    private StreamLoadEntity output;
+    private PipedOutputStream output;
 
     private boolean createNewBatch = true;
 
@@ -392,10 +394,13 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         } catch (OptionRequiredException e) {
             throw new RuntimeException("stream load handle properties failed", e);
         }
-        int bufferSize = Integer.valueOf(properties.getOrDefault("buffer_size", "1000"));
-        logger.info("using buffer size {}", bufferSize);
-        output = new StreamLoadEntity(bufferSize);
-        HttpEntity entity = output;
+        PipedInputStream pipedInputStream = new PipedInputStream(4096);
+        try {
+            output = new PipedOutputStream(pipedInputStream);
+        } catch (IOException e) {
+            throw new RuntimeException("stream load create output failed", e);
+        }
+        HttpEntity entity = new InputStreamEntity(pipedInputStream);
         if (isGzipCompressionEnabled) {
             entity = new GzipCompressingEntity(entity);
         }
