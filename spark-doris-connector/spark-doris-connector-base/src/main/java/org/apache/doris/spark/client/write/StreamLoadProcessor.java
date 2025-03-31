@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
-import org.apache.doris.spark.load.DataFormat;
+import org.apache.doris.spark.rest.models.DataFormat;
 import org.apache.doris.spark.util.RowConvertors;
 
 import org.apache.arrow.memory.RootAllocator;
