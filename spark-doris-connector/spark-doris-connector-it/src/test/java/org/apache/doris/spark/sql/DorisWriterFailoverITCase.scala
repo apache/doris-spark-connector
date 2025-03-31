@@ -187,6 +187,9 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
 
     future.get(60, TimeUnit.SECONDS)
     session.stop()
+
+    //make sure publish success
+    Thread.sleep(5000)
     val actual = ContainerUtils.executeSQLStatement(
       getDorisQueryConnection,
       LOG,
