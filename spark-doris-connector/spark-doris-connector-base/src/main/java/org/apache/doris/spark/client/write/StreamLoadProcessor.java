@@ -16,9 +16,11 @@
 // under the License.
 package org.apache.doris.spark.client.write;
 
+import java.nio.charset.StandardCharsets;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
+import org.apache.doris.spark.rest.models.DataFormat;
 import org.apache.doris.spark.util.RowConvertors;
 
 import org.apache.arrow.memory.RootAllocator;
@@ -26,7 +28,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.arrow.ArrowWriter;
@@ -74,12 +75,13 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
     }
 
     @Override
-    public String stringify(InternalRow row, String format) {
+    public byte[] stringify(InternalRow row, DataFormat format) {
         switch (format) {
-            case "csv":
-                return RowConvertors.convertToCsv(row, schema, columnSeparator);
-            case "json":
-                return RowConvertors.convertToJson(row, schema);
+            case CSV:
+                return RowConvertors.convertToCsv(row, schema, columnSeparator).getBytes(
+                    StandardCharsets.UTF_8);
+            case JSON:
+                return RowConvertors.convertToJsonBytes(row, schema);
             default:
                 return null;
         }

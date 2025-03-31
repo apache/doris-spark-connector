@@ -28,6 +28,7 @@ import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
 import java.time.{Instant, LocalDate}
+import java.util
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 
@@ -46,11 +47,21 @@ object RowConvertors {
   }
 
   def convertToJson(row: InternalRow, schema: StructType): String = {
-    MAPPER.writeValueAsString(
-      (0 until schema.length).map(i => {
-        schema.fields(i).name -> asScalaValue(row, schema.fields(i).dataType, i)
-      }).toMap
-    )
+    val map: util.HashMap[String, Any] = convertRowToMap(row, schema)
+    MAPPER.writeValueAsString(map)
+  }
+
+  private def convertRowToMap(row: InternalRow, schema: StructType) = {
+    val map = new util.HashMap[String, Any](schema.fields.size)
+    (0 until schema.length).foreach(i => {
+      map.put(schema.fields(i).name, asScalaValue(row, schema.fields(i).dataType, i))
+    })
+    map
+  }
+
+  def convertToJsonBytes(row: InternalRow, schema: StructType): Array[Byte] = {
+    val map: util.HashMap[String, Any] = convertRowToMap(row, schema)
+    MAPPER.writeValueAsBytes(map)
   }
 
   private def asScalaValue(row: SpecializedGetters, dataType: DataType, ordinal: Int): Any = {
@@ -120,7 +131,7 @@ object RowConvertors {
         val keys = map.keys.toArray.map(UTF8String.fromString)
         val values = map.values.toArray.map(UTF8String.fromString)
         ArrayBasedMapData(keys, values)
-      case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _:DecimalType => v
+      case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
       case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
     }
   }
