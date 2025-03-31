@@ -193,6 +193,11 @@ public class DorisContainer implements ContainerService {
         LOG.info("Doris container closed successfully.");
     }
 
+    @Override
+    public int getQueryPort() {
+        return 9030;
+    }
+
     private void initializeJDBCDriver() throws MalformedURLException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(

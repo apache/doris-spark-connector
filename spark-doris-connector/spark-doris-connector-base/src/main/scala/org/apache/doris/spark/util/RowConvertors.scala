@@ -40,7 +40,8 @@ object RowConvertors {
 
   def convertToCsv(row: InternalRow, schema: StructType, sep: String): String = {
     (0 until schema.length).map(i => {
-      asScalaValue(row, schema.fields(i).dataType, i)
+      val value = asScalaValue(row, schema.fields(i).dataType, i)
+      if (value == null) NULL_VALUE else value
     }).mkString(sep)
   }
 

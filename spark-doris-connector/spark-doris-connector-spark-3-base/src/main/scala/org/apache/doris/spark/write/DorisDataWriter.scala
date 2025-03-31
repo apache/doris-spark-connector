@@ -17,7 +17,6 @@
 
 package org.apache.doris.spark.write
 
-import org.apache.commons.lang3.StringUtils
 import org.apache.doris.spark.client.write.{CopyIntoProcessor, DorisCommitter, DorisWriter, StreamLoadProcessor}
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.util.Retry
@@ -60,7 +59,7 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
       if (txnId.isDefined) {
         committedMessages += txnId.get
       } else {
-        throw new Exception("Failed to commit batch")
+        log.warn("No txn {} to commit batch", txnId)
       }
     }
     DorisWriterCommitMessage(partitionId, taskId, epochId, committedMessages.toArray)
@@ -106,7 +105,7 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
           recordBuffer.clear()
         }
         writer.resetBatchCount()
-        LockSupport.parkNanos(batchIntervalMs.toLong)
+        LockSupport.parkNanos(Duration.ofMillis(batchIntervalMs.toLong).toNanos)
       }
       writer.load(record)
     } {

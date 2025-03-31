@@ -135,4 +135,9 @@ public class DorisCustomerContainer implements ContainerService {
 
     @Override
     public void close() {}
+
+    @Override
+    public int getQueryPort() {
+        return Integer.valueOf(System.getProperty("doris_query_port"));
+    }
 }
