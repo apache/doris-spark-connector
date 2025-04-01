@@ -51,6 +51,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
 
   @Test
   def testFailoverForRetry(): Unit = {
+    LOG.info("start to test testFailoverForRetry.")
     initializeTable(TABLE_WRITE_TBL_RETRY, DataModel.DUPLICATE)
     val session = SparkSession.builder().master("local[1]").getOrCreate()
     val df = session.createDataFrame(Seq(
@@ -125,8 +126,9 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
    */
   @Test
   def testFailoverForTaskRetry(): Unit = {
+    LOG.info("start to test testFailoverForTaskRetry.")
     initializeTable(TABLE_WRITE_TBL_TASK_RETRY, DataModel.DUPLICATE)
-    val session = SparkSession.builder().master("local[1,100]").getOrCreate()
+    val session = SparkSession.builder().master("local[1,1000]").getOrCreate()
     val df = session.createDataFrame(Seq(
       ("doris", "cn"),
       ("spark", "us"),
@@ -167,6 +169,7 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
         try {
           // query may be failed
           result = ContainerUtils.executeSQLStatement(connection, LOG, query, 15).asScala.toList
+          Thread.sleep(10)
         } catch {
           case ex: Exception =>
             LOG.error("Failed to query result, cause " + ex.getMessage)
@@ -184,6 +187,9 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
 
     future.get(60, TimeUnit.SECONDS)
     session.stop()
+
+    //make sure publish success
+    Thread.sleep(5000)
     val actual = ContainerUtils.executeSQLStatement(
       getDorisQueryConnection,
       LOG,
