@@ -17,12 +17,6 @@
 
 package org.apache.doris.spark.client.write;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import org.apache.doris.spark.client.DorisBackendHttpClient;
 import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.client.entity.Backend;
@@ -36,6 +30,10 @@ import org.apache.doris.spark.util.EscapeHandler;
 import org.apache.doris.spark.util.HttpUtils;
 import org.apache.doris.spark.util.URLs;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
@@ -51,6 +49,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -66,56 +66,41 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> implements DorisCommitter {
 
-    protected final Logger logger = LoggerFactory.getLogger(this.getClass().getName().replaceAll("\\$", ""));
-
-    protected static final JsonMapper MAPPER = JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).build();
-
+    protected static final JsonMapper MAPPER =
+            JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).build();
     private static final String PARTIAL_COLUMNS = "partial_columns";
     private static final String GROUP_COMMIT = "group_commit";
-    private static final Set<String> VALID_GROUP_MODE = new HashSet<>(Arrays.asList("sync_mode", "async_mode", "off_mode"));
-
+    private static final Set<String> VALID_GROUP_MODE =
+            new HashSet<>(Arrays.asList("sync_mode", "async_mode", "off_mode"));
+    private static final int arrowBufferSize = 1000;
+    protected final Logger logger = LoggerFactory.getLogger(this.getClass().getName().replaceAll("\\$", ""));
     protected final DorisConfig config;
-
     private final DorisFrontendClient frontend;
     private final DorisBackendHttpClient backendHttpClient;
-
     private final String database;
     private final String table;
-
     private final boolean autoRedirect;
-
     private final boolean isHttpsEnabled;
-
     private final boolean isTwoPhaseCommitEnabled;
-
     private final Map<String, String> properties;
-
     private final DataFormat format;
-
-    protected String columnSeparator;
-
-    private byte[] lineDelimiter;
-
     private final boolean isGzipCompressionEnabled;
-
-    private String groupCommit;
-
     private final boolean isPassThrough;
-
-    private PipedOutputStream output;
-
-    private boolean createNewBatch = true;
-
-    private boolean isFirstRecordOfBatch = true;
-
     private final List<R> recordBuffer = new LinkedList<>();
-
-    private static final int arrowBufferSize = 1000;
-
+    protected String columnSeparator;
+    private byte[] lineDelimiter;
+    private String groupCommit;
+    private PipedOutputStream output;
+    private boolean createNewBatch = true;
+    private boolean isFirstRecordOfBatch = true;
     private transient ExecutorService executor;
 
     private Future<CloseableHttpResponse> requestFuture = null;
     private volatile String currentLabel;
+
+    private boolean isStopped = false;
+
+    private Exception unexpectedException = null;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
         super(config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE));
@@ -132,57 +117,82 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         // init stream load props
         this.isTwoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC);
         this.format = DataFormat.valueOf(properties.getOrDefault("format", "csv").toUpperCase());
-        this.isGzipCompressionEnabled = properties.containsKey("compress_type") && "gzip".equals(properties.get("compress_type"));
+        this.isGzipCompressionEnabled =
+                properties.containsKey("compress_type") && "gzip".equals(properties.get("compress_type"));
         if (properties.containsKey(GROUP_COMMIT)) {
             String message = "";
-            if (isTwoPhaseCommitEnabled) message = "group commit does not support two-phase commit";
-            if (properties.containsKey(PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(PARTIAL_COLUMNS)))
+            if (isTwoPhaseCommitEnabled) {
+                message = "group commit does not support two-phase commit";
+            }
+            if (properties.containsKey(PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(PARTIAL_COLUMNS))) {
                 message = "group commit does not support partial column updates";
-            if (!VALID_GROUP_MODE.contains(properties.get(GROUP_COMMIT).toLowerCase()))
+            }
+            if (!VALID_GROUP_MODE.contains(properties.get(GROUP_COMMIT).toLowerCase())) {
                 message = "Unsupported group commit mode: " + properties.get(GROUP_COMMIT);
-            if (!message.isEmpty()) throw new IllegalArgumentException(message);
+            }
+            if (!message.isEmpty()) {
+                throw new IllegalArgumentException(message);
+            }
             groupCommit = properties.get(GROUP_COMMIT).toLowerCase();
         }
         this.isPassThrough = config.getValue(DorisOptions.DORIS_SINK_STREAMING_PASSTHROUGH);
     }
 
     public void load(R row) throws Exception {
+        if (unexpectedException != null) {
+            throw unexpectedException;
+        }
         if (createNewBatch) {
+            createNewBatch = false;
+            isStopped = false;
             if (autoRedirect) {
                 requestFuture = frontend.requestFrontends((frontEnd, httpClient) ->
-                        buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient));
+                {
+                    try {
+                        return buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient);
+                    } catch (OptionRequiredException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             } else {
                 requestFuture = backendHttpClient.executeReq((backend, httpClient) ->
-                        buildReqAndExec(backend.getHost(), backend.getHttpPort(), httpClient));
+                {
+                    try {
+                        return buildReqAndExec(backend.getHost(), backend.getHttpPort(), httpClient);
+                    } catch (OptionRequiredException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
-            createNewBatch = false;
         }
         if (isFirstRecordOfBatch) {
             isFirstRecordOfBatch = false;
-        } else if (lineDelimiter != null){
-            output.write(lineDelimiter);
+        } else if (lineDelimiter != null) {
+            writeTo(lineDelimiter);
         }
-        output.write(toFormat(row, format));
+        writeTo(toFormat(row, format));
         currentBatchCount++;
     }
 
     @Override
     public String stop() throws Exception {
         if (requestFuture != null) {
+            isStopped = true;
             createNewBatch = true;
             isFirstRecordOfBatch = true;
             // arrow format need to send all buffer data before stop
             if (!recordBuffer.isEmpty() && DataFormat.ARROW.equals(format)) {
                 List<R> rs = new LinkedList<>(recordBuffer);
                 recordBuffer.clear();
-                output.write(toArrowFormat(rs));
+                writeTo(toArrowFormat(rs));
             }
             output.close();
             logger.info("stream load stopped with {}", currentLabel != null ? currentLabel : "group commit");
             CloseableHttpResponse res = requestFuture.get();
             if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new StreamLoadException("stream load execute failed, status: " + res.getStatusLine().getStatusCode()
-                        + ", msg: " + res.getStatusLine().getReasonPhrase());
+                throw new StreamLoadException(
+                        "stream load execute failed, status: " + res.getStatusLine().getStatusCode()
+                                + ", msg: " + res.getStatusLine().getReasonPhrase());
             }
             String resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity()));
             logger.info("stream load response: {}", resEntity);
@@ -211,8 +221,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                         .getReasonPhrase());
             } else {
                 String resEntity = EntityUtils.toString(new BufferedHttpEntity(response.getEntity()));
-                if(!checkTransResponse(resEntity)) {
-                    throw new RuntimeException("commit transaction failed, transaction: " + msg + ", resp: " + resEntity);
+                if (!checkTransResponse(resEntity)) {
+                    throw new RuntimeException(
+                            "commit transaction failed, transaction: " + msg + ", resp: " + resEntity);
                 } else {
                     this.logger.info("commit: {} response: {}", msg, resEntity);
                 }
@@ -256,8 +267,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                         .getReasonPhrase());
             } else {
                 String resEntity = EntityUtils.toString(new BufferedHttpEntity(response.getEntity()));
-                if(!checkTransResponse(resEntity)) {
-                    throw new RuntimeException("abort transaction failed, transaction: " + msg + ", resp: " + resEntity);
+                if (!checkTransResponse(resEntity)) {
+                    throw new RuntimeException(
+                            "abort transaction failed, transaction: " + msg + ", resp: " + resEntity);
                 } else {
                     this.logger.info("abort: {} response: {}", msg, resEntity);
                 }
@@ -271,11 +283,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             String status = objectMapper.readTree(resEntity).get("status").asText();
-                if ("Success".equalsIgnoreCase(status)) {
-                    return true;
-                }
+            if ("Success".equalsIgnoreCase(status)) {
+                return true;
+            }
         } catch (JsonProcessingException e) {
-            logger.warn("invalid json response: " +  resEntity, e);
+            logger.warn("invalid json response: " + resEntity, e);
         }
         return false;
     }
@@ -341,7 +353,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         if (config.contains(DorisOptions.DORIS_MAX_FILTER_RATIO)) {
             httpPut.setHeader("max_filter_ratio", config.getValue(DorisOptions.DORIS_MAX_FILTER_RATIO));
         }
-        if (isTwoPhaseCommitEnabled) httpPut.setHeader("two_phase_commit", "true");
+        if (isTwoPhaseCommitEnabled) {
+            httpPut.setHeader("two_phase_commit", "true");
+        }
 
         switch (format) {
             case CSV:
@@ -352,7 +366,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                 break;
             case JSON:
                 lineDelimiter = properties.getOrDefault("line_delimiter", "\n").getBytes(
-                    StandardCharsets.UTF_8);
+                        StandardCharsets.UTF_8);
                 properties.put("read_json_by_line", "true");
                 break;
             case ARROW:
@@ -384,14 +398,16 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     protected abstract String generateStreamLoadLabel() throws OptionRequiredException;
 
-    private Future<CloseableHttpResponse> buildReqAndExec(String host, Integer port, CloseableHttpClient client) {
+    private Future<CloseableHttpResponse> buildReqAndExec(String host, Integer port, CloseableHttpClient client)
+            throws OptionRequiredException {
         HttpPut httpPut = new HttpPut(URLs.streamLoad(host, port, database, table, isHttpsEnabled));
         try {
             handleStreamLoadProperties(httpPut);
         } catch (OptionRequiredException e) {
             throw new RuntimeException("stream load handle properties failed", e);
         }
-        PipedInputStream pipedInputStream = new PipedInputStream(4096);
+        PipedInputStream pipedInputStream =
+                new PipedInputStream(config.getValue(DorisOptions.DORIS_SINK_NET_BUFFER_SIZE));
         try {
             output = new PipedOutputStream(pipedInputStream);
         } catch (IOException e) {
@@ -402,9 +418,32 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             entity = new GzipCompressingEntity(entity);
         }
         httpPut.setEntity(entity);
+        Thread currentThread = Thread.currentThread();
 
-        logger.info("table {}.{} stream load started for {} on host {}:{}", database, table, currentLabel != null ? currentLabel : "group commit", host, port);
-        return getExecutors().submit(() -> client.execute(httpPut));
+        logger.info("table {}.{} stream load started for {} on host {}:{}", database, table,
+                currentLabel != null ? currentLabel : "group commit", host, port);
+        return getExecutors().submit(() -> {
+            CloseableHttpResponse response = client.execute(httpPut);
+            // stream load http request finished unexpectedly
+            if (!isStopped) {
+                if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                    unexpectedException = new StreamLoadException(
+                            "stream load failed, status: " + response.getStatusLine().getStatusCode()
+                                    + ", reason: " + response.getStatusLine().getReasonPhrase());
+                } else {
+                    StreamLoadResponse streamLoadResponse =
+                            MAPPER.readValue(EntityUtils.toString(response.getEntity()), StreamLoadResponse.class);
+                    if (!streamLoadResponse.isSuccess()) {
+                        unexpectedException = new StreamLoadException(
+                                "stream load end unexpectedly, txnId: " + streamLoadResponse.getTxnId()
+                                        + ", status: " + streamLoadResponse.getStatus()
+                                        + ", msg: " + streamLoadResponse.getMessage());
+                    }
+                }
+                currentThread.interrupt();
+            }
+            return response;
+        });
     }
 
     @Override
@@ -445,6 +484,18 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             });
         }
         return executor;
+    }
+
+    private void writeTo(byte[] bytes) throws Exception {
+        try {
+            output.write(bytes);
+        } catch (Exception e) {
+            if (unexpectedException != null) {
+                throw unexpectedException;
+            } else {
+                throw e;
+            }
+        }
     }
 
 }

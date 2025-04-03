@@ -65,7 +65,7 @@ public class DorisOptions {
 
     public static final ConfigOption<String> DORIS_WRITE_FIELDS = ConfigOptions.name("doris.write.fields").stringType().withoutDefaultValue().withDescription("");
 
-    public static final ConfigOption<Integer> DORIS_SINK_BATCH_SIZE = ConfigOptions.name("doris.sink.batch.size").intType().defaultValue(100000).withDescription("");
+    public static final ConfigOption<Integer> DORIS_SINK_BATCH_SIZE = ConfigOptions.name("doris.sink.batch.size").intType().defaultValue(500000).withDescription("");
 
     public static final ConfigOption<Integer> DORIS_SINK_MAX_RETRIES = ConfigOptions.name("doris.sink.max-retries").intType().defaultValue(0).withDescription("");
 
@@ -128,6 +128,8 @@ public class DorisOptions {
     public static final ConfigOption<Boolean> DORIS_READ_BITMAP_TO_STRING = ConfigOptions.name("doris.read.bitmap-to-string").booleanType().defaultValue(false).withDescription("");
 
     public static final ConfigOption<Boolean> DORIS_READ_BITMAP_TO_BASE64 = ConfigOptions.name("doris.read.bitmap-to-base64").booleanType().defaultValue(false).withDescription("");
+
+    public static final ConfigOption<Integer> DORIS_SINK_NET_BUFFER_SIZE = ConfigOptions.name("doris.sink.net.buffer.size").intType().defaultValue(1024 * 1024).withDescription("");
 
 
 }
