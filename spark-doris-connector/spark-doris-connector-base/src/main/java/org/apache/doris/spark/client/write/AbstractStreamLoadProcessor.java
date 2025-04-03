@@ -142,6 +142,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         if (createNewBatch) {
             createNewBatch = false;
             isStopped = false;
+            unexpectedException = null;
             if (autoRedirect) {
                 requestFuture = frontend.requestFrontends((frontEnd, httpClient) ->
                         buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient));
