@@ -162,6 +162,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     @Override
     public String stop() throws Exception {
         if (requestFuture != null) {
+            createNewBatch = true;
+            isFirstRecordOfBatch = true;
+            isStopped = true;
             // arrow format need to send all buffer data before stop
             if (!recordBuffer.isEmpty() && DataFormat.ARROW.equals(format)) {
                 List<R> rs = new LinkedList<>(recordBuffer);
@@ -171,9 +174,6 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             output.close();
             logger.info("stream load stopped with {}", currentLabel != null ? currentLabel : "group commit");
             CloseableHttpResponse res = requestFuture.get();
-            createNewBatch = true;
-            isFirstRecordOfBatch = true;
-            isStopped = true;
             if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
                 throw new StreamLoadException(
                         "stream load execute failed, status: " + res.getStatusLine().getStatusCode()
