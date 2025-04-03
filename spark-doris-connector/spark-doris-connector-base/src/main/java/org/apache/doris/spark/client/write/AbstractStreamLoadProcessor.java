@@ -87,6 +87,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     private final boolean isGzipCompressionEnabled;
     private final boolean isPassThrough;
     private final List<R> recordBuffer = new LinkedList<>();
+    private final int pipeSize;
     protected String columnSeparator;
     private byte[] lineDelimiter;
     private String groupCommit;
@@ -97,9 +98,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private Future<CloseableHttpResponse> requestFuture = null;
     private volatile String currentLabel;
-
     private boolean isStopped = false;
-
     private Exception unexpectedException = null;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
@@ -136,33 +135,19 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             groupCommit = properties.get(GROUP_COMMIT).toLowerCase();
         }
         this.isPassThrough = config.getValue(DorisOptions.DORIS_SINK_STREAMING_PASSTHROUGH);
+        this.pipeSize = config.getValue(DorisOptions.DORIS_SINK_NET_BUFFER_SIZE);
     }
 
     public void load(R row) throws Exception {
-        if (unexpectedException != null) {
-            throw unexpectedException;
-        }
         if (createNewBatch) {
             createNewBatch = false;
             isStopped = false;
             if (autoRedirect) {
                 requestFuture = frontend.requestFrontends((frontEnd, httpClient) ->
-                {
-                    try {
-                        return buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient);
-                    } catch (OptionRequiredException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+                        buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient));
             } else {
                 requestFuture = backendHttpClient.executeReq((backend, httpClient) ->
-                {
-                    try {
-                        return buildReqAndExec(backend.getHost(), backend.getHttpPort(), httpClient);
-                    } catch (OptionRequiredException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+                        buildReqAndExec(backend.getHost(), backend.getHttpPort(), httpClient));
             }
         }
         if (isFirstRecordOfBatch) {
@@ -177,9 +162,6 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     @Override
     public String stop() throws Exception {
         if (requestFuture != null) {
-            isStopped = true;
-            createNewBatch = true;
-            isFirstRecordOfBatch = true;
             // arrow format need to send all buffer data before stop
             if (!recordBuffer.isEmpty() && DataFormat.ARROW.equals(format)) {
                 List<R> rs = new LinkedList<>(recordBuffer);
@@ -189,6 +171,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             output.close();
             logger.info("stream load stopped with {}", currentLabel != null ? currentLabel : "group commit");
             CloseableHttpResponse res = requestFuture.get();
+            createNewBatch = true;
+            isFirstRecordOfBatch = true;
+            isStopped = true;
             if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
                 throw new StreamLoadException(
                         "stream load execute failed, status: " + res.getStatusLine().getStatusCode()
@@ -398,16 +383,14 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     protected abstract String generateStreamLoadLabel() throws OptionRequiredException;
 
-    private Future<CloseableHttpResponse> buildReqAndExec(String host, Integer port, CloseableHttpClient client)
-            throws OptionRequiredException {
+    private Future<CloseableHttpResponse> buildReqAndExec(String host, Integer port, CloseableHttpClient client) {
         HttpPut httpPut = new HttpPut(URLs.streamLoad(host, port, database, table, isHttpsEnabled));
         try {
             handleStreamLoadProperties(httpPut);
         } catch (OptionRequiredException e) {
             throw new RuntimeException("stream load handle properties failed", e);
         }
-        PipedInputStream pipedInputStream =
-                new PipedInputStream(config.getValue(DorisOptions.DORIS_SINK_NET_BUFFER_SIZE));
+        PipedInputStream pipedInputStream = new PipedInputStream(pipeSize);
         try {
             output = new PipedOutputStream(pipedInputStream);
         } catch (IOException e) {
@@ -450,6 +433,8 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     public void close() throws IOException {
         createNewBatch = true;
         isFirstRecordOfBatch = true;
+        isStopped = false;
+        unexpectedException = null;
         frontend.close();
         if (backendHttpClient != null) {
             backendHttpClient.close();
