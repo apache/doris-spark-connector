@@ -41,7 +41,7 @@ cd doris-spark-connector/spark-doris-connector
 
 ### QuickStart
 
-1. download and compile Spark Doris Connector from  https://github.com/apache/doris-spark-connector, we suggest compile Spark Doris Connector  by Doris offfcial image。
+1. download and compile Spark Doris Connector from  https://github.com/apache/doris-spark-connector, we suggest compile Spark Doris Connector  by Doris official image。
 
 ```bash
 $ docker pull apache/doris:build-env-ldb-toolchain-latest
