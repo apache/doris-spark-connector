@@ -30,6 +30,7 @@ import org.apache.spark.util.CollectionAccumulator
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.time.Duration
+import java.util.concurrent.locks.LockSupport
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success}
@@ -45,10 +46,11 @@ class DorisWriter(config: DorisConfig,
 
   private val maxRetryTimes: Int = config.getValue(DorisOptions.DORIS_SINK_MAX_RETRIES)
   private val batchSize: Int = config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE)
-  private val batchInterValMs: Int = config.getValue(DorisOptions.DORIS_SINK_BATCH_INTERVAL_MS)
+  private val batchIntervalMs: Int = config.getValue(DorisOptions.DORIS_SINK_BATCH_INTERVAL_MS)
+  private val retryIntervalMs: Int = config.getValue(DorisOptions.DORIS_SINK_RETRY_INTERVAL_MS)
 
   if (maxRetryTimes > 0) {
-    logger.info(s"batch retry enabled, size is $batchSize, interval is $batchInterValMs")
+    logger.info(s"batch retry enabled, size is $batchSize, retry interval is $retryIntervalMs")
   }
 
   private val enable2PC: Boolean = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC)
@@ -87,7 +89,7 @@ class DorisWriter(config: DorisConfig,
     resultRdd.foreachPartition(iterator => {
       while (iterator.hasNext) {
         val batchIterator = new BatchIterator(iterator, batchSize, maxRetryTimes > 0)
-        val retry = Utils.retry[Option[CommitMessage], Exception](maxRetryTimes, Duration.ofMillis(batchInterValMs.toLong), logger) _
+        val retry = Utils.retry[Option[CommitMessage], Exception](maxRetryTimes, Duration.ofMillis(retryIntervalMs.toLong), logger) _
         retry(loadFunc(batchIterator, schema))(batchIterator.reset()) match {
           case Success(msg) =>
             if (enable2PC) handleLoadSuccess(msg, txnAcc)
@@ -97,6 +99,7 @@ class DorisWriter(config: DorisConfig,
             batchIterator.close()
             throw e
         }
+        LockSupport.parkNanos(Duration.ofMillis(batchIntervalMs).toNanos)
       }
 
     })

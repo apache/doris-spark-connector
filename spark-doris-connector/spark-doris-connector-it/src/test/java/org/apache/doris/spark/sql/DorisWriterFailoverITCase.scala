@@ -70,9 +70,9 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
          | "fenodes"="${getFenodes}",
          | "user"="${getDorisUsername}",
          | "password"="${getDorisPassword}",
-         | "doris.sink.batch.interval.ms"="1000",
+         | "doris.sink.retry.interval.ms"="10000",
          | "doris.sink.batch.size"="1",
-         | "doris.sink.max-retries"="100",
+         | "doris.sink.max-retries"="3",
          | "doris.sink.enable-2pc"="false"
          |)
          |""".stripMargin)
