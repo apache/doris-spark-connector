@@ -96,9 +96,8 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     private boolean isFirstRecordOfBatch = true;
     private transient ExecutorService executor;
 
-    private Future<CloseableHttpResponse> requestFuture = null;
+    private Future<StreamLoadResponse> requestFuture = null;
     private volatile String currentLabel;
-    private boolean isStopped = false;
     private Exception unexpectedException = null;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
@@ -141,8 +140,6 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     public void load(R row) throws Exception {
         if (createNewBatch) {
             createNewBatch = false;
-            isStopped = false;
-            unexpectedException = null;
             if (autoRedirect) {
                 requestFuture = frontend.requestFrontends((frontEnd, httpClient) ->
                         buildReqAndExec(frontEnd.getHost(), frontEnd.getHttpPort(), httpClient));
@@ -165,7 +162,6 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         if (requestFuture != null) {
             createNewBatch = true;
             isFirstRecordOfBatch = true;
-            isStopped = true;
             // arrow format need to send all buffer data before stop
             if (!recordBuffer.isEmpty() && DataFormat.ARROW.equals(format)) {
                 List<R> rs = new LinkedList<>(recordBuffer);
@@ -174,20 +170,17 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             }
             output.close();
             logger.info("stream load stopped with {}", currentLabel != null ? currentLabel : "group commit");
-            CloseableHttpResponse res = requestFuture.get();
-            if (res.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new StreamLoadException(
-                        "stream load execute failed, status: " + res.getStatusLine().getStatusCode()
-                                + ", msg: " + res.getStatusLine().getReasonPhrase());
+
+            StreamLoadResponse response;
+            try {
+                response = requestFuture.get();
+            } catch (Exception e) {
+                if (unexpectedException != null) {
+                    throw unexpectedException;
+                }
+                throw new RuntimeException("stream load failed", e);
             }
-            String resEntity = EntityUtils.toString(new BufferedHttpEntity(res.getEntity()));
-            logger.info("stream load response: {}", resEntity);
-            StreamLoadResponse response = MAPPER.readValue(resEntity, StreamLoadResponse.class);
-            if (response != null && response.isSuccess()) {
-                return isTwoPhaseCommitEnabled ? String.valueOf(response.getTxnId()) : null;
-            } else {
-                throw new StreamLoadException("stream load execute failed, response: " + resEntity);
-            }
+            return isTwoPhaseCommitEnabled ? String.valueOf(response.getTxnId()) : null;
         }
         return null;
     }
@@ -384,7 +377,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     protected abstract String generateStreamLoadLabel() throws OptionRequiredException;
 
-    private Future<CloseableHttpResponse> buildReqAndExec(String host, Integer port, CloseableHttpClient client) {
+    private Future<StreamLoadResponse> buildReqAndExec(String host, Integer port, CloseableHttpClient client) {
         HttpPut httpPut = new HttpPut(URLs.streamLoad(host, port, database, table, isHttpsEnabled));
         try {
             handleStreamLoadProperties(httpPut);
@@ -409,24 +402,23 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         return getExecutors().submit(() -> {
             CloseableHttpResponse response = client.execute(httpPut);
             // stream load http request finished unexpectedly
-            if (!isStopped) {
-                if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                    unexpectedException = new StreamLoadException(
-                            "stream load failed, status: " + response.getStatusLine().getStatusCode()
-                                    + ", reason: " + response.getStatusLine().getReasonPhrase());
-                } else {
-                    StreamLoadResponse streamLoadResponse =
-                            MAPPER.readValue(EntityUtils.toString(response.getEntity()), StreamLoadResponse.class);
-                    if (!streamLoadResponse.isSuccess()) {
-                        unexpectedException = new StreamLoadException(
-                                "stream load end unexpectedly, txnId: " + streamLoadResponse.getTxnId()
-                                        + ", status: " + streamLoadResponse.getStatus()
-                                        + ", msg: " + streamLoadResponse.getMessage());
-                    }
-                }
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                unexpectedException = new StreamLoadException(
+                        "stream load failed, status: " + response.getStatusLine().getStatusCode()
+                                + ", reason: " + response.getStatusLine().getReasonPhrase());
                 currentThread.interrupt();
             }
-            return response;
+            String entityStr = EntityUtils.toString(response.getEntity());
+            StreamLoadResponse streamLoadResponse = MAPPER.readValue(entityStr, StreamLoadResponse.class);
+            logger.info("stream load response: " + entityStr);
+            if (streamLoadResponse != null && !streamLoadResponse.isSuccess()) {
+                unexpectedException = new StreamLoadException(
+                        "stream load failed, txnId: " + streamLoadResponse.getTxnId()
+                                + ", status: " + streamLoadResponse.getStatus()
+                                + ", msg: " + streamLoadResponse.getMessage());
+                currentThread.interrupt();
+            }
+            return streamLoadResponse;
         });
     }
 
@@ -434,7 +426,6 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     public void close() throws IOException {
         createNewBatch = true;
         isFirstRecordOfBatch = true;
-        isStopped = false;
         unexpectedException = null;
         frontend.close();
         if (backendHttpClient != null) {
@@ -474,7 +465,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private void writeTo(byte[] bytes) throws Exception {
         try {
-            output.write(bytes);
+            output.write(bytes, 0, bytes.length);
         } catch (Exception e) {
             if (unexpectedException != null) {
                 throw unexpectedException;

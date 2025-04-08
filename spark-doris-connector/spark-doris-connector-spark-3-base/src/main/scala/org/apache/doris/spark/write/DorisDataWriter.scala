@@ -28,11 +28,9 @@ import org.apache.spark.sql.types.StructType
 import java.time.Duration
 import java.util.concurrent.locks.LockSupport
 import scala.collection.mutable
-import scala.util.{Failure, Random, Success}
+import scala.util.{Failure, Success}
 
 class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int, taskId: Long, epochId: Long = -1) extends DataWriter[InternalRow] with Logging {
-
-  private val batchSize = config.getValue(DorisOptions.DORIS_SINK_BATCH_SIZE)
 
   private val (writer: DorisWriter[InternalRow], committer: DorisCommitter) =
     config.getValue(DorisOptions.LOAD_MODE) match {
