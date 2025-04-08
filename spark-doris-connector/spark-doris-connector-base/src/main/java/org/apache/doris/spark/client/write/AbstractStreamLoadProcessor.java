@@ -465,7 +465,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private void writeTo(byte[] bytes) throws Exception {
         try {
-            output.write(bytes, 0, bytes.length);
+            output.write(bytes);
         } catch (Exception e) {
             if (unexpectedException != null) {
                 throw unexpectedException;

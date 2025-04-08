@@ -17,18 +17,21 @@
 
 package org.apache.doris.spark.sql
 
-import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
 import org.apache.doris.spark.container.AbstractContainerTestBase.{assertEqualsInAnyOrder, getDorisQueryConnection}
+import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
+import org.apache.doris.spark.exception.StreamLoadException
 import org.apache.doris.spark.rest.models.DataModel
+import org.apache.spark.SparkException
 import org.apache.spark.sql.SparkSession
-import org.junit.{Before, Test}
+import org.junit.rules.ExpectedException
+import org.junit.{Before, Rule, Test}
 import org.slf4j.LoggerFactory
 
 import java.util
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit}
-import scala.util.control.Breaks._
 import scala.collection.JavaConverters._
+import scala.util.control.Breaks._
 
 /**
  * Test DorisWriter failover.
@@ -41,6 +44,12 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
   val TABLE_WRITE_TBL_TASK_RETRY = "tbl_write_tbl_task_retry"
   val TABLE_WRITE_TBL_PRECOMMIT_FAIL = "tbl_write_tbl_precommit_fail"
   val TABLE_WRITE_TBL_COMMIT_FAIL = "tbl_write_tbl_commit_fail"
+  val TABLE_WRITE_TBL_FAIL_BEFORE_STOP = "tbl_write_tbl_fail_before_stop"
+
+  val _thrown: ExpectedException = ExpectedException.none
+
+  @Rule
+  def thrown: ExpectedException = _thrown
 
   @Before
   def setUp(): Unit = {
@@ -217,4 +226,28 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
     LOG.info("Checking DorisWriterFailoverITCase result. testName={}, actual={}, expected={}", testName, actual, expected)
     assertEqualsInAnyOrder(expected.toList.asJava, actual.toList.asJava)
   }
+
+  @Test
+  def testForWriteExceptionBeforeStop(): Unit = {
+    initializeTable(TABLE_WRITE_TBL_FAIL_BEFORE_STOP, DataModel.DUPLICATE)
+    val session = SparkSession.builder().master("local[1]").getOrCreate()
+    val df = session.createDataFrame(Seq(
+      ("doris", "cn"),
+      ("spark", "us"),
+      ("catalog", "uk")
+    )).toDF("name", "address")
+    thrown.expect(classOf[SparkException])
+    thrown.expectMessage("Only unique key merge on write support partial update")
+    df.write.format("doris")
+      .option("table.identifier", DATABASE + "." + TABLE_WRITE_TBL_FAIL_BEFORE_STOP)
+      .option("fenodes", getFenodes)
+      .option("user", getDorisUsername)
+      .option("password", getDorisPassword)
+      .option("doris.sink.properties.partial_columns", "true")
+      .option("doris.sink.net.buffer.size", "1")
+      .mode("append")
+      .save()
+    session.stop()
+  }
+
 }
