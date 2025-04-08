@@ -45,6 +45,8 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
 
   private val retries = config.getValue(DorisOptions.DORIS_SINK_MAX_RETRIES)
 
+  private val retryIntervalMs = config.getValue(DorisOptions.DORIS_SINK_RETRY_INTERVAL_MS)
+
   private val twoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC)
 
   private val committedMessages = mutable.Buffer[String]()
@@ -81,7 +83,7 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
   @throws[Exception]
   private def loadBatchWithRetries(record: InternalRow): Unit = {
     var isRetrying = false
-    Retry.exec[Unit, Exception](retries, Duration.ofMillis(batchIntervalMs.toLong), log) {
+    Retry.exec[Unit, Exception](retries, Duration.ofMillis(retryIntervalMs.toLong), log) {
       if (isRetrying) {
         // retrying, reload data from buffer
         do {
