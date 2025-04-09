@@ -19,7 +19,6 @@ package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.container.AbstractContainerTestBase.{assertEqualsInAnyOrder, getDorisQueryConnection}
 import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
-import org.apache.doris.spark.exception.StreamLoadException
 import org.apache.doris.spark.rest.models.DataModel
 import org.apache.spark.SparkException
 import org.apache.spark.sql.SparkSession
@@ -231,23 +230,26 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
   def testForWriteExceptionBeforeStop(): Unit = {
     initializeTable(TABLE_WRITE_TBL_FAIL_BEFORE_STOP, DataModel.DUPLICATE)
     val session = SparkSession.builder().master("local[1]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris", "cn"),
-      ("spark", "us"),
-      ("catalog", "uk")
-    )).toDF("name", "address")
-    thrown.expect(classOf[SparkException])
-    thrown.expectMessage("Only unique key merge on write support partial update")
-    df.write.format("doris")
-      .option("table.identifier", DATABASE + "." + TABLE_WRITE_TBL_FAIL_BEFORE_STOP)
-      .option("fenodes", getFenodes)
-      .option("user", getDorisUsername)
-      .option("password", getDorisPassword)
-      .option("doris.sink.properties.partial_columns", "true")
-      .option("doris.sink.net.buffer.size", "1")
-      .mode("append")
-      .save()
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris", "cn"),
+        ("spark", "us"),
+        ("catalog", "uk")
+      )).toDF("name", "address")
+      thrown.expect(classOf[SparkException])
+      thrown.expectMessage("Only unique key merge on write support partial update")
+      df.write.format("doris")
+        .option("table.identifier", DATABASE + "." + TABLE_WRITE_TBL_FAIL_BEFORE_STOP)
+        .option("fenodes", getFenodes)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("doris.sink.properties.partial_columns", "true")
+        .option("doris.sink.net.buffer.size", "1")
+        .mode("append")
+        .save()
+    } finally {
+      session.stop()
+    }
   }
 
 }
