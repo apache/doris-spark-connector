@@ -174,11 +174,14 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             StreamLoadResponse response;
             try {
                 response = requestFuture.get();
+                if (response == null) {
+                    throw new StreamLoadException("response is null");
+                }
             } catch (Exception e) {
                 if (unexpectedException != null) {
                     throw unexpectedException;
                 }
-                throw new RuntimeException("stream load failed", e);
+                throw new StreamLoadException("stream load stop failed", e);
             }
             return isTwoPhaseCommitEnabled ? String.valueOf(response.getTxnId()) : null;
         }
