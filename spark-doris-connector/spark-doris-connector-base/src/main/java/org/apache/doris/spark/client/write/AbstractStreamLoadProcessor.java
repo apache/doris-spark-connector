@@ -400,22 +400,28 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         logger.info("table {}.{} stream load started for {} on host {}:{}", database, table,
                 currentLabel != null ? currentLabel : "group commit", host, port);
         return getExecutors().submit(() -> {
-            CloseableHttpResponse response = client.execute(httpPut);
-            // stream load http request finished unexpectedly
-            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                unexpectedException = new StreamLoadException(
-                        "stream load failed, status: " + response.getStatusLine().getStatusCode()
-                                + ", reason: " + response.getStatusLine().getReasonPhrase());
-                currentThread.interrupt();
-            }
-            String entityStr = EntityUtils.toString(response.getEntity());
-            StreamLoadResponse streamLoadResponse = MAPPER.readValue(entityStr, StreamLoadResponse.class);
-            logger.info("stream load response: " + entityStr);
-            if (streamLoadResponse != null && !streamLoadResponse.isSuccess()) {
-                unexpectedException = new StreamLoadException(
-                        "stream load failed, txnId: " + streamLoadResponse.getTxnId()
-                                + ", status: " + streamLoadResponse.getStatus()
-                                + ", msg: " + streamLoadResponse.getMessage());
+            StreamLoadResponse streamLoadResponse = null;
+            try (CloseableHttpResponse response = client.execute(httpPut)) {
+                // stream load http request finished unexpectedly
+                if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                    throw new StreamLoadException(
+                            "stream load failed, status: " + response.getStatusLine().getStatusCode()
+                                    + ", reason: " + response.getStatusLine().getReasonPhrase());
+                }
+                String entityStr = EntityUtils.toString(response.getEntity());
+                streamLoadResponse = MAPPER.readValue(entityStr, StreamLoadResponse.class);
+                logger.info("stream load response: " + entityStr);
+                if (streamLoadResponse == null) {
+                    throw new StreamLoadException("stream load failed, response is null, response: " + entityStr);
+                } else if (!streamLoadResponse.isSuccess()) {
+                    throw new StreamLoadException(
+                            "stream load failed, txnId: " + streamLoadResponse.getTxnId()
+                                    + ", status: " + streamLoadResponse.getStatus()
+                                    + ", msg: " + streamLoadResponse.getMessage());
+                }
+            } catch (Exception e) {
+                logger.error("stream load exception", e);
+                unexpectedException = e;
                 currentThread.interrupt();
             }
             return streamLoadResponse;
