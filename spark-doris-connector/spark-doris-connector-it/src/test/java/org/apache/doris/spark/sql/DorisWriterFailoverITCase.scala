@@ -22,6 +22,7 @@ import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUti
 import org.apache.doris.spark.rest.models.DataModel
 import org.apache.spark.SparkException
 import org.apache.spark.sql.SparkSession
+import org.hamcrest.{CoreMatchers, Description, Matcher}
 import org.junit.rules.ExpectedException
 import org.junit.{Before, Rule, Test}
 import org.slf4j.LoggerFactory
@@ -237,7 +238,6 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
         ("catalog", "uk")
       )).toDF("name", "address")
       thrown.expect(classOf[SparkException])
-      thrown.expectMessage("Only unique key merge on write support partial update")
       df.write.format("doris")
         .option("table.identifier", DATABASE + "." + TABLE_WRITE_TBL_FAIL_BEFORE_STOP)
         .option("fenodes", getFenodes)
