@@ -103,7 +103,8 @@ public class DorisFrontendClient implements Serializable {
                 try {
                     List<Frontend> list = Collections.singletonList(new Frontend(nodeDetails[0], nodeDetails.length > 1 ? Integer.parseInt(nodeDetails[1]) : -1));
                     frontendList = requestFrontends(list, (frontend, client) -> {
-                        HttpGet httpGet = new HttpGet(URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled));
+						String feReqURL = URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
+                        HttpGet httpGet = new HttpGet(feReqURL);
                         HttpUtils.setAuth(httpGet, username, password);
                         JsonNode dataNode;
                         try {
@@ -114,6 +115,7 @@ public class DorisFrontendClient implements Serializable {
                                         + ", reason: " + response.getStatusLine().getReasonPhrase());
                             }
                             String entity = EntityUtils.toString(response.getEntity());
+							LOG.info("get response: {} with fe request url: {}", entity,  feReqURL);
                             JsonNode respNode = MAPPER.readTree(entity);
                             String code = respNode.get("code").asText();
                             if(!"0".equalsIgnoreCase(code)) {
