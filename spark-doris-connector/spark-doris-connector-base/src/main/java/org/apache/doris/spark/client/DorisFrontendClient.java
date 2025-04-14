@@ -114,7 +114,11 @@ public class DorisFrontendClient implements Serializable {
                                         + ", reason: " + response.getStatusLine().getReasonPhrase());
                             }
                             String entity = EntityUtils.toString(response.getEntity());
-                            dataNode = extractEntity(entity, "data");
+                            JsonNode respNode = MAPPER.readTree(entity);
+                            String code = respNode.get("code").asText();
+                            if(!"0".equalsIgnoreCase(code)) {
+                                throw new RuntimeException("fetch fe request with invalid code, response: " + entity);
+                            }
                         } catch (IOException e) {
                             throw new RuntimeException("fetch fe failed", e);
                         }
