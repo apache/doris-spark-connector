@@ -119,6 +119,7 @@ public class DorisFrontendClient implements Serializable {
                             if(!"0".equalsIgnoreCase(code)) {
                                 throw new RuntimeException("fetch fe request with invalid code, response: " + entity);
                             }
+                            dataNode = respNode.get("data");
                         } catch (IOException e) {
                             throw new RuntimeException("fetch fe failed", e);
                         }
