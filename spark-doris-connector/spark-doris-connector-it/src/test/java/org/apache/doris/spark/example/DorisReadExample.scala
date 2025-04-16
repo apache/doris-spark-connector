@@ -28,7 +28,7 @@ object DorisReadExample {
     val session = SparkSession.builder().master("local[1]").getOrCreate()
     val dorisSparkDF = session.read.format("doris")
       .option("doris.table.identifier", "test.student")
-      .option("doris.fenodes", "10.16.10.6:28737")
+      .option("doris.fenodes", "127.0.0.1:8030")
       .option("user", "root")
       .option("password", "")
       .load()

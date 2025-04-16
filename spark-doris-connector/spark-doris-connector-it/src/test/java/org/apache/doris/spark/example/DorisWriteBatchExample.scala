@@ -35,7 +35,7 @@ object DorisWriteBatchExample {
     mockDataDF.show()
     mockDataDF.write.format("doris")
       .option("doris.table.identifier", "test.student")
-      .option("doris.fenodes", "10.16.10.6:28737")
+      .option("doris.fenodes", "127.0.0.1:8030")
       .option("user", "root")
       .option("password", "")
       .mode("append")
