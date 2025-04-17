@@ -53,6 +53,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   val DATABASE = "test_doris_read"
   val TABLE_READ = "tbl_read"
   val TABLE_READ_TBL = "tbl_read_tbl"
+  val TABLE_READ_UTF8_TBL = "tbl_read_utf8_tbl"
   val TABLE_READ_TBL_ALL_TYPES = "tbl_read_tbl_all_types"
   val TABLE_READ_TBL_BIT_MAP = "tbl_read_tbl_bitmap"
 
@@ -425,6 +426,38 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
         |""".stripMargin).collect()
 
     assert("List([3])".equals(likeFilter.toList.toString()))
+    session.stop()
+  }
+
+  @Test
+  def testReadPushDownUTF8(): Unit = {
+    initializeTable(TABLE_READ_UTF8_TBL, DataModel.UNIQUE)
+    ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("insert into %s.%s  values ('中文',60)", DATABASE, TABLE_READ_UTF8_TBL))
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    session.sql(
+      s"""
+         |CREATE TEMPORARY VIEW test_source
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${DATABASE + "." + TABLE_READ_UTF8_TBL}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}",
+         | "doris.read.mode"="${readMode}",
+         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+         |)
+         |""".stripMargin)
+
+    val utf8Filter = session.sql(
+      """
+        |select name,age from test_source where name = '中文'
+        |""".stripMargin).collect()
+
+    assert("List([中文,60])".equals(utf8Filter.toList.toString()))
     session.stop()
   }
 
