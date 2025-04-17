@@ -316,7 +316,7 @@ public class DorisFrontendClient implements Serializable {
 
     private JsonNode extractDataFromResponse(HttpResponse response, String url) throws IOException {
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new RuntimeException("request fe with url [" + url + "] failed with http code: "
+                throw new RuntimeException("request fe with url: [" + url + "] failed with http code: "
                         + response.getStatusLine().getStatusCode() + ", reason: "
                         + response.getStatusLine().getReasonPhrase());
             }
@@ -324,7 +324,7 @@ public class DorisFrontendClient implements Serializable {
             JsonNode respNode = MAPPER.readTree(entity);
             String code = respNode.get("code").asText();
             if (!"0".equalsIgnoreCase(code)) {
-                throw new RuntimeException("fetch fe url [\" + url + \"]  failed with invalid code, response: " + entity);
+                throw new RuntimeException("fetch fe url: [\" + url + \"]  failed with invalid msg code, response: " + entity);
             }
             return respNode.get("data");
         }
