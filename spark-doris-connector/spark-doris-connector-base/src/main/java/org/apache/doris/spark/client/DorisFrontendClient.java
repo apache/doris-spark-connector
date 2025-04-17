@@ -239,7 +239,7 @@ public class DorisFrontendClient implements Serializable {
     public Schema getTableSchema(String db, String table) throws Exception {
         return requestFrontends((frontend, httpClient) -> {
             String url = URLs.tableSchema(frontend.getHost(), frontend.getHttpPort(), db, table, isHttpsEnabled);
-            HttpGet httpGet = new HttpGet();
+            HttpGet httpGet = new HttpGet(url);
             HttpUtils.setAuth(httpGet, username, password);
             Schema dorisSchema;
             try {
@@ -324,7 +324,7 @@ public class DorisFrontendClient implements Serializable {
             JsonNode respNode = MAPPER.readTree(entity);
             String code = respNode.get("code").asText();
             if (!"0".equalsIgnoreCase(code)) {
-                throw new RuntimeException("fetch fe url: [\" + url + \"]  failed with invalid msg code, response: " + entity);
+                throw new RuntimeException("fetch fe url: [" + url + "]  failed with invalid msg code, response: " + entity);
             }
             return respNode.get("data");
         }
