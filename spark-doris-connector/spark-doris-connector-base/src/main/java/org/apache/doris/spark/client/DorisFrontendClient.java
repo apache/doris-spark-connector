@@ -49,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -307,7 +308,10 @@ public class DorisFrontendClient implements Serializable {
                 HttpPost httpPost = new HttpPost(url);
                 HttpUtils.setAuth(httpPost, username, password);
                 String body = MAPPER.writeValueAsString(ImmutableMap.of("sql", sql));
-                httpPost.setEntity(new StringEntity(body));
+                StringEntity stringEntity = new StringEntity(body, StandardCharsets.UTF_8);
+                stringEntity.setContentEncoding("UTF-8");
+                stringEntity.setContentType("application/json");
+                httpPost.setEntity(stringEntity);
                 HttpResponse response = httpClient.execute(httpPost);
                 JsonNode dataJsonNode = extractDataFromResponse(response, url);
                 if (dataJsonNode.get("exception") != null) {
