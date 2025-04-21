@@ -104,14 +104,14 @@ public class DorisFrontendClient implements Serializable {
                     List<Frontend> list = Collections.singletonList(new Frontend(nodeDetails[0],
                             nodeDetails.length > 1 ? Integer.parseInt(nodeDetails[1]) : -1));
                     frontendList = requestFrontends(list, (frontend, client) -> {
-                        String feReqURL = URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(),
+                        String url = URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(),
                                 isHttpsEnabled);
-                        HttpGet httpGet = new HttpGet(feReqURL);
+                        HttpGet httpGet = new HttpGet(url);
                         HttpUtils.setAuth(httpGet, username, password);
                         JsonNode dataNode;
                         try {
                             HttpResponse response = client.execute(httpGet);
-                            dataNode = extractDataFromResponse(response, feReqURL);
+                            dataNode = extractDataFromResponse(response, url);
                         } catch (IOException e) {
                             throw new RuntimeException("fetch fe failed", e);
                         }
@@ -132,15 +132,14 @@ public class DorisFrontendClient implements Serializable {
             }
             return frontendList;
         } else {
-            int queryPort = config.contains(DorisOptions.DORIS_QUERY_PORT)
-                    ? config.getValue(DorisOptions.DORIS_QUERY_PORT) : -1;
-            int flightSqlPort = config.contains(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT)
-                    ? config.getValue(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) : -1;
+            int queryPort = config.contains(DorisOptions.DORIS_QUERY_PORT) ?
+                    config.getValue(DorisOptions.DORIS_QUERY_PORT) : -1;
+            int flightSqlPort = config.contains(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) ?
+                    config.getValue(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) : -1;
             return Arrays.stream(frontendNodeArray)
                     .map(node -> {
                         String[] nodeParts = node.split(":");
-                        return new Frontend(nodeParts[0],
-                                nodeParts.length > 1 ? Integer.parseInt(nodeParts[1]) : -1, queryPort, flightSqlPort);
+                        return new Frontend(nodeParts[0], nodeParts.length > 1 ? Integer.parseInt(nodeParts[1]) : -1, queryPort, flightSqlPort);
                     })
                     .collect(Collectors.toList());
         }
