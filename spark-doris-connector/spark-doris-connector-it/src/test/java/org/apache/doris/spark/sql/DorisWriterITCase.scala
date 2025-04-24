@@ -329,9 +329,9 @@ class DorisWriterITCase extends AbstractContainerTestBase {
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
     val df = session.createDataFrame(Seq(
-      ("20200621", "1", "243"),
-      ("20200622", "2", "1"),
-      ("20200623", "3", "287667876573")
+      (20200621, 1, "243"),
+      (20200622, 2, "1"),
+      (20200623, 3, "287667876573")
     )).toDF("datekey", "hour", "device_id")
     df.createTempView("mock_source")
     session.sql(
@@ -383,7 +383,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   }
 
   private def checkResultInAnyOrder(testName: String, expected: Array[AnyRef], actual: Array[AnyRef]): Unit = {
-    LOG.info("Checking DorisWriterFailoverITCase result. testName={}, actual={}, expected={}", testName, actual, expected)
+    LOG.info("Checking DorisWriterITCase result. testName={}, actual={}, expected={}", testName, actual, expected)
     assertEqualsInAnyOrder(expected.toList.asJava, actual.toList.asJava)
   }
 }
