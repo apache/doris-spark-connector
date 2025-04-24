@@ -43,6 +43,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   val TABLE_JSON_TBL: String = "tbl_json_tbl"
   val TABLE_JSON_TBL_OVERWRITE: String = "tbl_json_tbl_overwrite"
   val TABLE_JSON_TBL_ARROW: String = "tbl_json_tbl_arrow"
+  val TABLE_BITMAP_TBL: String = "tbl_write_tbl_bitmap"
 
   @Test
   @throws[Exception]
@@ -320,6 +321,47 @@ class DorisWriterITCase extends AbstractContainerTestBase {
     val expected = util.Arrays.asList("doris_tbl,1", "spark_tbl,2");
     checkResultInAnyOrder("testSQLSinkOverwrite", expected.toArray, actual.toArray)
   }
+
+  @Test
+  def testWriteBitmap(): Unit = {
+    val targetInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/write_bitmap.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, targetInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    val df = session.createDataFrame(Seq(
+      ("20200621", "1", "243"),
+      ("20200622", "2", "1"),
+      ("20200623", "3", "287667876573")
+    )).toDF("datekey", "hour", "device_id")
+    df.createTempView("mock_source")
+    session.sql(
+      s"""
+         |CREATE TEMPORARY VIEW test_sink
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${DATABASE + "." + TABLE_BITMAP_TBL}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}",
+         | "doris.write.fields"="datekey,hour,device_id,device_id=to_bitmap(device_id)"
+         |)
+         |""".stripMargin)
+    session.sql(
+      """
+        |insert into test_sink select datekey,hour,device_id from mock_source
+        |""".stripMargin)
+    session.stop()
+
+    Thread.sleep(10000)
+    val actual = ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("select datekey,hour,bitmap_to_string(device_id) from %s.%s", DATABASE, TABLE_BITMAP_TBL),
+      3)
+    val expected = util.Arrays.asList("20200621,1,243", "20200622,2,1", "20200623,3,287667876573");
+    checkResultInAnyOrder("testWriteBitmap", expected.toArray, actual.toArray)
+  }
+
 
   private def initializeTable(table: String, dataModel: DataModel): Unit = {
     val max = if (DataModel.AGGREGATE == dataModel) "MAX" else ""
