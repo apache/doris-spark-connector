@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.util
+package org.apache.spark.sql
 
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.complex.MapVector
@@ -33,6 +33,7 @@ object ArrowUtils {
   val rootAllocator = new RootAllocator(Long.MaxValue)
 
   def toArrowSchema(schema: StructType, timeZoneId: String): Schema = {
+    println("========================")
     new Schema(schema.map { field =>
       toArrowField(field.name, field.dataType, field.nullable, timeZoneId)
     }.asJava)

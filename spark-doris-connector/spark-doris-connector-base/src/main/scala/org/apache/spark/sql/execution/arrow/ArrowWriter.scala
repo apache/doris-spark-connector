@@ -19,10 +19,10 @@ package org.apache.spark.sql.execution.arrow
 
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.complex._
+import org.apache.spark.sql.ArrowUtils
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.util.ArrowUtils
 
 import scala.collection.JavaConverters._
 
