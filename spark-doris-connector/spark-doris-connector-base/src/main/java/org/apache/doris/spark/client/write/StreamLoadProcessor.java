@@ -33,7 +33,7 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.arrow.ArrowWriter;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-import org.apache.spark.sql.ArrowUtils;
+import org.apache.spark.sql.util.ArrowUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

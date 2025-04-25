@@ -38,25 +38,6 @@
         <spark.doris.connector.artifactId>spark-doris-connector-spark-2</spark.doris.connector.artifactId>
     </properties>
 
-    <profiles>
-        <profile>
-            <id>spark-2-it</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <properties>
-                <spark.doris.connector.artifactId>spark-doris-connector-spark-2</spark.doris.connector.artifactId>
-            </properties>
-        </profile>
-        <profile>
-            <id>spark-3-it</id>
-            <properties>
-                <spark.doris.connector.artifactId>spark-doris-connector-spark-${spark.major.version}</spark.doris.connector.artifactId>
-            </properties>
-        </profile>
-    </profiles>
-
-
     <dependencies>
         <dependency>
             <groupId>org.apache.doris</groupId>
@@ -109,6 +90,23 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>spark-2-it</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <spark.doris.connector.artifactId>spark-doris-connector-spark-2</spark.doris.connector.artifactId>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-3-it</id>
+            <properties>
+                <spark.doris.connector.artifactId>spark-doris-connector-spark-${spark.major.version}</spark.doris.connector.artifactId>
+            </properties>
+        </profile>
+    </profiles>
 
     <build>
         <plugins>
