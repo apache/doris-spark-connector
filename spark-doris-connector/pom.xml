@@ -85,10 +85,10 @@
         <scala.version>2.11.12</scala.version>
         <scala.major.version>2.11</scala.major.version>
         <libthrift.version>0.16.0</libthrift.version>
-        <arrow.version>15.0.2</arrow.version>
+        <arrow.version>17.0.0</arrow.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.scm.id>github</project.scm.id>
-        <netty.version>4.1.104.Final</netty.version>
+        <netty.version>4.1.110.Final</netty.version>
         <fasterxml.jackson.version>2.13.5</fasterxml.jackson.version>
         <thrift-service.version>1.0.1</thrift-service.version>
         <testcontainers.version>1.17.6</testcontainers.version>
@@ -154,7 +154,6 @@
                 <groupId>io.netty</groupId>
                 <artifactId>netty-all</artifactId>
                 <version>${netty.version}</version>
-                <scope>provided</scope>
             </dependency>
 
             <dependency>
