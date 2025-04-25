@@ -17,8 +17,10 @@
 
 package org.apache.doris.spark.read.expression
 
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.connector.expressions.filter.{AlwaysFalse, AlwaysTrue, And, Not, Or}
 import org.apache.spark.sql.connector.expressions.{Expression, GeneralScalarExpression, Literal, NamedReference}
+import org.apache.spark.sql.types.{DateType, TimestampType}
 
 class V2ExpressionBuilder(inValueLengthLimit: Int) {
 
@@ -36,7 +38,7 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) {
       case _: AlwaysFalse => "1=0"
       case expr: Expression =>
         expr match {
-          case literal: Literal[_] => literal.toString
+          case literal: Literal[_] => visitLiteral(literal)
           case namedRef: NamedReference => namedRef.toString
           case e: GeneralScalarExpression => e.name() match {
             case "IN" =>
@@ -76,6 +78,16 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) {
     }
   }
 
+  def visitLiteral(literal: Literal[_]): String = {
+    if (literal.value() == null) {
+      return "null"
+    }
+    literal.dataType() match {
+      case DateType => s"'${DateTimeUtils.toJavaDate(literal.value().asInstanceOf[Int]).toString}'"
+      case TimestampType => s"'${DateTimeUtils.toJavaTimestamp(literal.value().asInstanceOf[Long]).toString}'"
+      case _ => literal.toString
+    }
+  }
   def visitStartWith(l: String, r: String): String = {
     val value = r.substring(1, r.length - 1)
     s"`$l` LIKE '$value%'"
