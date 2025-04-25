@@ -50,34 +50,37 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   def testSinkCsvFormat(): Unit = {
     initializeTable(TABLE_CSV, DataModel.DUPLICATE)
     val session = SparkSession.builder().master("local[1]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_csv", 1),
-      ("spark_csv", 2)
-    )).toDF("name", "age")
-    df.write
-      .format("doris")
-      .option("doris.fenodes", getFenodes)
-      .option("doris.sink.auto-redirect", false)
-      .option("doris.table.identifier", DATABASE + "." + TABLE_CSV)
-      .option("user", getDorisUsername)
-      .option("password", getDorisPassword)
-      .option("sink.properties.column_separator", ",")
-      .option("sink.properties.line_delimiter", "\n")
-      .option("sink.properties.format", "csv")
-      .option("doris.sink.batch.interval.ms", "5000")
-      .option("doris.sink.batch.size", "1")
-      .mode(SaveMode.Append)
-      .save()
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_csv", 1),
+        ("spark_csv", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.sink.auto-redirect", false)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_CSV)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.column_separator", ",")
+        .option("sink.properties.line_delimiter", "\n")
+        .option("sink.properties.format", "csv")
+        .option("doris.sink.batch.interval.ms", "5000")
+        .option("doris.sink.batch.size", "1")
+        .mode(SaveMode.Append)
+        .save()
 
-    Thread.sleep(15000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_CSV),
-      2)
-    val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
-    checkResultInAnyOrder("testSinkCsvFormat", expected.toArray(), actual.toArray)
+      Thread.sleep(15000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_CSV),
+        2)
+      val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
+      checkResultInAnyOrder("testSinkCsvFormat", expected.toArray(), actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -85,31 +88,34 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   def testSinkCsvFormatHideSep(): Unit = {
     initializeTable(TABLE_CSV_HIDE_SEP, DataModel.AGGREGATE)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_csv", 1),
-      ("spark_csv", 2)
-    )).toDF("name", "age")
-    df.write
-      .format("doris")
-      .option("doris.fenodes", getFenodes + "," + getFenodes)
-      .option("doris.table.identifier", DATABASE + "." + TABLE_CSV_HIDE_SEP)
-      .option("user", getDorisUsername)
-      .option("password", getDorisPassword)
-      .option("sink.properties.column_separator", "\\x01")
-      .option("sink.properties.line_delimiter", "\\x02")
-      .option("sink.properties.format", "csv")
-      .mode(SaveMode.Append)
-      .save()
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_csv", 1),
+        ("spark_csv", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes + "," + getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_CSV_HIDE_SEP)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.column_separator", "\\x01")
+        .option("sink.properties.line_delimiter", "\\x02")
+        .option("sink.properties.format", "csv")
+        .mode(SaveMode.Append)
+        .save()
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_CSV_HIDE_SEP),
-      2)
-    val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
-    checkResultInAnyOrder("testSinkCsvFormatHideSep", expected.toArray(), actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_CSV_HIDE_SEP),
+        2)
+      val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
+      checkResultInAnyOrder("testSinkCsvFormatHideSep", expected.toArray(), actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -117,29 +123,32 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   def testSinkGroupCommit(): Unit = {
     initializeTable(TABLE_GROUP_COMMIT, DataModel.DUPLICATE)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_csv", 1),
-      ("spark_csv", 2)
-    )).toDF("name", "age")
-    df.write
-      .format("doris")
-      .option("doris.fenodes", getFenodes)
-      .option("doris.table.identifier", DATABASE + "." + TABLE_GROUP_COMMIT)
-      .option("user", getDorisUsername)
-      .option("password", getDorisPassword)
-      .option("sink.properties.group_commit", "sync_mode")
-      .mode(SaveMode.Append)
-      .save()
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_csv", 1),
+        ("spark_csv", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_GROUP_COMMIT)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.group_commit", "sync_mode")
+        .mode(SaveMode.Append)
+        .save()
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_GROUP_COMMIT),
-      2)
-    val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
-    checkResultInAnyOrder("testSinkGroupCommit", expected.toArray(), actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_GROUP_COMMIT),
+        2)
+      val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
+      checkResultInAnyOrder("testSinkGroupCommit", expected.toArray(), actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -147,31 +156,34 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   def testSinkEmptyPartition(): Unit = {
     initializeTable(TABLE_JSON_EMPTY_PARTITION, DataModel.AGGREGATE)
     val session = SparkSession.builder().master("local[2]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_json", 1)
-    )).toDF("name", "age")
-    df.repartition(2).write
-      .format("doris")
-      .option("doris.fenodes", getFenodes)
-      .option("doris.table.identifier", DATABASE + "." + TABLE_JSON_EMPTY_PARTITION)
-      .option("user", getDorisUsername)
-      .option("password", getDorisPassword)
-      .option("sink.properties.read_json_by_line", "true")
-      .option("sink.properties.format", "json")
-      .option("doris.sink.auto-redirect", "false")
-      .option("doris.sink.enable-2pc", "true")
-      .mode(SaveMode.Append)
-      .save()
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_json", 1)
+      )).toDF("name", "age")
+      df.repartition(2).write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_JSON_EMPTY_PARTITION)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.read_json_by_line", "true")
+        .option("sink.properties.format", "json")
+        .option("doris.sink.auto-redirect", "false")
+        .option("doris.sink.enable-2pc", "true")
+        .mode(SaveMode.Append)
+        .save()
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_JSON_EMPTY_PARTITION),
-      2)
-    val expected = util.Arrays.asList("doris_json,1");
-    checkResultInAnyOrder("testSinkEmptyPartition", expected.toArray, actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_JSON_EMPTY_PARTITION),
+        2)
+      val expected = util.Arrays.asList("doris_json,1");
+      checkResultInAnyOrder("testSinkEmptyPartition", expected.toArray, actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -179,31 +191,34 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   def testSinkArrowFormat(): Unit = {
     initializeTable(TABLE_JSON_TBL_ARROW, DataModel.DUPLICATE)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_json", 1),
-      ("spark_json", 2)
-    )).toDF("name", "age")
-    df.write
-      .format("doris")
-      .option("doris.fenodes", getFenodes)
-      .option("doris.table.identifier", DATABASE + "." + TABLE_JSON_TBL_ARROW)
-      .option("user", getDorisUsername)
-      .option("password", getDorisPassword)
-      .option("sink.properties.format", "arrow")
-      .option("doris.sink.batch.size", "1")
-      .option("doris.sink.enable-2pc", "true")
-      .mode(SaveMode.Append)
-      .save()
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_json", 1),
+        ("spark_json", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_JSON_TBL_ARROW)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.format", "arrow")
+        .option("doris.sink.batch.size", "1")
+        .option("doris.sink.enable-2pc", "true")
+        .mode(SaveMode.Append)
+        .save()
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL_ARROW),
-      2)
-    val expected = util.Arrays.asList("doris_json,1", "spark_json,2");
-    checkResultInAnyOrder("testSinkArrowFormat", expected.toArray, actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL_ARROW),
+        2)
+      val expected = util.Arrays.asList("doris_json,1", "spark_json,2");
+      checkResultInAnyOrder("testSinkArrowFormat", expected.toArray, actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -211,31 +226,34 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   def testSinkJsonFormat(): Unit = {
     initializeTable(TABLE_JSON, DataModel.UNIQUE)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_json", 1),
-      ("spark_json", 2)
-    )).toDF("name", "age")
-    df.write
-      .format("doris")
-      .option("doris.fenodes", getFenodes)
-      .option("doris.table.identifier", DATABASE + "." + TABLE_JSON)
-      .option("user", getDorisUsername)
-      .option("password", getDorisPassword)
-      .option("sink.properties.read_json_by_line", "true")
-      .option("sink.properties.format", "json")
-      .option("doris.sink.auto-redirect", "false")
-      .mode(SaveMode.Append)
-      .save()
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_json", 1),
+        ("spark_json", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_JSON)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.read_json_by_line", "true")
+        .option("sink.properties.format", "json")
+        .option("doris.sink.auto-redirect", "false")
+        .mode(SaveMode.Append)
+        .save()
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_JSON),
-      2)
-    val expected = util.Arrays.asList("doris_json,1", "spark_json,2");
-    checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_JSON),
+        2)
+      val expected = util.Arrays.asList("doris_json,1", "spark_json,2");
+      checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -243,36 +261,39 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   def testSQLSinkFormat(): Unit = {
     initializeTable(TABLE_JSON_TBL, DataModel.UNIQUE_MOR)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_tbl", 1),
-      ("spark_tbl", 2)
-    )).toDF("name", "age")
-    df.createTempView("mock_source")
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_sink
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_JSON_TBL}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}"
-         |)
-         |""".stripMargin)
-    session.sql(
-      """
-        |insert into test_sink select  name,age from mock_source
-        |""".stripMargin)
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_tbl", 1),
+        ("spark_tbl", 2)
+      )).toDF("name", "age")
+      df.createTempView("mock_source")
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_sink
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_JSON_TBL}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}"
+           |)
+           |""".stripMargin)
+      session.sql(
+        """
+          |insert into test_sink select  name,age from mock_source
+          |""".stripMargin)
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL),
-      2)
-    val expected = util.Arrays.asList("doris_tbl,1", "spark_tbl,2");
-    checkResultInAnyOrder("testSQLSinkFormat", expected.toArray, actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL),
+        2)
+      val expected = util.Arrays.asList("doris_tbl,1", "spark_tbl,2");
+      checkResultInAnyOrder("testSQLSinkFormat", expected.toArray, actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -287,39 +308,42 @@ class DorisWriterITCase extends AbstractContainerTestBase {
       String.format("insert into %s.%s  values ('history-spark',1110)", DATABASE, TABLE_JSON_TBL_OVERWRITE))
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      ("doris_tbl", 1),
-      ("spark_tbl", 2)
-    )).toDF("name", "age")
-    df.createTempView("mock_source")
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_sink
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_JSON_TBL_OVERWRITE}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.query.port"="${getQueryPort}",
-         | "doris.sink.label.prefix"="doris-label-customer",
-         | "doris.sink.enable-2pc"="true"
-         |)
-         |""".stripMargin)
-    session.sql(
-      """
-        |insert overwrite table test_sink select  name,age from mock_source
-        |""".stripMargin)
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_tbl", 1),
+        ("spark_tbl", 2)
+      )).toDF("name", "age")
+      df.createTempView("mock_source")
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_sink
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_JSON_TBL_OVERWRITE}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.query.port"="${getQueryPort}",
+           | "doris.sink.label.prefix"="doris-label-customer",
+           | "doris.sink.enable-2pc"="true"
+           |)
+           |""".stripMargin)
+      session.sql(
+        """
+          |insert overwrite table test_sink select  name,age from mock_source
+          |""".stripMargin)
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL_OVERWRITE),
-      2)
-    val expected = util.Arrays.asList("doris_tbl,1", "spark_tbl,2");
-    checkResultInAnyOrder("testSQLSinkOverwrite", expected.toArray, actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_JSON_TBL_OVERWRITE),
+        2)
+      val expected = util.Arrays.asList("doris_tbl,1", "spark_tbl,2");
+      checkResultInAnyOrder("testSQLSinkOverwrite", expected.toArray, actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -328,38 +352,41 @@ class DorisWriterITCase extends AbstractContainerTestBase {
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, targetInitSql: _*)
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val df = session.createDataFrame(Seq(
-      (20200621, 1, "243"),
-      (20200622, 2, "1"),
-      (20200623, 3, "287667876573")
-    )).toDF("datekey", "hour", "device_id")
-    df.createTempView("mock_source")
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_sink
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_BITMAP_TBL}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.write.fields"="datekey,hour,device_id,device_id=to_bitmap(device_id)"
-         |)
-         |""".stripMargin)
-    session.sql(
-      """
-        |insert into test_sink select datekey,hour,device_id from mock_source
-        |""".stripMargin)
-    session.stop()
+    try {
+      val df = session.createDataFrame(Seq(
+        (20200621, 1, "243"),
+        (20200622, 2, "1"),
+        (20200623, 3, "287667876573")
+      )).toDF("datekey", "hour", "device_id")
+      df.createTempView("mock_source")
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_sink
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_BITMAP_TBL}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.write.fields"="datekey,hour,device_id,device_id=to_bitmap(device_id)"
+           |)
+           |""".stripMargin)
+      session.sql(
+        """
+          |insert into test_sink select datekey,hour,device_id from mock_source
+          |""".stripMargin)
 
-    Thread.sleep(10000)
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select datekey,hour,bitmap_to_string(device_id) from %s.%s", DATABASE, TABLE_BITMAP_TBL),
-      3)
-    val expected = util.Arrays.asList("20200621,1,243", "20200622,2,1", "20200623,3,287667876573");
-    checkResultInAnyOrder("testWriteBitmap", expected.toArray, actual.toArray)
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select datekey,hour,bitmap_to_string(device_id) from %s.%s", DATABASE, TABLE_BITMAP_TBL),
+        3)
+      val expected = util.Arrays.asList("20200621,1,243", "20200622,2,1", "20200623,3,287667876573");
+      checkResultInAnyOrder("testWriteBitmap", expected.toArray, actual.toArray)
+    } finally {
+      session.stop()
+    }
   }
 
 
