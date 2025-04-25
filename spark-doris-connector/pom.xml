@@ -85,7 +85,7 @@
         <scala.version>2.11.12</scala.version>
         <scala.major.version>2.11</scala.major.version>
         <libthrift.version>0.16.0</libthrift.version>
-        <arrow.version>17.0.0</arrow.version>
+        <arrow.version>15.0.2</arrow.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.110.Final</netty.version>
@@ -156,6 +156,8 @@
                 <version>${netty.version}</version>
             </dependency>
 
+            <!-- Spark 3.4 and later require a separate -->
+            <!-- reference https://github.com/apache/spark/blob/v3.4.0/pom.xml#L914-L941  -->
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-transport-native-epoll</artifactId>
@@ -180,6 +182,7 @@
                 <version>${netty.version}</version>
                 <classifier>osx-x86_64</classifier>
             </dependency>
+            <!-- End -->
 
             <dependency>
                 <groupId>org.apache.spark</groupId>
