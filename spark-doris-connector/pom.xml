@@ -563,6 +563,14 @@
                                 <pattern>com.google</pattern>
                                 <shadedPattern>org.apache.doris.shaded.com.google</shadedPattern>
                             </relocation>
+                            <relocation>
+                                <pattern>org.apache.spark.sql.execution.arrow</pattern>
+                                <shadedPattern>org.apache.doris.shaded.org.apache.spark.sql.execution.arrow</shadedPattern>
+                            </relocation>
+                            <relocation>
+                                <pattern>org.apache.spark.sql.util</pattern>
+                                <shadedPattern>org.apache.doris.shaded.org.apache.spark.sql.util</shadedPattern>
+                            </relocation>
                         </relocations>
                         <transformers>
                             <transformer
