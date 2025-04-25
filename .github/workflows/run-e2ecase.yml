@@ -37,22 +37,6 @@ jobs:
       with:
         distribution: adopt
         java-version: '8'
- 
-#    - name: Run E2ECases for spark 2
-#      run: |
-#        cd spark-doris-connector && mvn clean test -Pspark-2-it,spark-2.4_2.11 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
-#
-#    - name: Run E2ECases for spark 3.1
-#      run: |
-#        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.1 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
-#
-#    - name: Run E2ECases for spark 3.2
-#      run: |
-#        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.2 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
-#
-#    - name: Run E2ECases for spark 3.3
-#      run: |
-#        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.3 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
 
     - name: Run E2ECases for spark 3.4
       run: |
@@ -61,3 +45,20 @@ jobs:
     - name: Run E2ECases for spark 3.5
       run: |
         cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.5 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+
+    - name: Run E2ECases for spark 2
+      run: |
+        cd spark-doris-connector && mvn clean test -Pspark-2-it,spark-2.4_2.11 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+
+    - name: Run E2ECases for spark 3.1
+      run: |
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.1 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+
+    - name: Run E2ECases for spark 3.2
+      run: |
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.2 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+
+    - name: Run E2ECases for spark 3.3
+      run: |
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.3 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*E2ECase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+
