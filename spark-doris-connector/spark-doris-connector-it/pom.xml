@@ -35,9 +35,16 @@
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spark.doris.connector.artifactId>spark-doris-connector-spark-2</spark.doris.connector.artifactId>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.doris</groupId>
+            <artifactId>${spark.doris.connector.artifactId}</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
@@ -75,6 +82,12 @@
             <version>8.0.33</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.7.25</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <profiles>
@@ -83,27 +96,18 @@
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.doris</groupId>
-                    <artifactId>spark-doris-connector-spark-2</artifactId>
-                    <version>${project.version}</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
+            <properties>
+                <spark.doris.connector.artifactId>spark-doris-connector-spark-2</spark.doris.connector.artifactId>
+            </properties>
         </profile>
         <profile>
             <id>spark-3-it</id>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.doris</groupId>
-                    <artifactId>spark-doris-connector-spark-${spark.major.version}</artifactId>
-                    <version>${project.version}</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
+            <properties>
+                <spark.doris.connector.artifactId>spark-doris-connector-spark-${spark.major.version}</spark.doris.connector.artifactId>
+            </properties>
         </profile>
     </profiles>
+
     <build>
         <plugins>
             <plugin>

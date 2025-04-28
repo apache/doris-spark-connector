@@ -71,43 +71,47 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     initializeTable(TABLE_READ, DataModel.DUPLICATE)
     val sparkConf = new SparkConf().setMaster("local[*]").setAppName("rddSource")
     val sc = new SparkContext(sparkConf)
-    // sc.setLogLevel("DEBUG")
-    val dorisSparkRDD = sc.dorisRDD(
-      tableIdentifier = Some(DATABASE + "." + TABLE_READ),
-      cfg = Some(Map(
-        "doris.fenodes" -> getFenodes,
-        "doris.request.auth.user" -> getDorisUsername,
-        "doris.request.auth.password" -> getDorisPassword,
-        "doris.fe.init.fetch" -> "false",
-        "doris.read.mode" -> readMode,
-        "doris.read.arrow-flight-sql.port" -> flightSqlPort.toString
-      ))
-    )
-    val result = dorisSparkRDD.collect()
-    sc.stop()
-
-    assert(compareCollectResult(Array(Array("doris", 18), Array("spark", 10)), result))
+    try {
+      // sc.setLogLevel("DEBUG")
+      val dorisSparkRDD = sc.dorisRDD(
+        tableIdentifier = Some(DATABASE + "." + TABLE_READ),
+        cfg = Some(Map(
+          "doris.fenodes" -> getFenodes,
+          "doris.request.auth.user" -> getDorisUsername,
+          "doris.request.auth.password" -> getDorisPassword,
+          "doris.fe.init.fetch" -> "false",
+          "doris.read.mode" -> readMode,
+          "doris.read.arrow-flight-sql.port" -> flightSqlPort.toString
+        ))
+      )
+      val result = dorisSparkRDD.collect()
+      assert(compareCollectResult(Array(Array("doris", 18), Array("spark", 10)), result))
+    } finally {
+      sc.stop()
+    }
   }
 
   @Test
   @throws[Exception]
   def testDataFrameSource(): Unit = {
     initializeTable(TABLE_READ_TBL, DataModel.UNIQUE)
-
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    val dorisSparkDF = session.read
-      .format("doris")
-      .option("doris.fenodes", getFenodes)
-      .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL)
-      .option("doris.user", getDorisUsername)
-      .option("doris.password", getDorisPassword)
-      .option("doris.read.mode", readMode)
-      .option("doris.read.arrow-flight-sql.port", flightSqlPort.toString)
-      .load()
+    try {
+      val dorisSparkDF = session.read
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL)
+        .option("doris.user", getDorisUsername)
+        .option("doris.password", getDorisPassword)
+        .option("doris.read.mode", readMode)
+        .option("doris.read.arrow-flight-sql.port", flightSqlPort.toString)
+        .load()
 
-    val result = dorisSparkDF.collect().toList.toString()
-    session.stop()
-    assert("List([doris,18], [spark,10])".equals(result))
+      val result = dorisSparkDF.collect().toList.toString()
+      assert("List([doris,18], [spark,10])".equals(result))
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -115,27 +119,29 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   def testSQLSource(): Unit = {
     initializeTable(TABLE_READ_TBL, DataModel.UNIQUE_MOR)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.fe.auto.fetch"="true"
-         |)
-         |""".stripMargin)
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.fe.auto.fetch"="true"
+           |)
+           |""".stripMargin)
 
-    val result = session.sql(
-      """
-        |select  name,age from test_source
-        |""".stripMargin).collect().toList.toString()
-    session.stop()
-
-    assert("List([doris,18], [spark,10])".equals(result))
+      val result = session.sql(
+        """
+          |select  name,age from test_source
+          |""".stripMargin).collect().toList.toString()
+      assert("List([doris,18], [spark,10])".equals(result))
+    } finally {
+      session.stop()
+    }
   }
 
   private def initializeTable(table: String, dataModel: DataModel): Unit = {
@@ -177,27 +183,29 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   def testSQLSourceWithCondition(): Unit = {
     initializeTable(TABLE_READ_TBL, DataModel.AGGREGATE)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
-         |)
-         |""".stripMargin)
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
 
-    val result = session.sql(
-      """
-        |select name,age from test_source where age = 18
-        |""".stripMargin).collect().toList.toString()
-    session.stop()
-
-    assert("List([doris,18])".equals(result))
+      val result = session.sql(
+        """
+          |select name,age from test_source where age = 18
+          |""".stripMargin).collect().toList.toString()
+      assert("List([doris,18])".equals(result))
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -206,55 +214,58 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
-         |)
-         |""".stripMargin)
-    session.sql("desc test_source").show(true);
-    val actualData = session.sql(
-      """
-        |select * from test_source order by id
-        |""".stripMargin).collect()
-    session.stop()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
+      session.sql("desc test_source").show(true);
+      val actualData = session.sql(
+        """
+          |select * from test_source order by id
+          |""".stripMargin).collect()
 
-    val expectedData = Array(
-      Row(1, true, 127, 32767, 2147483647, 9223372036854775807L, "170141183460469231731687303715884105727",
-        3.14f, 2.71828, new java.math.BigDecimal("12345.6789"), Date.valueOf("2025-03-11"), Timestamp.valueOf("2025-03-11 12:34:56"), "A", "Hello, Doris!", "This is a string",
-        """["Alice","Bob"]""", Map("key1" -> "value1", "key2" -> "value2"), """{"name":"Tom","age":30}""",
-        """{"key":"value"}""", """{"type":"variant","data":123}"""),
-      Row(2, false, -128, -32768, -2147483648, -9223372036854775808L, "-170141183460469231731687303715884105728",
-        -1.23f, 0.0001, new java.math.BigDecimal("-9999.9999"), Date.valueOf("2024-12-25"), Timestamp.valueOf("2024-12-25 23:59:59"), "B", "Doris Test", "Another string!",
-        """["Charlie","David"]""", Map("k1" -> "v1", "k2" -> "v2"), """{"name":"Jerry","age":25}""",
-        """{"status":"ok"}""", """{"data":[1,2,3]}"""),
-      Row(3, true, 0, 0, 0, 0, "0",
-        0.0f, 0.0, new java.math.BigDecimal("0.0000"), Date.valueOf("2023-06-15"), Timestamp.valueOf("2023-06-15 08:00:00"), "C", "Test Doris", "Sample text",
-        """["Eve","Frank"]""", Map("alpha" -> "beta"), """{"name":"Alice","age":40}""",
-        """{"nested":{"key":"value"}}""", """{"variant":"test"}"""),
-      Row(4, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null,
-        null, null, null, null, null)
-    )
+      val expectedData = Array(
+        Row(1, true, 127, 32767, 2147483647, 9223372036854775807L, "170141183460469231731687303715884105727",
+          3.14f, 2.71828, new java.math.BigDecimal("12345.6789"), Date.valueOf("2025-03-11"), Timestamp.valueOf("2025-03-11 12:34:56"), "A", "Hello, Doris!", "This is a string",
+          """["Alice","Bob"]""", Map("key1" -> "value1", "key2" -> "value2"), """{"name":"Tom","age":30}""",
+          """{"key":"value"}""", """{"type":"variant","data":123}"""),
+        Row(2, false, -128, -32768, -2147483648, -9223372036854775808L, "-170141183460469231731687303715884105728",
+          -1.23f, 0.0001, new java.math.BigDecimal("-9999.9999"), Date.valueOf("2024-12-25"), Timestamp.valueOf("2024-12-25 23:59:59"), "B", "Doris Test", "Another string!",
+          """["Charlie","David"]""", Map("k1" -> "v1", "k2" -> "v2"), """{"name":"Jerry","age":25}""",
+          """{"status":"ok"}""", """{"data":[1,2,3]}"""),
+        Row(3, true, 0, 0, 0, 0, "0",
+          0.0f, 0.0, new java.math.BigDecimal("0.0000"), Date.valueOf("2023-06-15"), Timestamp.valueOf("2023-06-15 08:00:00"), "C", "Test Doris", "Sample text",
+          """["Eve","Frank"]""", Map("alpha" -> "beta"), """{"name":"Alice","age":40}""",
+          """{"nested":{"key":"value"}}""", """{"variant":"test"}"""),
+        Row(4, null, null, null, null, null, null,
+          null, null, null, null, null, null, null, null,
+          null, null, null, null, null)
+      )
 
-    val differences = actualData.zip(expectedData).zipWithIndex.flatMap {
-      case ((actualRow, expectedRow), rowIndex) =>
-        actualRow.toSeq.zip(expectedRow.toSeq).zipWithIndex.collect {
-          case ((actualValue, expectedValue), colIndex)
-            if actualValue != expectedValue =>
-            s"Row $rowIndex, Column $colIndex: actual=$actualValue, expected=$expectedValue"
-        }
-    }
+      val differences = actualData.zip(expectedData).zipWithIndex.flatMap {
+        case ((actualRow, expectedRow), rowIndex) =>
+          actualRow.toSeq.zip(expectedRow.toSeq).zipWithIndex.collect {
+            case ((actualValue, expectedValue), colIndex)
+              if actualValue != expectedValue =>
+              s"Row $rowIndex, Column $colIndex: actual=$actualValue, expected=$expectedValue"
+          }
+      }
 
-    if (differences.nonEmpty) {
-      fail(s"Data mismatch found:\n${differences.mkString("\n")}")
+      if (differences.nonEmpty) {
+        fail(s"Data mismatch found:\n${differences.mkString("\n")}")
+      }
+    } finally {
+      session.stop()
     }
   }
 
@@ -263,27 +274,30 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_bitmap.sql")
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_BIT_MAP}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
-         |)
-         |""".stripMargin)
-    session.sql("desc test_source").show(true);
-    val actualData = session.sql(
-      """
-        |select * from test_source order by hour
-        |""".stripMargin).collect()
-    session.stop()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_BIT_MAP}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
+      session.sql("desc test_source").show(true);
+      val actualData = session.sql(
+        """
+          |select * from test_source order by hour
+          |""".stripMargin).collect()
 
-    assert("List([20200622,1,Read unsupported], [20200622,2,Read unsupported], [20200622,3,Read unsupported])".equals(actualData.toList.toString()))
+      assert("List([20200622,1,Read unsupported], [20200622,2,Read unsupported], [20200622,3,Read unsupported])".equals(actualData.toList.toString()))
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -294,29 +308,32 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_bitmap.sql")
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_BIT_MAP}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}",
-         | "doris.read.bitmap-to-string"="true"
-         |)
-         |""".stripMargin)
-    session.sql("desc test_source").show(true);
-    val actualData = session.sql(
-      """
-        |select * from test_source order by hour
-        |""".stripMargin).collect()
-    session.stop()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_BIT_MAP}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}",
+           | "doris.read.bitmap-to-string"="true"
+           |)
+           |""".stripMargin)
+      session.sql("desc test_source").show(true);
+      val actualData = session.sql(
+        """
+          |select * from test_source order by hour
+          |""".stripMargin).collect()
 
-    assert("List([20200622,1,243], [20200622,2,1,2,3,4,5,434543], [20200622,3,287667876573])"
-      .equals(actualData.toList.toString()))
+      assert("List([20200622,1,243], [20200622,2,1,2,3,4,5,434543], [20200622,3,287667876573])"
+        .equals(actualData.toList.toString()))
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -327,29 +344,32 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_bitmap.sql")
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_BIT_MAP}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}",
-         | "doris.read.bitmap-to-base64"="true"
-         |)
-         |""".stripMargin)
-    session.sql("desc test_source").show(true);
-    val actualData = session.sql(
-      """
-        |select * from test_source order by hour
-        |""".stripMargin).collect()
-    session.stop()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_BIT_MAP}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}",
+           | "doris.read.bitmap-to-base64"="true"
+           |)
+           |""".stripMargin)
+      session.sql("desc test_source").show(true);
+      val actualData = session.sql(
+        """
+          |select * from test_source order by hour
+          |""".stripMargin).collect()
 
-    assert("List([20200622,1,AfMAAAA=], [20200622,2,AjswAQABAAAEAAYAAAABAAEABABvoQ==], [20200622,3,A91yV/pCAAAA])"
-      .equals(actualData.toList.toString()))
+      assert("List([20200622,1,AfMAAAA=], [20200622,2,AjswAQABAAAEAAYAAAABAAEABABvoQ==], [20200622,3,A91yV/pCAAAA])"
+        .equals(actualData.toList.toString()))
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -357,76 +377,79 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
-         |)
-         |""".stripMargin)
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
 
-    val intFilter = session.sql(
-      """
-        |select id,c1,c2 from test_source where id = 2 and c1 = false and c4 != 3
-        |""".stripMargin).collect()
+      val intFilter = session.sql(
+        """
+          |select id,c1,c2 from test_source where id = 2 and c1 = false and c4 != 3
+          |""".stripMargin).collect()
 
-    assert("List([2,false,-128])".equals(intFilter.toList.toString()))
+      assert("List([2,false,-128])".equals(intFilter.toList.toString()))
 
-    val floatFilter = session.sql(
-      """
-        |select id,c3,c4,c7,c9 from test_source where c7 > 0 and c7 < 3.15
-        |""".stripMargin).collect()
+      val floatFilter = session.sql(
+        """
+          |select id,c3,c4,c7,c9 from test_source where c7 > 0 and c7 < 3.15
+          |""".stripMargin).collect()
 
-    assert("List([1,32767,2147483647,3.14,12345.6789])".equals(floatFilter.toList.toString()))
+      assert("List([1,32767,2147483647,3.14,12345.6789])".equals(floatFilter.toList.toString()))
 
-    val dateFilter = session.sql(
-      """
-        |select id,c10,c11 from test_source where c10 = '2025-03-11' and c13 like 'Hello%'
-        |""".stripMargin).collect()
+      val dateFilter = session.sql(
+        """
+          |select id,c10,c11 from test_source where c10 = '2025-03-11' and c13 like 'Hello%'
+          |""".stripMargin).collect()
 
-    assert("List([1,2025-03-11,2025-03-11 12:34:56.0])".equals(dateFilter.toList.toString()))
+      assert("List([1,2025-03-11,2025-03-11 12:34:56.0])".equals(dateFilter.toList.toString()))
 
-    val datetimeFilter = session.sql(
-      """
-        |select id,c11,c12 from test_source where c10 < '2025-03-11' and c11 = '2024-12-25 23:59:59'
-        |""".stripMargin).collect()
+      val datetimeFilter = session.sql(
+        """
+          |select id,c11,c12 from test_source where c10 < '2025-03-11' and c11 = '2024-12-25 23:59:59'
+          |""".stripMargin).collect()
 
-    assert("List([2,2024-12-25 23:59:59.0,B])".equals(datetimeFilter.toList.toString()))
+      assert("List([2,2024-12-25 23:59:59.0,B])".equals(datetimeFilter.toList.toString()))
 
-    val stringFilter = session.sql(
-      """
-        |select id,c13,c14 from test_source where c11 >= '2024-12-25 23:59:59' and c13 = 'Hello, Doris!'
-        |""".stripMargin).collect()
+      val stringFilter = session.sql(
+        """
+          |select id,c13,c14 from test_source where c11 >= '2024-12-25 23:59:59' and c13 = 'Hello, Doris!'
+          |""".stripMargin).collect()
 
-    assert("List([1,Hello, Doris!,This is a string])".equals(stringFilter.toList.toString()))
+      assert("List([1,Hello, Doris!,This is a string])".equals(stringFilter.toList.toString()))
 
-    val nullFilter = session.sql(
-      """
-        |select id,c13,c14 from test_source where c14 is null
-        |""".stripMargin).collect()
+      val nullFilter = session.sql(
+        """
+          |select id,c13,c14 from test_source where c14 is null
+          |""".stripMargin).collect()
 
-    assert("List([4,null,null])".equals(nullFilter.toList.toString()))
+      assert("List([4,null,null])".equals(nullFilter.toList.toString()))
 
-    val notNullFilter = session.sql(
-      """
-        |select id from test_source where c15 is not null and c12 in ('A', 'B')
-        |""".stripMargin).collect()
+      val notNullFilter = session.sql(
+        """
+          |select id from test_source where c15 is not null and c12 in ('A', 'B')
+          |""".stripMargin).collect()
 
-    assert("List([1], [2])".equals(notNullFilter.toList.toString()))
+      assert("List([1], [2])".equals(notNullFilter.toList.toString()))
 
-    val likeFilter = session.sql(
-      """
-        |select id from test_source where c19 like '%variant%' and c13 like 'Test%'
-        |""".stripMargin).collect()
+      val likeFilter = session.sql(
+        """
+          |select id from test_source where c19 like '%variant%' and c13 like 'Test%'
+          |""".stripMargin).collect()
 
-    assert("List([3])".equals(likeFilter.toList.toString()))
-    session.stop()
+      assert("List([3])".equals(likeFilter.toList.toString()))
+    } finally {
+      session.stop()
+    }
   }
 
   @Test
@@ -438,29 +461,31 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
       String.format("insert into %s.%s  values ('中文',60)", DATABASE, TABLE_READ_UTF8_TBL))
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_UTF8_TBL}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
-         |)
-         |""".stripMargin)
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_UTF8_TBL}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
 
-    val utf8Filter = session.sql(
-      """
-        |select name,age from test_source where name = '中文'
-        |""".stripMargin).collect()
+      val utf8Filter = session.sql(
+        """
+          |select name,age from test_source where name = '中文'
+          |""".stripMargin).collect()
 
-    assert("List([中文,60])".equals(utf8Filter.toList.toString()))
-    session.stop()
+      assert("List([中文,60])".equals(utf8Filter.toList.toString()))
+    } finally {
+      session.stop()
+    }
   }
-
 
   @Test
   def buildCaseWhenTest(): Unit = {
@@ -468,35 +493,35 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
 
-    session.sql(
-      s"""
-         |CREATE TEMPORARY VIEW test_source
-         |USING doris
-         |OPTIONS(
-         | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
-         | "fenodes"="${getFenodes}",
-         | "user"="${getDorisUsername}",
-         | "password"="${getDorisPassword}",
-         | "doris.read.mode"="${readMode}",
-         | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
-         |)
-         |""".stripMargin)
+      val resultData = session.sql(
+        """
+          |select * from (
+          |   select
+          |    id,
+          |    (case when c5 > 10 then c2 else null end) as cc1,
+          |    (case when c4 < 5 then c3 else null end) as cc2
+          |   from test_source where c2 is not null
+          |) where !(cc1 is null and cc2 is null) order by id
+          |""".stripMargin)
 
-    val resultData = session.sql(
-      """
-        |select * from (
-        |   select
-        |    id,
-        |    (case when c5 > 10 then c2 else null end) as cc1,
-        |    (case when c4 < 5 then c3 else null end) as cc2
-        |   from test_source where c2 is not null
-        |) where !(cc1 is null and cc2 is null) order by id
-        |""".stripMargin)
-
-    assert("List([1,127,null], [2,null,-32768], [3,null,0])".equals(resultData.collect().toList.toString()))
-
-    session.stop()
-
+      assert("List([1,127,null], [2,null,-32768], [3,null,0])".equals(resultData.collect().toList.toString()))
+    } finally {
+      session.stop()
+    }
   }
 }
