@@ -101,6 +101,10 @@ public class StreamLoadResponse {
         return ErrorURL;
     }
 
+    public String getLabel() {
+        return Label;
+    }
+
     @Override
     public String toString() {
         ObjectMapper mapper = new ObjectMapper();
