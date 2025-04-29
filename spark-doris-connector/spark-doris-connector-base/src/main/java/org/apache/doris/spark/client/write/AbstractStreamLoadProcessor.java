@@ -412,10 +412,12 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                                     + ", reason: " + response.getStatusLine().getReasonPhrase());
                 }
                 String entityStr = EntityUtils.toString(response.getEntity());
-                streamLoadResponse = MAPPER.readValue(entityStr, StreamLoadResponse.class);
                 logger.info("stream load response: " + entityStr);
-                if (streamLoadResponse == null) {
-                    throw new StreamLoadException("stream load failed, response is null, response: " + entityStr);
+                streamLoadResponse = MAPPER.readValue(entityStr, StreamLoadResponse.class);
+                if (streamLoadResponse == null
+                        || streamLoadResponse.getLabel() == null
+                        || streamLoadResponse.getMessage() == null) {
+                    throw new StreamLoadException("stream load failed, response error : " + entityStr);
                 } else if (!streamLoadResponse.isSuccess()) {
                     throw new StreamLoadException(
                             "stream load failed, txnId: " + streamLoadResponse.getTxnId()
