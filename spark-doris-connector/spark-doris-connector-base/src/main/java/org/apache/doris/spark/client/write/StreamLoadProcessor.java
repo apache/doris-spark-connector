@@ -33,7 +33,7 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.arrow.ArrowWriter;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-import org.apache.spark.sql.util.ArrowUtils;
+import org.apache.spark.sql.util.DorisArrowUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -55,7 +55,7 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
 
     @Override
     public byte[] toArrowFormat(List<InternalRow> rowArray) throws IOException {
-        Schema arrowSchema = ArrowUtils.toArrowSchema(schema, "UTC");
+        Schema arrowSchema = DorisArrowUtils.toArrowSchema(schema, "UTC");
         VectorSchemaRoot root = VectorSchemaRoot.create(arrowSchema, new RootAllocator(Integer.MAX_VALUE));
         ArrowWriter arrowWriter = ArrowWriter.create(root);
         for (InternalRow row : rowArray) {
