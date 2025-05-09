@@ -28,7 +28,7 @@ import scala.collection.JavaConverters._
 /**
  * Copied from Spark 3.1.2. To avoid the package conflicts between spark 2 and spark 3.
  */
-object ArrowUtils {
+object DorisArrowUtils {
 
   val rootAllocator = new RootAllocator(Long.MaxValue)
 
