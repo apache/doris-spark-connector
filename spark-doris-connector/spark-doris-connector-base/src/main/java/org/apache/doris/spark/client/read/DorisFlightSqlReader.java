@@ -44,10 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -55,7 +52,6 @@ import java.util.stream.Collectors;
 public class DorisFlightSqlReader extends DorisReader {
 
     private static final Logger log = LoggerFactory.getLogger(DorisFlightSqlReader.class);
-    private static final String PREFIX = "/* ApplicationName=Spark ArrowFlightSQL Query */";
     private final AtomicBoolean endOfStream = new AtomicBoolean(false);
     private final DorisFrontendClient frontendClient;
     private final Schema schema;
@@ -66,14 +62,23 @@ public class DorisFlightSqlReader extends DorisReader {
     public DorisFlightSqlReader(DorisReaderPartition partition) throws Exception {
         super(partition);
         this.frontendClient = new DorisFrontendClient(partition.getConfig());
-        List<Frontend> frontends = frontendClient.getFrontends();
+        List<Frontend> frontends = new ArrayList<>(frontendClient.getFrontends());
+        Collections.shuffle(frontends);
+        Exception tx = null;
         for (Frontend frontend : frontends) {
             try {
                 this.connection = initializeConnection(frontend, partition.getConfig());
+                tx = null;
                 break;
-            } catch (OptionRequiredException | AdbcException e) {
+            } catch (OptionRequiredException e) {
                 throw new DorisException("init adbc connection failed", e);
+            } catch (AdbcException e) {
+                log.warn("init adbc connection failed with fe: " + frontend.getHost(), e);
+                tx = new DorisException("init adbc connection failed", e);
             }
+        }
+        if (tx != null) {
+            throw tx;
         }
         this.schema = processDorisSchema(partition);
         this.arrowReader = executeQuery();
@@ -150,7 +155,12 @@ public class DorisFlightSqlReader extends DorisReader {
         String tablets = String.format("TABLET(%s)", StringUtils.join(partition.getTablets(), ","));
         String predicates = partition.getFilters().length == 0 ? "" : " WHERE " + String.join(" AND ", partition.getFilters());
         String limit = partition.getLimit() > 0 ? " LIMIT " + partition.getLimit() : "";
-        return PREFIX + String.format("SELECT %s FROM %s %s%s%s", columns, fullTableName, tablets, predicates, limit);
+        return generateQueryPrefix() + String.format("SELECT %s FROM %s %s%s%s", columns, fullTableName, tablets, predicates, limit);
+    }
+
+    private String generateQueryPrefix() throws OptionRequiredException {
+        String prefix = config.getValue(DorisOptions.DORIS_READ_FLIGHT_SQL_PREFIX);
+        return String.format("/* %s */", prefix);
     }
 
     protected Schema processDorisSchema(DorisReaderPartition partition) throws Exception {
