@@ -447,6 +447,13 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |""".stripMargin).collect()
 
       assert("List([3])".equals(likeFilter.toList.toString()))
+
+      val orFilter = session.sql(
+        """
+          |select id from test_source
+          |where c15 is not null and c12 = 'A' and (id = 1 or c2 = 127 or id > 0)
+          |""".stripMargin).collect()
+      assert("List([1])".equals(orFilter.toList.toString()))
     } finally {
       session.stop()
     }

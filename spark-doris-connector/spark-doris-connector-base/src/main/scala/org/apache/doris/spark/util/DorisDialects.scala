@@ -50,12 +50,12 @@ object DorisDialects {
       case And(left, right) =>
         val and = Seq(left, right).flatMap(compileFilter(_, inValueLengthLimit))
         if (and.size == 2) {
-          and.map(p => s"($p)").mkString(" AND ")
+          s"(${and.map(p => s"($p)").mkString(" AND ")})"
         } else null
       case Or(left, right) =>
         val or = Seq(left, right).flatMap(compileFilter(_, inValueLengthLimit))
         if (or.size == 2) {
-          or.map(p => s"($p)").mkString(" OR ")
+          s"(${or.map(p => s"($p)").mkString(" OR ")})"
         } else null
       case StringContains(attribute, value) => s"${quote(attribute)} LIKE '%$value%'"
       case Not(StringContains(attribute, value)) => s"${quote(attribute)} NOT LIKE '%$value%'"

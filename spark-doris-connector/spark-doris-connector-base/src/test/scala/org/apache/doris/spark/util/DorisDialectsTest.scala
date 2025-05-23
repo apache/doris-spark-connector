@@ -38,8 +38,10 @@ class DorisDialectsTest {
     Assert.assertEquals(DorisDialects.compileFilter(Not(In("c7", Array(10,11,12))), 10).get, "`c7` NOT IN (10,11,12)")
     Assert.assertEquals(DorisDialects.compileFilter(IsNull("c8"), 10).get, "`c8` IS NULL")
     Assert.assertEquals(DorisDialects.compileFilter(IsNotNull("c9"), 10).get, "`c9` IS NOT NULL")
-    Assert.assertEquals(DorisDialects.compileFilter(And(EqualTo("c10", 13), EqualTo("c11", 14)), 10).get, "(`c10` = 13) AND (`c11` = 14)")
-    Assert.assertEquals(DorisDialects.compileFilter(Or(EqualTo("c12", 15), EqualTo("c13", 16)), 10).get, "(`c12` = 15) OR (`c13` = 16)")
+    Assert.assertEquals(DorisDialects.compileFilter(And(EqualTo("c10", 13), EqualTo("c11", 14)), 10).get, "((`c10` = 13) AND (`c11` = 14))")
+    Assert.assertEquals(DorisDialects.compileFilter(Or(EqualTo("c12", 15), EqualTo("c13", 16)), 10).get, "((`c12` = 15) OR (`c13` = 16))")
+    Assert.assertEquals(DorisDialects.compileFilter(Or(Or(EqualTo("c12", 15), EqualTo("c13", 16)), GreaterThan("c14", 17)), 10).get,
+      "((((`c12` = 15) OR (`c13` = 16))) OR (`c14` > 17))")
     Assert.assertEquals(DorisDialects.compileFilter(StringContains("c14", "a"), 10).get, "`c14` LIKE '%a%'")
     Assert.assertEquals(DorisDialects.compileFilter(Not(StringContains("c15", "a")), 10).get, "`c15` NOT LIKE '%a%'")
     Assert.assertEquals(DorisDialects.compileFilter(StringEndsWith("c16", "a"), 10).get, "`c16` LIKE '%a'")
