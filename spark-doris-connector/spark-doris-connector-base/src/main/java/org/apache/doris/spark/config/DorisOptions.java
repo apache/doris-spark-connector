@@ -118,6 +118,8 @@ public class DorisOptions {
 
     public static final ConfigOption<String> READ_MODE = ConfigOptions.name("doris.read.mode").stringType().defaultValue("thrift").withDescription("");
 
+    public static final ConfigOption<String> DORIS_READ_FLIGHT_SQL_PREFIX = ConfigOptions.name("doris.read.arrow-flight-sql.prefix").stringType().defaultValue("ApplicationName=Spark ArrowFlightSQL Query").withDescription("");
+
     public static final ConfigOption<Integer> DORIS_READ_FLIGHT_SQL_PORT = ConfigOptions.name("doris.read.arrow-flight-sql.port").intType().withoutDefaultValue().withDescription("");
 
     public static final ConfigOption<String> DORIS_SINK_LABEL_PREFIX = ConfigOptions.name("doris.sink.label.prefix").stringType().defaultValue("spark-doris").withDescription("");
