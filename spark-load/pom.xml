@@ -24,7 +24,7 @@
 
     <groupId>org.apache.doris</groupId>
     <artifactId>spark-load</artifactId>
-    <version>${revision}</version>
+    <version>25.1.0</version>
     <packaging>pom</packaging>
     <modules>
         <module>spark-load-common</module>
@@ -37,7 +37,7 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <revision>25.0.0-SNAPSHOT</revision>
+        <revision>25.1.0</revision>
         <commons-codec.version>1.13</commons-codec.version>
         <commons-lang3.version>3.9</commons-lang3.version>
         <hadoop.version>3.3.4</hadoop.version>
