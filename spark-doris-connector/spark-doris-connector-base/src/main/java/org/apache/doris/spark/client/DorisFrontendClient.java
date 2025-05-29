@@ -96,9 +96,9 @@ public class DorisFrontendClient implements Serializable {
     private List<Frontend> initFrontends(DorisConfig config) throws Exception {
         String frontendNodes = config.getValue(DorisOptions.DORIS_FENODES);
         String[] frontendNodeArray = frontendNodes.split(",");
+        List<Frontend> frontendList = null;
         if (config.getValue(DorisOptions.DORIS_FE_AUTO_FETCH)) {
             Exception ex = null;
-            List<Frontend> frontendList = null;
             for (String frontendNode : frontendNodeArray) {
                 String[] nodeDetails = frontendNode.split(":");
                 try {
@@ -131,19 +131,20 @@ public class DorisFrontendClient implements Serializable {
                 }
                 throw new DorisException("frontend init fetch failed", ex);
             }
-            return frontendList;
         } else {
             int queryPort = config.contains(DorisOptions.DORIS_QUERY_PORT) ?
                     config.getValue(DorisOptions.DORIS_QUERY_PORT) : -1;
             int flightSqlPort = config.contains(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) ?
                     config.getValue(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) : -1;
-            return Arrays.stream(frontendNodeArray)
+            frontendList = Arrays.stream(frontendNodeArray)
                     .map(node -> {
                         String[] nodeParts = node.split(":");
                         return new Frontend(nodeParts[0], nodeParts.length > 1 ? Integer.parseInt(nodeParts[1]) : -1, queryPort, flightSqlPort);
                     })
                     .collect(Collectors.toList());
         }
+        Collections.shuffle(frontendList);
+        return frontendList;
     }
 
     public <T> T requestFrontends(BiFunction<Frontend, CloseableHttpClient, T> reqFunc) throws Exception {
@@ -345,7 +346,7 @@ public class DorisFrontendClient implements Serializable {
         return tableSchema.getProperties().stream().map(Field::getName).toArray(String[]::new);
     }
 
-    public List<Backend> getAliveBackends() throws Exception {
+    public List<Backend>getAliveBackends() throws Exception {
         return requestFrontends((frontend, client) -> {
             String url = URLs.aliveBackend(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
             HttpGet httpGet = new HttpGet(url);
@@ -364,6 +365,7 @@ public class DorisFrontendClient implements Serializable {
                     backends.add(new Backend(backendNode.get("ip").asText(), backendNode.get("http_port").asInt(), -1));
                 }
             }
+            Collections.shuffle(backends);
             return backends;
         });
     }
