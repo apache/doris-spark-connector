@@ -531,4 +531,33 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
       session.stop()
     }
   }
+
+  def testReadWithPrefix(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "doris.read.arrow-flight-sql.prefix" = "test-read-prefix-${session.sparkContext.applicationId}",
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
+
+      val prefixTest = session.sql(
+        """
+          |select id from test_source where id <= 2
+          |""".stripMargin).collect()
+
+      assert("List([1], [2])".equals(prefixTest.toList.toString()))
+    }
+  }
 }
