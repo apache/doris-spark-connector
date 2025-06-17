@@ -59,7 +59,7 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
 
   override def newWriteBuilder(logicalWriteInfo: LogicalWriteInfo): WriteBuilder = {
     config.setProperty(DorisOptions.DORIS_TABLE_IDENTIFIER, name())
-    createWriteBuilder(config, logicalWriteInfo.schema())
+    createWriteBuilder(config, schema())
   }
 
   private implicit def dorisSchemaToStructType(dorisSchema: Schema): StructType = {
