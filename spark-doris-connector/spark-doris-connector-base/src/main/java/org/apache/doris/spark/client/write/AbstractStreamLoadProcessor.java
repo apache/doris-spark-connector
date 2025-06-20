@@ -53,25 +53,23 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static org.apache.doris.spark.config.DorisOptions.GROUP_COMMIT;
+import static org.apache.doris.spark.config.DorisOptions.PARTIAL_COLUMNS;
+import static org.apache.doris.spark.config.DorisOptions.VALID_GROUP_MODE;
+
 public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> implements DorisCommitter {
 
     protected static final JsonMapper MAPPER =
             JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).build();
-    private static final String PARTIAL_COLUMNS = "partial_columns";
-    private static final String GROUP_COMMIT = "group_commit";
-    private static final Set<String> VALID_GROUP_MODE =
-            new HashSet<>(Arrays.asList("sync_mode", "async_mode", "off_mode"));
     private static final int arrowBufferSize = 1000;
     protected final Logger logger = LoggerFactory.getLogger(this.getClass().getName().replaceAll("\\$", ""));
     protected final DorisConfig config;

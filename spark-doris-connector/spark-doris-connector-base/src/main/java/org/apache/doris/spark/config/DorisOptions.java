@@ -17,6 +17,10 @@
 
 package org.apache.doris.spark.config;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
 public class DorisOptions {
 
     public static final ConfigOption<String> DORIS_FENODES = ConfigOptions.name("doris.fenodes").stringType().withoutDefaultValue().withDescription("");
@@ -73,6 +77,10 @@ public class DorisOptions {
     public static final ConfigOption<String> DORIS_MAX_FILTER_RATIO = ConfigOptions.name("doris.max.filter.ratio").stringType().withoutDefaultValue().withDescription("");
 
     public static final String STREAM_LOAD_PROP_PREFIX = "doris.sink.properties.";
+    public static final String PARTIAL_COLUMNS = "partial_columns";
+    public static final String GROUP_COMMIT = "group_commit";
+    public static final Set<String> VALID_GROUP_MODE =
+            new HashSet<>(Arrays.asList("sync_mode", "async_mode", "off_mode"));
 
     public static final ConfigOption<Integer> DORIS_SINK_TASK_PARTITION_SIZE = ConfigOptions.name("doris.sink.task.partition.size").intType().withoutDefaultValue().withDescription("");
 
