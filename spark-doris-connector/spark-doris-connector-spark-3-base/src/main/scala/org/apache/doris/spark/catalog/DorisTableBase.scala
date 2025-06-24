@@ -50,13 +50,11 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
       BATCH_WRITE,
       STREAMING_WRITE,
       TRUNCATE)
-
     val properties = config.getSinkProperties
     if (properties.containsKey(DorisOptions.PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(DorisOptions.PARTIAL_COLUMNS))) {
       capabilities += ACCEPT_ANY_SCHEMA
     }
-
-    capabilities.asScala
+    capabilities.asJava
   }
 
   override def newScanBuilder(caseInsensitiveStringMap: CaseInsensitiveStringMap): ScanBuilder = {
