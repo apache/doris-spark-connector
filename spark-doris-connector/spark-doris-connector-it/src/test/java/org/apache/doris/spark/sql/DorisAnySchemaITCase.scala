@@ -106,6 +106,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
   @Test
   def jsonDataWriteSqlTest(): Unit = {
     initializeTable(dorisTable, DataModel.UNIQUE)
+    initializeTable(dorisSourceTable, DataModel.UNIQUE)
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val doris = spark.sql(
       s"""
@@ -122,6 +123,29 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
       """
         |insert into test_lh values (0, 0, "user1", 100), (1, 0, "user2", 100),(2, 1, "user3", 100),(3, 0, "user2", 200)
         |""".stripMargin)
+
+    spark.sql(
+      s"""
+         |CREATE TEMPORARY VIEW table2
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${DATABASE + "." + dorisSourceTable}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}"
+         |)
+         |""".stripMargin)
+
+    spark.sql(
+      """
+        |insert into table2 values (0, 0, "user1", 100), (1, 0, "user2", 100),(2, 1, "user3", 100),(3, 0, "user2", 200)
+        |""".stripMargin)
+
+    spark.sql(
+      """
+        |insert into test_lh select siteid, citycode + 1, username, pv + 1 from table2
+        |""".stripMargin)
+
     spark.stop()
   }
 
