@@ -17,18 +17,49 @@
 
 package org.apache.doris.spark.sql
 
+import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
+import org.apache.doris.spark.container.AbstractContainerTestBase.getDorisQueryConnection
+import org.apache.doris.spark.rest.models.DataModel
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
+import org.slf4j.LoggerFactory
 
-class DorisAnySchemaITCase {
+class DorisAnySchemaITCase extends AbstractContainerTestBase {
 
-  val dorisFeNodes = "10.148.39.2:8030"
-  val dorisUser = "root"
-  val dorisPwd = "admin"
-  val dorisTable = "example_db.table4"
+  private val LOG = LoggerFactory.getLogger(classOf[DorisAnySchemaITCase])
+
+  val DATABASE: String = "example_db"
+  /*
+   *   CREATE TABLE table4
+   *   (
+   *       siteid INT DEFAULT '10',
+   *       citycode SMALLINT,
+   *       username VARCHAR(32) DEFAULT '',
+   *       pv BIGINT DEFAULT '0'
+   *   )
+   *   UNIQUE KEY(siteid, citycode, username)
+   *   DISTRIBUTED BY HASH(siteid) BUCKETS 10
+   *   PROPERTIES("replication_num" = "1");
+   */
+  val dorisTable = "table4"
+
+  /*
+   *   CREATE TABLE table2
+   *   (
+   *       siteid INT DEFAULT '10',
+   *       citycode SMALLINT,
+   *       username VARCHAR(32) DEFAULT '',
+   *       pv BIGINT DEFAULT '0'
+   *   )
+   *   UNIQUE KEY(siteid, citycode, username)
+   *   DISTRIBUTED BY HASH(siteid) BUCKETS 10
+   *   PROPERTIES("replication_num" = "1");
+   */
+  val dorisSourceTable = "table2"
 
   @Test
   def jsonDataWriteTest(): Unit = {
+    initializeTable(dorisTable, DataModel.UNIQUE)
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val df = spark.createDataFrame(Seq(
       (0, 0, "user1", 100),
@@ -37,10 +68,10 @@ class DorisAnySchemaITCase {
     )).toDF("siteid", "citycode", "username", "pv")
     df.write
       .format("doris")
-      .option("doris.fenodes", dorisFeNodes)
-      .option("doris.table.identifier", dorisTable)
-      .option("user", dorisUser)
-      .option("password", dorisPwd)
+      .option("doris.fenodes", getFenodes)
+      .option("doris.table.identifier", DATABASE + "." + dorisTable)
+      .option("user", getDorisUsername)
+      .option("password", getDorisPassword)
       .option("doris.sink.properties.format", "json")
       .option("sink.batch.size", 2)
       .option("sink.max-retries", 2)
@@ -50,6 +81,7 @@ class DorisAnySchemaITCase {
 
   @Test
   def jsonDataWriteWithPartialUpdateTest(): Unit = {
+    initializeTable(dorisTable, DataModel.UNIQUE)
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val df = spark.createDataFrame(Seq(
       (0, 0, "user4", 100),
@@ -58,10 +90,10 @@ class DorisAnySchemaITCase {
     )).toDF("siteid", "citycode", "username", "pv")
     df.write
       .format("doris")
-      .option("doris.fenodes", dorisFeNodes)
-      .option("doris.table.identifier", dorisTable)
-      .option("user", dorisUser)
-      .option("password", dorisPwd)
+      .option("doris.fenodes", getFenodes)
+      .option("doris.table.identifier", DATABASE + "." + dorisTable)
+      .option("user", getDorisUsername)
+      .option("password", getDorisPassword)
       .option("doris.sink.properties.format", "json")
       .option("doris.sink.properties.partial_columns", "true")
       .option("doris.write.fields", "siteid,citycode,username")
@@ -73,16 +105,17 @@ class DorisAnySchemaITCase {
 
   @Test
   def jsonDataWriteSqlTest(): Unit = {
+    initializeTable(dorisTable, DataModel.UNIQUE)
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val doris = spark.sql(
       s"""
          |CREATE TEMPORARY VIEW test_lh
          |USING doris
          |OPTIONS(
-         | "table.identifier"="${dorisTable}",
-         | "fenodes"="${dorisFeNodes}",
-         | "user"="${dorisUser}",
-         | "password"="${dorisPwd}"
+         | "table.identifier"="${DATABASE + "." + dorisTable}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}"
          |)
          |""".stripMargin)
     spark.sql(
@@ -94,30 +127,85 @@ class DorisAnySchemaITCase {
 
   @Test
   def jsonDataWriteWithPartialUpdateSqlTest(): Unit = {
+    initializeTable(dorisTable, DataModel.UNIQUE)
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     val doris = spark.sql(
       s"""
          |CREATE TEMPORARY VIEW test_lh
          |USING doris
          |OPTIONS(
-         | "table.identifier"="${dorisTable}",
-         | "fenodes"="${dorisFeNodes}",
-         | "user"="${dorisUser}",
-         | "password"="${dorisPwd}",
-         | "doris.sink.properties.format" = "json",
+         | "table.identifier"="${DATABASE + "." + dorisTable}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}",
+         | "doris.sink.properties.format" = "csv",
          | "doris.sink.properties.partial_columns" = "true",
          | "doris.write.fields" = "siteid,citycode,username"
          |)
          |""".stripMargin)
-    spark.sql(
-      """
-        | desc test_lh
-        |""".stripMargin).show
 
     spark.sql(
       """
         |insert into test_lh(siteid,citycode,username) values (0, 0, "user1"), (1, 0, "user2")
         |""".stripMargin)
     spark.stop()
+  }
+
+  @Test
+  def jsonDataWriteWithPartialUpdateSqlTest1(): Unit = {
+    initializeTable(dorisTable, DataModel.UNIQUE)
+    initializeTable(dorisSourceTable, DataModel.UNIQUE)
+    val spark = SparkSession.builder().master("local[*]").getOrCreate()
+    val doris = spark.sql(
+      s"""
+         |CREATE TEMPORARY VIEW test_lh
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${DATABASE + "." + dorisTable}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}",
+         | "doris.sink.properties.format" = "json",
+         | "doris.sink.properties.partial_columns" = "true"
+         |)
+         |""".stripMargin)
+
+    spark.sql(
+      s"""
+         |CREATE TEMPORARY VIEW table2
+         |USING doris
+         |OPTIONS(
+         | "table.identifier"="${DATABASE + "." + dorisSourceTable}",
+         | "fenodes"="${getFenodes}",
+         | "user"="${getDorisUsername}",
+         | "password"="${getDorisPassword}"
+         |)
+         |""".stripMargin)
+
+    spark.sql(
+      """
+        |insert into test_lh(siteid,citycode,username) select siteid,citycode,username from table2
+        |""".stripMargin)
+    spark.stop()
+  }
+
+  private def initializeTable(table: String, dataModel: DataModel): Unit = {
+    val morProps = if (!(DataModel.UNIQUE_MOR == dataModel)) "" else ",\"enable_unique_key_merge_on_write\" = \"false\""
+    val model = if (dataModel == DataModel.UNIQUE_MOR) DataModel.UNIQUE.toString else dataModel.toString
+    ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE),
+      String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table),
+      String.format("CREATE TABLE %s.%s ( \n"
+        + " siteid INT DEFAULT '10',"
+        + " citycode SMALLINT, "
+        + " username VARCHAR(32) DEFAULT '',"
+        + " pv BIGINT DEFAULT '0' "
+        + " )"
+        + " %s KEY(siteid, citycode, username) "
+        + " DISTRIBUTED BY HASH(`siteid`) BUCKETS 1\n"
+        + "PROPERTIES ("
+        + "\"replication_num\" = \"1\"\n" + morProps + ")", DATABASE, table, model))
   }
 }
