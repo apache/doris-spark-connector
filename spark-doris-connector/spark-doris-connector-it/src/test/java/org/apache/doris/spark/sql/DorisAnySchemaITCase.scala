@@ -17,6 +17,7 @@
 
 package org.apache.doris.spark.sql
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
 import org.apache.doris.spark.container.AbstractContainerTestBase.{assertEqualsInAnyOrder, getDorisQueryConnection}
 import org.apache.doris.spark.rest.models.DataModel
@@ -105,7 +106,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         String.format("select * from %s.%s", DATABASE, dorisTable),
         4)
       val expected = util.Arrays.asList("0,0,user1,100", "1,0,user2,100", "3,0,user2,200");
-      checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+      checkResultInAnyOrder("jsonDataWriteTest", expected.toArray, actual.toArray)
     } finally {
       spark.stop()
     }
@@ -142,7 +143,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         String.format("select * from %s.%s", DATABASE, dorisPartialTable),
         5)
       val expected = util.Arrays.asList("0,0,user4,100,0", "1,0,user5,100,0", "3,0,user6,200,0");
-      checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+      checkResultInAnyOrder("jsonDataWriteWithPartialUpdateTest", expected.toArray, actual.toArray)
     } finally {
       spark.stop()
     }
@@ -200,7 +201,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         4)
       val expected = util.Arrays.asList("0,0,user1,100", "1,0,user2,100", "2,1,user3,100", "3,0,user2,200",
         "0,1,user1,101", "1,1,user2,101", "2,2,user3,101", "3,1,user2,201");
-      checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+      checkResultInAnyOrder("jsonDataWriteSqlTest", expected.toArray, actual.toArray)
     } finally {
       spark.stop()
     }
@@ -211,6 +212,11 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
     initializePartialTable(dorisPartialTable, DataModel.UNIQUE)
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     try {
+      val version = spark.version
+      if (StringUtils.startsWith(version, "2")) {
+        LOG.warn("sql partial_columns is only support in spark3+")
+        return
+      }
       val doris = spark.sql(
         s"""
            |CREATE TEMPORARY VIEW test_lh
@@ -237,7 +243,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         String.format("select * from %s.%s", DATABASE, dorisPartialTable),
         5)
       val expected = util.Arrays.asList("0,0,user1,3,0");
-      checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+      checkResultInAnyOrder("jsonDataWriteWithPartialUpdateSqlTest", expected.toArray, actual.toArray)
     } finally {
       spark.stop()
     }
@@ -249,6 +255,11 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
     initializeTable(dorisSourceTable, DataModel.UNIQUE)
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     try {
+      val version = spark.version
+      if (StringUtils.startsWith(version, "2")) {
+        LOG.warn("sql partial_columns is only support in spark3+")
+        return
+      }
       val doris = spark.sql(
         s"""
            |CREATE TEMPORARY VIEW test_lh
@@ -291,7 +302,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         String.format("select * from %s.%s", DATABASE, dorisPartialTable),
         5)
       val expected = util.Arrays.asList("0,1,user1,4,0");
-      checkResultInAnyOrder("testSinkJsonFormat", expected.toArray, actual.toArray)
+      checkResultInAnyOrder("jsonDataWriteWithPartialUpdateSqlTest1", expected.toArray, actual.toArray)
     } finally {
       spark.stop()
     }
