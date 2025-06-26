@@ -213,8 +213,12 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     try {
       val version = spark.version
-      if (StringUtils.startsWith(version, "2")) {
-        LOG.warn("sql partial_columns is only support in spark3+")
+      LOG.info("spark version: " + version)
+      if (StringUtils.startsWith(version, "2")
+        || StringUtils.startsWith(version, "3.1")
+        || StringUtils.startsWith(version, "3.2")
+        || StringUtils.startsWith(version, "3.4")) {
+        LOG.warn("sql partial_columns is only support in spark3.3/3.5+")
         return
       }
       val doris = spark.sql(
@@ -256,8 +260,12 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
     val spark = SparkSession.builder().master("local[*]").getOrCreate()
     try {
       val version = spark.version
-      if (StringUtils.startsWith(version, "2")) {
-        LOG.warn("sql partial_columns is only support in spark3+")
+      LOG.info("spark version: " + version)
+      if (StringUtils.startsWith(version, "2")
+        || StringUtils.startsWith(version, "3.1")
+        || StringUtils.startsWith(version, "3.2")
+        || StringUtils.startsWith(version, "3.4")) {
+        LOG.warn("sql partial_columns is only support in spark3.3/3.5+")
         return
       }
       val doris = spark.sql(
