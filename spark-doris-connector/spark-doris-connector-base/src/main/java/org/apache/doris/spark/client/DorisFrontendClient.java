@@ -346,7 +346,7 @@ public class DorisFrontendClient implements Serializable {
         return tableSchema.getProperties().stream().map(Field::getName).toArray(String[]::new);
     }
 
-    public List<Backend>getAliveBackends() throws Exception {
+    public List<Backend> getAliveBackends() throws Exception {
         return requestFrontends((frontend, client) -> {
             String url = URLs.aliveBackend(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
             HttpGet httpGet = new HttpGet(url);
