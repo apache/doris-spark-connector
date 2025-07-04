@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -66,10 +65,8 @@ public class DorisFlightSqlReader extends DorisReader {
     public DorisFlightSqlReader(DorisReaderPartition partition) throws Exception {
         super(partition);
         this.frontendClient = new DorisFrontendClient(partition.getConfig());
-        List<Frontend> frontends = new ArrayList<>(frontendClient.getFrontends());
-        Collections.shuffle(frontends);
         Exception tx = null;
-        for (Frontend frontend : frontends) {
+        for (Frontend frontend : frontendClient.getFrontends()) {
             try {
                 this.connection = initializeConnection(frontend, partition.getConfig());
                 tx = null;
