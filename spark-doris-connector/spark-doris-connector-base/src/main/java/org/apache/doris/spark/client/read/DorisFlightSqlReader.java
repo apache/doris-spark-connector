@@ -74,9 +74,9 @@ public class DorisFlightSqlReader extends DorisReader {
             } catch (OptionRequiredException e) {
                 throw new DorisException("init adbc connection failed", e);
             } catch (AdbcException e) {
-				frontendClient.getFrontends().reportFailed(frontend);
-				log.warn("init adbc connection failed with fe: " + frontend.getHost(), e);
-				tx = new DorisException("init adbc connection failed", e);
+                frontendClient.getFrontends().reportFailed(frontend);
+                log.warn("init adbc connection failed with fe: " + frontend.getHost(), e);
+                tx = new DorisException("init adbc connection failed", e);
             }
         }
         if (tx != null) {
