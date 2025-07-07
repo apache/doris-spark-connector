@@ -51,7 +51,7 @@ public class DorisBackendHttpClient implements Serializable {
                 return reqFunc.apply(backend, httpClient);
             } catch (Exception e) {
                 log.warn("Failed to execute request on backend: {}:{}", backend.getHost(), backend.getHttpPort(), e);
-				backends.reportFailed(backend);
+                backends.reportFailed(backend);
                 ex = e;
             }
         }
