@@ -162,6 +162,7 @@ public class DorisFrontendClient implements Serializable {
                 return reqFunc.apply(frontEnd, httpClient);
             } catch (Exception e) {
                 LOG.warn("fe http request on {} failed, err: {}", frontEnd.hostHttpPortString(), e.getMessage());
+				frontEnds.reportFailed(frontEnd);
                 ex = e;
             }
         }
