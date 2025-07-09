@@ -27,6 +27,7 @@ import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
 import org.apache.doris.spark.util.HttpUtils;
+import org.apache.doris.spark.util.LoadBalanceList;
 import org.apache.doris.spark.util.URLs;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -72,7 +73,7 @@ public class DorisFrontendClient implements Serializable {
     private final DorisConfig config;
     private final String username;
     private final String password;
-    private final List<Frontend> frontends;
+    private final LoadBalanceList<Frontend> frontends;
     private final boolean isHttpsEnabled;
     private transient CloseableHttpClient httpClient;
 
@@ -82,7 +83,7 @@ public class DorisFrontendClient implements Serializable {
         this.password = null;
         this.httpClient = null;
         this.isHttpsEnabled = false;
-        this.frontends = Collections.emptyList();
+        this.frontends = new LoadBalanceList<>(Collections.emptyList());
     }
 
     public DorisFrontendClient(DorisConfig config) throws Exception {
@@ -93,17 +94,18 @@ public class DorisFrontendClient implements Serializable {
         this.frontends = initFrontends(config);
     }
 
-    private List<Frontend> initFrontends(DorisConfig config) throws Exception {
+    private LoadBalanceList<Frontend> initFrontends(DorisConfig config) throws Exception {
         String frontendNodes = config.getValue(DorisOptions.DORIS_FENODES);
         String[] frontendNodeArray = frontendNodes.split(",");
+        List<Frontend> frontendList = null;
         if (config.getValue(DorisOptions.DORIS_FE_AUTO_FETCH)) {
             Exception ex = null;
-            List<Frontend> frontendList = null;
             for (String frontendNode : frontendNodeArray) {
                 String[] nodeDetails = frontendNode.split(":");
                 try {
-                    List<Frontend> list = Collections.singletonList(new Frontend(nodeDetails[0],
-                            nodeDetails.length > 1 ? Integer.parseInt(nodeDetails[1]) : -1));
+                    LoadBalanceList<Frontend> list = new LoadBalanceList<>(
+                        Collections.singletonList(new Frontend(nodeDetails[0],
+                            nodeDetails.length > 1 ? Integer.parseInt(nodeDetails[1]) : -1)));
                     frontendList = requestFrontends(list, (frontend, client) -> {
                         String url = URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(),
                                 isHttpsEnabled);
@@ -131,18 +133,18 @@ public class DorisFrontendClient implements Serializable {
                 }
                 throw new DorisException("frontend init fetch failed", ex);
             }
-            return frontendList;
+            return new LoadBalanceList<>(frontendList);
         } else {
             int queryPort = config.contains(DorisOptions.DORIS_QUERY_PORT) ?
                     config.getValue(DorisOptions.DORIS_QUERY_PORT) : -1;
             int flightSqlPort = config.contains(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) ?
                     config.getValue(DorisOptions.DORIS_READ_FLIGHT_SQL_PORT) : -1;
-            return Arrays.stream(frontendNodeArray)
+            return new LoadBalanceList<>(Arrays.stream(frontendNodeArray)
                     .map(node -> {
                         String[] nodeParts = node.split(":");
                         return new Frontend(nodeParts[0], nodeParts.length > 1 ? Integer.parseInt(nodeParts[1]) : -1, queryPort, flightSqlPort);
                     })
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList()));
         }
     }
 
@@ -150,7 +152,7 @@ public class DorisFrontendClient implements Serializable {
         return requestFrontends(frontends, reqFunc);
     }
 
-    private <T> T requestFrontends(List<Frontend> frontEnds, BiFunction<Frontend, CloseableHttpClient, T> reqFunc) throws Exception {
+    private <T> T requestFrontends(LoadBalanceList<Frontend> frontEnds, BiFunction<Frontend, CloseableHttpClient, T> reqFunc) throws Exception {
         if (httpClient == null) {
             httpClient = HttpUtils.getHttpClient(config);
         }
@@ -160,6 +162,7 @@ public class DorisFrontendClient implements Serializable {
                 return reqFunc.apply(frontEnd, httpClient);
             } catch (Exception e) {
                 LOG.warn("fe http request on {} failed, err: {}", frontEnd.hostHttpPortString(), e.getMessage());
+                frontEnds.reportFailed(frontEnd);
                 ex = e;
             }
         }
@@ -364,6 +367,7 @@ public class DorisFrontendClient implements Serializable {
                     backends.add(new Backend(backendNode.get("ip").asText(), backendNode.get("http_port").asInt(), -1));
                 }
             }
+            Collections.shuffle(backends);
             return backends;
         });
     }
@@ -380,7 +384,7 @@ public class DorisFrontendClient implements Serializable {
         });
     }
 
-    public List<Frontend> getFrontends() {
+    public LoadBalanceList<Frontend> getFrontends() {
         return frontends;
     }
 

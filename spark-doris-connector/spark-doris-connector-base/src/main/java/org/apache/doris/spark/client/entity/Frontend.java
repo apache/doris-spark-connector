@@ -18,6 +18,7 @@
 package org.apache.doris.spark.client.entity;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class Frontend implements Serializable {
 
@@ -66,4 +67,19 @@ public class Frontend implements Serializable {
         return host + ":" + queryPort;
     }
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (!(o instanceof Frontend)) return false;
+		Frontend frontend = (Frontend) o;
+		return httpPort == frontend.httpPort
+				&& queryPort == frontend.queryPort
+				&& flightSqlPort == frontend.flightSqlPort
+				&& Objects.equals(host, frontend.host);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(host, httpPort, queryPort, flightSqlPort);
+	}
 }
