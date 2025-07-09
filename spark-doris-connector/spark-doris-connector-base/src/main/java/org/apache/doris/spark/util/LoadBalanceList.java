@@ -19,7 +19,13 @@
 package org.apache.doris.spark.util;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.Map;
+import java.util.List;
+import java.util.Iterator;
+import java.util.Queue;
+import java.util.PriorityQueue;
+import java.util.Collections;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
