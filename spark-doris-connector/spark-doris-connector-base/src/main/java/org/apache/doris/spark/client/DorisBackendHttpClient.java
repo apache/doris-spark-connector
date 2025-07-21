@@ -18,6 +18,7 @@
 package org.apache.doris.spark.client;
 
 import org.apache.doris.spark.client.entity.Backend;
+import org.apache.doris.spark.util.HttpUtil;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
@@ -46,14 +47,21 @@ public class DorisBackendHttpClient implements Serializable {
         Exception ex = null;
         for (Backend backend : backends) {
             try {
-                return reqFunc.apply(backend, httpClient);
+                if(HttpUtil.tryHttpConnection(backend.hostHttpPortString())){
+                    return reqFunc.apply(backend, httpClient);
+                }
             } catch (Exception e) {
                 log.warn("Failed to execute request on backend: {}:{}", backend.getHost(), backend.getHttpPort(), e);
                 ex = e;
             }
         }
+
+        if (ex == null) {
+            ex = new Exception("All backends failed to execute request.");
+        }
         throw ex;
     }
+
 
     public void close() {
         if (httpClient != null) {

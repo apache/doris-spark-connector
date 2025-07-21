@@ -25,8 +25,9 @@ import java.io.Serializable;
 public abstract class DorisWriter<R> implements Serializable {
 
     protected int batchSize;
-
     protected int currentBatchCount = 0;
+    protected boolean createNewBatch = true;
+    protected boolean isFirstRecordOfBatch = true;
 
     public DorisWriter(int batchSize) {
         if (batchSize <= 0) {
@@ -50,7 +51,9 @@ public abstract class DorisWriter<R> implements Serializable {
     }
 
     public void resetBatchCount() {
-        currentBatchCount = 0;
+        this.currentBatchCount = 0;
+        this.createNewBatch = true;
+        this.isFirstRecordOfBatch = true;
     }
 
 }

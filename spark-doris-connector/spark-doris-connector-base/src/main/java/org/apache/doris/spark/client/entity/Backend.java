@@ -77,4 +77,8 @@ public class Backend implements Serializable {
         return String.format("%s:%d", host, rpcPort);
     }
 
+    public String hostHttpPortString() {
+        return host + ":" + httpPort;
+    }
+
 }

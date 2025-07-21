@@ -26,6 +26,7 @@ import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
+import org.apache.doris.spark.util.HttpUtil;
 import org.apache.doris.spark.util.HttpUtils;
 import org.apache.doris.spark.util.URLs;
 
@@ -157,13 +158,18 @@ public class DorisFrontendClient implements Serializable {
         Exception ex = null;
         for (Frontend frontEnd : frontEnds) {
             try {
-                return reqFunc.apply(frontEnd, httpClient);
+                if(HttpUtil.tryHttpConnection(frontEnd.hostHttpPortString())){
+                    return reqFunc.apply(frontEnd, httpClient);
+                }
             } catch (Exception e) {
                 LOG.warn("fe http request on {} failed, err: {}", frontEnd.hostHttpPortString(), e.getMessage());
                 ex = e;
             }
         }
-        throw ex;
+        if (ex == null) {
+            ex = new Exception("All frontends failed to execute request.");
+        }
+        throw new DorisException(ex);
     }
 
     public <T> T queryFrontends(Function<Connection, T> function) throws Exception {

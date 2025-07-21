@@ -90,8 +90,6 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     private byte[] lineDelimiter;
     private String groupCommit;
     private PipedOutputStream output;
-    private boolean createNewBatch = true;
-    private boolean isFirstRecordOfBatch = true;
     private transient ExecutorService executor;
 
     private Future<StreamLoadResponse> requestFuture = null;
@@ -426,6 +424,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                 logger.error("stream load exception", e);
                 unexpectedException = e;
                 currentThread.interrupt();
+                throw e;
             }
             return streamLoadResponse;
         });
