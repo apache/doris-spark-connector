@@ -169,7 +169,7 @@ public class DorisFrontendClient implements Serializable {
         if (ex == null) {
             ex = new Exception("All frontends failed to execute request.");
         }
-        throw new DorisException(ex);
+        throw ex;
     }
 
     public <T> T queryFrontends(Function<Connection, T> function) throws Exception {
