@@ -84,10 +84,10 @@ class DorisDataWriter(config: DorisConfig, schema: StructType, partitionId: Int,
     Retry.exec[Unit, Exception](retries, Duration.ofMillis(retryIntervalMs.toLong), log) {
       if (isRetrying) {
         // retrying, reload data from buffer
-        do {
+        while (writer.getBatchCount < recordBuffer.size){
           val idx = writer.getBatchCount
           writer.load(recordBuffer(idx))
-        } while (writer.getBatchCount < recordBuffer.size)
+        }
         isRetrying = false
       }
       if (writer.endOfBatch()) {
