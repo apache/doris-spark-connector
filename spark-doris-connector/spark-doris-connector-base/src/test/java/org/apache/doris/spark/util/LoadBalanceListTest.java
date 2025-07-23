@@ -20,7 +20,11 @@ package org.apache.doris.spark.util;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.Set;
+import java.util.List;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.ArrayList;
 
 public class LoadBalanceListTest {
 
