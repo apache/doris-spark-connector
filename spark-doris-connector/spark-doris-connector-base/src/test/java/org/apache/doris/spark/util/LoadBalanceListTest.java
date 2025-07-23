@@ -20,10 +20,7 @@ package org.apache.doris.spark.util;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class LoadBalanceListTest {
 
@@ -33,17 +30,29 @@ public class LoadBalanceListTest {
 		LoadBalanceList<String> loadBalanceList = new LoadBalanceList<>(serverList);
 		Set<String> testHeadSet = new HashSet<>();
 		for (int i = 0; i < 1000; i++) {
-			Set<String> serverSet = new HashSet<>();
+			List<String> testList = new ArrayList<>();
 			int index = 0;
 			for (String server : loadBalanceList) {
-				serverSet.add(server);
+				testList.add(server);
 				if (index++ == 0) {
 					testHeadSet.add(server);
 				}
 				System.out.println(server);
 			}
+			if (i % serverList.size() == 0) {
+				Assert.assertTrue(testList.equals(Arrays.asList("server1", "server2", "server3")));
+			}
+
+			if (i % serverList.size() == 1) {
+				Assert.assertTrue(testList.equals(Arrays.asList("server2", "server3", "server1")));
+			}
+
+			if (i % serverList.size() == 2) {
+				Assert.assertTrue(testList.equals(Arrays.asList("server3", "server1", "server2")));
+			}
+
 			System.out.println("---------");
-			Assert.assertTrue(serverSet.size() == serverList.size());
+			Assert.assertTrue(testList.size() == serverList.size());
 		}
 		Assert.assertTrue(testHeadSet.size() == serverList.size());
 	}
