@@ -41,7 +41,7 @@ public class LoadBalanceListTest {
 				if (index++ == 0) {
 					testHeadSet.add(server);
 				}
-				System.out.println(server);
+				// System.out.println(server);
 			}
 			if (i % serverList.size() == 0) {
 				Assert.assertTrue(testList.equals(Arrays.asList("server1", "server2", "server3")));
@@ -55,7 +55,7 @@ public class LoadBalanceListTest {
 				Assert.assertTrue(testList.equals(Arrays.asList("server3", "server1", "server2")));
 			}
 
-			System.out.println("---------");
+			// System.out.println("---------");
 			Assert.assertTrue(testList.size() == serverList.size());
 		}
 		Assert.assertTrue(testHeadSet.size() == serverList.size());
@@ -80,9 +80,9 @@ public class LoadBalanceListTest {
 				if (++index > loadBalanceList.getList().size() - failedSet.size()) {
 					Assert.assertTrue(failedSet.contains(server));
 				}
-				System.out.println(server);
+				// System.out.println(server);
 			}
-			System.out.println("---------");
+			// System.out.println("---------");
 			Assert.assertTrue(serverSet.size() == serverList.size());
 		}
 	}
