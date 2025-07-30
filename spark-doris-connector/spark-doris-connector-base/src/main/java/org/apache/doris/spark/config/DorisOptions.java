@@ -69,6 +69,8 @@ public class DorisOptions {
 
     public static final ConfigOption<String> DORIS_WRITE_FIELDS = ConfigOptions.name("doris.write.fields").stringType().withoutDefaultValue().withDescription("");
 
+    public static final ConfigOption<Boolean> DORIS_WRITE_SCHEMA_LESS = ConfigOptions.name("doris.write.schemaless").booleanType().defaultValue(false).withDescription("");
+
     public static final ConfigOption<Integer> DORIS_SINK_BATCH_SIZE = ConfigOptions.name("doris.sink.batch.size").intType().defaultValue(500000).withDescription("");
 
     public static final ConfigOption<Integer> DORIS_SINK_MAX_RETRIES = ConfigOptions.name("doris.sink.max-retries").intType().defaultValue(0).withDescription("");

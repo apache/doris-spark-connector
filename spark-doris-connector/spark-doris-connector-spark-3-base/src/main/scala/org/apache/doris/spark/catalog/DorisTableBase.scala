@@ -51,7 +51,9 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
       STREAMING_WRITE,
       TRUNCATE)
     val properties = config.getSinkProperties
-    if (properties.containsKey(DorisOptions.PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(DorisOptions.PARTIAL_COLUMNS))) {
+    val partialColumnsEnabled = properties.containsKey(DorisOptions.PARTIAL_COLUMNS) && "true".equalsIgnoreCase(properties.get(DorisOptions.PARTIAL_COLUMNS))
+    val schemaLessEnabled = config.getValue(DorisOptions.DORIS_WRITE_SCHEMA_LESS)
+    if (partialColumnsEnabled || schemaLessEnabled) {
       capabilities += ACCEPT_ANY_SCHEMA
     }
     capabilities.asJava

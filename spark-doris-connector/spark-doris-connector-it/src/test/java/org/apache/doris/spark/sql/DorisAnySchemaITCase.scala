@@ -76,6 +76,8 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
    */
   val dorisPartialTable = "table5"
 
+  val dorisSchemaLessTable = "table_schema_less"
+
   @Test
   def jsonDataWriteTest(): Unit = {
     initializeTable(dorisTable, DataModel.UNIQUE)
@@ -311,6 +313,43 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         5)
       val expected = util.Arrays.asList("0,1,user1,4,0");
       checkResultInAnyOrder("jsonDataWriteWithPartialUpdateSqlTest1", expected.toArray, actual.toArray)
+    } finally {
+      spark.stop()
+    }
+  }
+
+
+  @Test
+  def jsonDataWriteWithSchemaLess(): Unit = {
+    initializeTable(dorisSchemaLessTable, DataModel.UNIQUE)
+    val spark = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      val df = spark.createDataFrame(Seq(
+        (0, 0, 100),
+        (1, 0, 100),
+        (3, 0, 200)
+      )).toDF("siteid", "citycode", "pv")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + dorisSchemaLessTable)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("doris.sink.properties.format", "json")
+        .option("doris.write.schemaless", "true")
+        .option("sink.batch.size", 2)
+        .option("sink.max-retries", 2)
+        .mode(SaveMode.Append)
+        .save()
+      spark.stop()
+      Thread.sleep(2000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, dorisSchemaLessTable),
+        4)
+      val expected = util.Arrays.asList("0,0,,100", "1,0,,100", "3,0,,200");
+      checkResultInAnyOrder("jsonDataWriteWithSchemaLess", expected.toArray, actual.toArray)
     } finally {
       spark.stop()
     }
