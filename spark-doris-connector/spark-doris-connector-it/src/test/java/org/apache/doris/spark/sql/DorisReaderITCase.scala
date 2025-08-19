@@ -56,7 +56,6 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   val TABLE_READ_UTF8_TBL = "tbl_read_utf8_tbl"
   val TABLE_READ_TBL_ALL_TYPES = "tbl_read_tbl_all_types"
   val TABLE_READ_TBL_BIT_MAP = "tbl_read_tbl_bitmap"
-  val TABLE_READ_FILTER_QUERY = "tbl_read_filter_query"
 
   @Before
   def setUp(): Unit = {
