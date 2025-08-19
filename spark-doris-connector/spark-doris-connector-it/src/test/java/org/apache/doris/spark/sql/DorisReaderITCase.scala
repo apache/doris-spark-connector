@@ -56,6 +56,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   val TABLE_READ_UTF8_TBL = "tbl_read_utf8_tbl"
   val TABLE_READ_TBL_ALL_TYPES = "tbl_read_tbl_all_types"
   val TABLE_READ_TBL_BIT_MAP = "tbl_read_tbl_bitmap"
+  val TABLE_READ_FILTER_QUERY = "tbl_read_filter_query"
 
   @Before
   def setUp(): Unit = {
@@ -558,6 +559,75 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |""".stripMargin).collect()
 
       assert("List([1], [2])".equals(prefixTest.toList.toString()))
+    }
+  }
+
+  @Test
+  def testReadWithFilterQuery(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+    
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      // Test with doris.filter.query configuration option - filter by id
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source_with_filter
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}",
+           | "doris.filter.query"="id <= 2"
+           |)
+           |""".stripMargin)
+
+      // Query without additional WHERE clause - should still apply the filter from configuration
+      val result = session.sql(
+        """
+          |select id,c1,c13 from test_source_with_filter order by id
+          |""".stripMargin).collect().toList.toString()
+
+      // Should only return rows with id <= 2
+      assert("List([1,true,Hello, Doris!], [2,false,Doris Test])".equals(result))
+
+      // Test with multiple conditions in filter query
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source_with_complex_filter
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}",
+           | "doris.filter.query"="id > 1 AND c1 = true"
+           |)
+           |""".stripMargin)
+
+      val complexResult = session.sql(
+        """
+          |select id,c1,c13 from test_source_with_complex_filter order by id
+          |""".stripMargin).collect().toList.toString()
+      
+      // Should only return rows matching both conditions (id=3)
+      assert("List([3,true,Test Doris])".equals(complexResult))
+
+      // Test combining configuration filter with SQL WHERE clause
+      val combinedResult = session.sql(
+        """
+          |select id,c1 from test_source_with_filter where c12 = 'A'
+          |""".stripMargin).collect().toList.toString()
+      
+      // Should apply both the configuration filter (id > 1 AND c1 = true) and Sql WHERE clause (c12 = 'A')
+      assert("List([1,true])".equals(combinedResult))
+    } finally {
+      session.stop()
     }
   }
 }

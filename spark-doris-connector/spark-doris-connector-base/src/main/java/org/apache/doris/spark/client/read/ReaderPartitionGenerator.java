@@ -77,9 +77,10 @@ public class ReaderPartitionGenerator {
         String[] finalReadColumns = getFinalReadColumns(config, frontend, db, table, originReadCols);
         String finalReadColumnString = String.join(",", finalReadColumns);
 
-        if (filters.length == 0 && config.contains(DorisOptions.DORIS_FILTER_QUERY)) {
+        if (config.contains(DorisOptions.DORIS_FILTER_QUERY)) {
             LOG.info("using config option DORIS_FILTER_QUERY: {}", config.getValue(DorisOptions.DORIS_FILTER_QUERY));
-            filters = new String[]{config.getValue(DorisOptions.DORIS_FILTER_QUERY)};
+            filters = Arrays.copyOf(filters, filters.length + 1);
+            filters[filters.length - 1] = config.getValue(DorisOptions.DORIS_FILTER_QUERY);
         }
 
         String finalWhereClauseString = filters.length == 0 ? "" : " WHERE " + String.join(" AND ", filters);
