@@ -25,8 +25,6 @@ import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionRead
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
 
-import java.util
-import java.util.Arrays
 import scala.language.implicitConversions
 
 abstract class AbstractDorisScan(config: DorisConfig, schema: StructType) extends Scan with Batch with Logging {
