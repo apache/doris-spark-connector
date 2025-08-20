@@ -54,16 +54,14 @@ public class ReaderPartitionGenerator {
         } else {
             originReadCols = new String[0];
         }
-        String[] filters = config.contains(DorisOptions.DORIS_FILTER_QUERY) ?
-                new String[]{config.getValue(DorisOptions.DORIS_FILTER_QUERY)} : new String[0];
-        return generatePartitions(config, originReadCols, filters, -1, datetimeJava8ApiEnabled);
+        return generatePartitions(config, originReadCols, -1, datetimeJava8ApiEnabled);
     }
 
     /*
      * for spark 3
      */
     public static DorisReaderPartition[] generatePartitions(DorisConfig config,
-                                                            String[] fields, String[] filters, Integer limit,
+                                                            String[] fields, Integer limit,
                                                             Boolean datetimeJava8ApiEnabled) throws Exception {
         DorisFrontendClient frontend = new DorisFrontendClient(config);
         String fullTableName = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
@@ -77,6 +75,7 @@ public class ReaderPartitionGenerator {
         String[] finalReadColumns = getFinalReadColumns(config, frontend, db, table, originReadCols);
         String finalReadColumnString = String.join(",", finalReadColumns);
 
+        String[] filters = new String[0];
         if (config.contains(DorisOptions.DORIS_FILTER_QUERY)) {
             LOG.info("using config option DORIS_FILTER_QUERY: {}", config.getValue(DorisOptions.DORIS_FILTER_QUERY));
             filters = Arrays.copyOf(filters, filters.length + 1);
