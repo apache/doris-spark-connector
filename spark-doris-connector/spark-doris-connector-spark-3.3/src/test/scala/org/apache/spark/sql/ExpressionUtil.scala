@@ -11,8 +11,8 @@ object ExpressionUtil {
     new Predicate("=", Array(gse, LiteralValue("1", StringType)))
   }
 
-  def buildIfNullFilter(): Expression = {
-    val gse = new GeneralScalarExpression("IFNULL", Array(FieldReference(Seq("A4")), LiteralValue("null", StringType)))
+  def buildLowerFilter(): Expression = {
+    val gse = new GeneralScalarExpression("LOWER", Array(FieldReference(Seq("A5"))))
     new Predicate("=", Array(gse, LiteralValue("1", StringType)))
   }
 
