@@ -32,8 +32,8 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) extends Logging {
       Some(build(predicate))
     } match {
       case Success(value) => value
-      case Failure(_) =>
-        logWarning(s"Failed to build expression: ${predicate.toString}, and not support predicate push down")
+      case Failure(exception) =>
+        logWarning(s"Failed to build expression: ${predicate.toString}, and not support predicate push down, errMsg is ${exception.getMessage}")
         None
     }
   }
@@ -59,7 +59,7 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) extends Logging {
               val expressions = e.children()
               if (expressions.nonEmpty && expressions.length <= inValueLengthLimit) {
                 s"""${build(expressions(0))} IN (${expressions.slice(1, expressions.length).map(build).mkString(",")})"""
-              } else null
+              } else throw new IllegalArgumentException(s"exceeding limit of IN values: actual size ${expressions.length}, limit size $inValueLengthLimit")
             case "IS_NULL" => s"${build(e.children()(0))} IS NULL"
             case "IS_NOT_NULL" => s"${build(e.children()(0))} IS NOT NULL"
             case "STARTS_WITH" => visitStartWith(build(e.children()(0)), build(e.children()(1)));
