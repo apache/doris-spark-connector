@@ -86,7 +86,6 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) extends Logging {
               fragment.append(" END")
 
               fragment.mkString
-            case "COALESCE" => s"COALESCE(${e.children().map(build).mkString(",")})"
             case _ => throw new IllegalArgumentException(s"Unsupported expression: ${e.name()}")
           }
         }
