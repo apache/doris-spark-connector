@@ -619,18 +619,12 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
 
       import org.apache.spark.sql.functions._
 
-      // 将 select COALESCE(CAST(A4 AS STRING),'null')
-      // from test_source where COALESCE(CAST(A4 AS STRING),'null') in ('a4')
-      // 转换为DataFrame API
       val resultData = df.select(coalesce(col("A4").cast("string"), lit("null")).as("coalesced_A4"))
         .filter(col("coalesced_A4").isin("a4"))
 
       println(resultData.collect().toList.toString())
       assert("List([a4], [a4], [a4], [a4], [a4])".equals(resultData.collect().toList.toString()))
 
-      // 将 select COALESCE(CAST(NAME AS STRING),'null')
-      // from test_source where COALESCE(CAST(NAME AS STRING),'null') in ('name2')
-      // 转换为DataFrame API
       val resultData1 = df.select(coalesce(col("NAME").cast("string"), lit("null")).as("coalesced_NAME"))
         .filter(col("coalesced_NAME").isin("name2"))
 
