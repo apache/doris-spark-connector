@@ -37,7 +37,7 @@ class DorisScanBuilder(config: DorisConfig, schema: StructType) extends DorisSca
 
   override def pushPredicates(predicates: Array[Predicate]): Array[Predicate] = {
     val (pushed, unsupported) = predicates.partition(predicate => {
-      Option(expressionBuilder.build(predicate)).isDefined
+      expressionBuilder.buildOpt(predicate).isDefined
     })
     this.pushDownPredicates = pushed
     unsupported

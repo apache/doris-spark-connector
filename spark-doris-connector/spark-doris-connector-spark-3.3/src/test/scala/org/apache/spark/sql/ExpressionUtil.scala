@@ -15,20 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.spark.read
+package org.apache.spark.sql
 
-import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
-import org.apache.doris.spark.read.expression.V2ExpressionBuilder
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.connector.expressions.filter.Predicate
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.connector.expressions.{Expression, FieldReference, GeneralScalarExpression, LiteralValue}
+import org.apache.spark.sql.types.StringType
 
-class DorisScanV2(config: DorisConfig, schema: StructType, filters: Array[Predicate], limit: Int) extends AbstractDorisScan(config, schema) with Logging {
-  override protected def compiledFilters(): Array[String] = {
-    val inValueLengthLimit = config.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT)
-    val v2ExpressionBuilder = new V2ExpressionBuilder(inValueLengthLimit)
-    filters.map(e => v2ExpressionBuilder.buildOpt(e)).filter(_.isDefined).map(_.get)
+object ExpressionUtil {
+
+  def buildCoalesceFilter(): Expression = {
+    val gse = new GeneralScalarExpression("COALESCE", Array(FieldReference(Seq("A4")), LiteralValue("null", StringType)))
+    new Predicate("=", Array(gse, LiteralValue("1", StringType)))
   }
 
-  override protected def getLimit: Int = limit
 }

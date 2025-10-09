@@ -17,12 +17,26 @@
 
 package org.apache.doris.spark.read.expression
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.connector.expressions.filter.{AlwaysFalse, AlwaysTrue, And, Not, Or}
 import org.apache.spark.sql.connector.expressions.{Expression, GeneralScalarExpression, Literal, NamedReference}
 import org.apache.spark.sql.types.{DateType, TimestampType}
 
-class V2ExpressionBuilder(inValueLengthLimit: Int) {
+import scala.util.{Failure, Success, Try}
+
+class V2ExpressionBuilder(inValueLengthLimit: Int) extends Logging {
+
+  def buildOpt(predicate: Expression): Option[String] = {
+    Try {
+      Some(build(predicate))
+    } match {
+      case Success(value) => value
+      case Failure(exception) =>
+        logWarning(s"Failed to build expression: ${predicate.toString}, and not support predicate push down, errMsg is ${exception.getMessage}")
+        None
+    }
+  }
 
   def build(predicate: Expression): String = {
     predicate match {
@@ -39,24 +53,24 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) {
       case expr: Expression =>
         expr match {
           case literal: Literal[_] => visitLiteral(literal)
-          case namedRef: NamedReference => namedRef.toString
+          case namedRef: NamedReference => s"`${namedRef.toString}`"
           case e: GeneralScalarExpression => e.name() match {
             case "IN" =>
               val expressions = e.children()
               if (expressions.nonEmpty && expressions.length <= inValueLengthLimit) {
-                s"""`${build(expressions(0))}` IN (${expressions.slice(1, expressions.length).map(build).mkString(",")})"""
-              } else null
-            case "IS_NULL" => s"`${build(e.children()(0))}` IS NULL"
-            case "IS_NOT_NULL" => s"`${build(e.children()(0))}` IS NOT NULL"
+                s"""${build(expressions(0))} IN (${expressions.slice(1, expressions.length).map(build).mkString(",")})"""
+              } else throw new IllegalArgumentException(s"exceeding limit of IN values: actual size ${expressions.length}, limit size $inValueLengthLimit")
+            case "IS_NULL" => s"${build(e.children()(0))} IS NULL"
+            case "IS_NOT_NULL" => s"${build(e.children()(0))} IS NOT NULL"
             case "STARTS_WITH" => visitStartWith(build(e.children()(0)), build(e.children()(1)));
             case "ENDS_WITH" => visitEndWith(build(e.children()(0)), build(e.children()(1)));
             case "CONTAINS" => visitContains(build(e.children()(0)), build(e.children()(1)));
-            case "=" => s"`${build(e.children()(0))}` = ${build(e.children()(1))}"
-            case "!=" | "<>" => s"`${build(e.children()(0))}` != ${build(e.children()(1))}"
-            case "<" => s"`${build(e.children()(0))}` < ${build(e.children()(1))}"
-            case "<=" => s"`${build(e.children()(0))}` <= ${build(e.children()(1))}"
-            case ">" => s"`${build(e.children()(0))}` > ${build(e.children()(1))}"
-            case ">=" => s"`${build(e.children()(0))}` >= ${build(e.children()(1))}"
+            case "=" => s"${build(e.children()(0))} = ${build(e.children()(1))}"
+            case "!=" | "<>" => s"${build(e.children()(0))} != ${build(e.children()(1))}"
+            case "<" => s"${build(e.children()(0))} < ${build(e.children()(1))}"
+            case "<=" => s"${build(e.children()(0))} <= ${build(e.children()(1))}"
+            case ">" => s"${build(e.children()(0))} > ${build(e.children()(1))}"
+            case ">=" => s"${build(e.children()(0))} >= ${build(e.children()(1))}"
             case "CASE_WHEN" =>
               val fragment = new StringBuilder("CASE ")
               val expressions = e.children()
@@ -72,7 +86,7 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) {
               fragment.append(" END")
 
               fragment.mkString
-            case _ => null
+            case _ => throw new IllegalArgumentException(s"Unsupported expression: ${e.name()}")
           }
         }
     }
@@ -90,17 +104,17 @@ class V2ExpressionBuilder(inValueLengthLimit: Int) {
   }
   def visitStartWith(l: String, r: String): String = {
     val value = r.substring(1, r.length - 1)
-    s"`$l` LIKE '$value%'"
+    s"$l LIKE '$value%'"
   }
 
   def visitEndWith(l: String, r: String): String = {
     val value = r.substring(1, r.length - 1)
-    s"`$l` LIKE '%$value'"
+    s"$l LIKE '%$value'"
   }
 
   def visitContains(l: String, r: String): String = {
     val value = r.substring(1, r.length - 1)
-    s"`$l` LIKE '%$value%'"
+    s"$l LIKE '%$value%'"
   }
 
 }

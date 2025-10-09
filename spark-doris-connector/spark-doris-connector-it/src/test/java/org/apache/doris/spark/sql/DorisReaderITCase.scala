@@ -56,6 +56,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   val TABLE_READ_UTF8_TBL = "tbl_read_utf8_tbl"
   val TABLE_READ_TBL_ALL_TYPES = "tbl_read_tbl_all_types"
   val TABLE_READ_TBL_BIT_MAP = "tbl_read_tbl_bitmap"
+  val TABLE_READ_EXPRESSION_NOTPUSHDOWN = "tbl_expression_notpushdown"
 
   @Before
   def setUp(): Unit = {
@@ -558,6 +559,78 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |""".stripMargin).collect()
 
       assert("List([1], [2])".equals(prefixTest.toList.toString()))
+    }
+  }
+
+  @Test
+  def testExpressionNotPushDown(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_filter_pushdown.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_EXPRESSION_NOTPUSHDOWN}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}"
+           |)
+           |""".stripMargin)
+
+      val resultData = session.sql(
+        """
+          |select COALESCE(CAST(A4 AS STRING),'null')
+          |from test_source where COALESCE(CAST(A4 AS STRING),'null') in ('a4')
+          |""".stripMargin)
+
+      println(resultData.collect().toList.toString())
+      assert("List([a4], [a4], [a4], [a4], [a4])".equals(resultData.collect().toList.toString()))
+
+      val resultData1 = session.sql(
+        """
+          |select COALESCE(CAST(NAME AS STRING),'null')
+          |from test_source where COALESCE(CAST(NAME AS STRING),'null') in ('name2')
+          |""".stripMargin)
+
+      assert("List([name2])".equals(resultData1.collect().toList.toString()))
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
+  def testDataFrameExpressionNotPushDown(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_filter_pushdown.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      val df = session.read
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_READ_EXPRESSION_NOTPUSHDOWN)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .load()
+
+      import org.apache.spark.sql.functions._
+
+      val resultData = df.select(coalesce(col("A4").cast("string"), lit("null")).as("coalesced_A4"))
+        .filter(col("coalesced_A4").isin("a4"))
+
+      println(resultData.collect().toList.toString())
+      assert("List([a4], [a4], [a4], [a4], [a4])".equals(resultData.collect().toList.toString()))
+
+      val resultData1 = df.select(coalesce(col("NAME").cast("string"), lit("null")).as("coalesced_NAME"))
+        .filter(col("coalesced_NAME").isin("name2"))
+
+      assert("List([name2])".equals(resultData1.collect().toList.toString()))
+    } finally {
+      session.stop()
     }
   }
 }

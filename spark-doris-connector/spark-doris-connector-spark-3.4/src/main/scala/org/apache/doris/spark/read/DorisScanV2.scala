@@ -27,7 +27,7 @@ class DorisScanV2(config: DorisConfig, schema: StructType, filters: Array[Predic
   override protected def compiledFilters(): Array[String] = {
     val inValueLengthLimit = config.getValue(DorisOptions.DORIS_FILTER_QUERY_IN_MAX_COUNT)
     val v2ExpressionBuilder = new V2ExpressionBuilder(inValueLengthLimit)
-    filters.map(e => Option[String](v2ExpressionBuilder.build(e))).filter(_.isDefined).map(_.get)
+    filters.map(e => v2ExpressionBuilder.buildOpt(e)).filter(_.isDefined).map(_.get)
   }
 
   override protected def getLimit: Int = limit

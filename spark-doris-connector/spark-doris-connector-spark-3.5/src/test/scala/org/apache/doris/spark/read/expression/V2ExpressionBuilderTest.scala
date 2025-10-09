@@ -17,6 +17,7 @@ package org.apache.doris.spark.read.expression
 // specific language governing permissions and limitations
 // under the License.
 
+import org.apache.spark.sql.ExpressionUtil
 import org.apache.spark.sql.sources._
 import org.junit.jupiter.api.{Assertions, Test}
 
@@ -42,8 +43,23 @@ class V2ExpressionBuilderTest {
     Assertions.assertEquals(builder.build(Or(EqualTo("c14", 17), EqualTo("c15", 18)).toV2), "(`c14` = 17 OR `c15` = 18)")
     Assertions.assertEquals(builder.build(AlwaysTrue.toV2), "1=1")
     Assertions.assertEquals(builder.build(AlwaysFalse.toV2), "1=0")
-    Assertions.assertNull(builder.build(In("c19", Array(19,20,21,22,23,24,25,26,27,28,29)).toV2))
+    Assertions.assertEquals(builder.build(In("c19", Array(19,20,21,22,23,24,25,26)).toV2), "`c19` IN (19,20,21,22,23,24,25,26)")
+    Assertions.assertEquals(builder.build(In("c19", Array("19","20")).toV2), "`c19` IN ('19','20')")
+    val inException = Assertions.assertThrows(classOf[IllegalArgumentException], () => builder.build(In("c19", Array(19,20,21,22,23,24,25,26,27,28,29)).toV2))
+    Assertions.assertEquals(inException.getMessage, "exceeding limit of IN values: actual size 12, limit size 10")
+    val exception = Assertions.assertThrows(classOf[IllegalArgumentException], () => builder.build(ExpressionUtil.buildCoalesceFilter()))
+    Assertions.assertEquals(exception.getMessage, "Unsupported expression: COALESCE")
 
+  }
+
+  @Test
+  def buildOptTest() : Unit = {
+
+    val builder = new V2ExpressionBuilder(10)
+    Assertions.assertEquals(builder.buildOpt(EqualTo("c0", 1).toV2), Some("`c0` = 1"))
+    Assertions.assertEquals(builder.buildOpt(Not(EqualTo("c1", 2)).toV2), Some("`c1` != 2"))
+    Assertions.assertEquals(builder.buildOpt(GreaterThan("c2", 3.4).toV2), Some("`c2` > 3.4"))
+    Assertions.assertEquals(builder.buildOpt(ExpressionUtil.buildCoalesceFilter()), None)
   }
 
 }
