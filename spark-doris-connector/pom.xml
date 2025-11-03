@@ -79,7 +79,7 @@
     </mailingLists>
 
     <properties>
-        <revision>25.1.0-SNAPSHOT</revision>
+        <revision>25.2.0-SNAPSHOT</revision>
         <spark.version>2.4.8</spark.version>
         <spark.major.version>2.4</spark.major.version>
         <scala.version>2.11.12</scala.version>
