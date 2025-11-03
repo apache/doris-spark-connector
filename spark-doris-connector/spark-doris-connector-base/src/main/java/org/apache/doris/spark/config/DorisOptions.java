@@ -144,5 +144,12 @@ public class DorisOptions {
 
     public static final ConfigOption<Integer> DORIS_SINK_NET_BUFFER_SIZE = ConfigOptions.name("doris.sink.net.buffer.size").intType().defaultValue(1024 * 1024).withDescription("");
 
+    /**
+     * Enable TIMESTAMP_NTZ (Timestamp without timezone) support for Spark 3.4+.
+     * When enabled, Doris DATETIME/DATETIMEV2 types will be mapped to Spark TimestampNTZType instead of TimestampType.
+     * Default: false (maintain backward compatibility).
+     */
+    public static final ConfigOption<Boolean> DORIS_READ_TIMESTAMP_NTZ_ENABLED = ConfigOptions.name("doris.read.timestamp.ntz.enabled").booleanType().defaultValue(false).withDescription("Enable TIMESTAMP_NTZ type support for Spark 3.4+. Default: false");
+
 
 }

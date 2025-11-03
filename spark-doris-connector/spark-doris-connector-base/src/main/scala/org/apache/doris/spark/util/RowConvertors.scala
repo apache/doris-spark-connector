@@ -27,12 +27,33 @@ import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
-import java.time.{Instant, LocalDate}
+import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 
 object RowConvertors {
+
+  /**
+   * Try to get TimestampNTZType using reflection for Spark 3.4+ compatibility.
+   */
+  private lazy val timestampNTZTypeOption: Option[DataType] = {
+    try {
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      Some(instance.asInstanceOf[DataType])
+    } catch {
+      case _: ClassNotFoundException | _: NoSuchFieldException | _: NoSuchMethodException =>
+        None
+    }
+  }
+
+  /**
+   * Check if a DataType is TimestampNTZType (for Spark 3.4+).
+   */
+  private def isTimestampNTZType(dt: DataType): Boolean = {
+    timestampNTZTypeOption.exists(_.getClass == dt.getClass)
+  }
 
   private val MAPPER = JsonMapper.builder().addModule(DefaultScalaModule)
     .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true).build()
@@ -77,6 +98,19 @@ object RowConvertors {
         case FloatType => row.getFloat(ordinal)
         case DoubleType => row.getDouble(ordinal)
         case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(NULL_VALUE)
+        case dt if isTimestampNTZType(dt) =>
+          // TimestampNTZType: convert microsecond timestamp to LocalDateTime string
+          // DateTimeUtils.localDateTimeFromMicros converts microseconds to LocalDateTime
+          try {
+            val method = Class.forName("org.apache.spark.sql.catalyst.util.DateTimeUtils")
+              .getMethod("localDateTimeFromMicros", classOf[Long])
+            val localDateTime = method.invoke(null, Long.box(row.getLong(ordinal))).asInstanceOf[LocalDateTime]
+            localDateTime.toString
+          } catch {
+            case _: Exception =>
+              // Fallback: use timestamp directly as string
+              row.getLong(ordinal).toString
+          }
         case TimestampType =>
           DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
         case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
@@ -120,19 +154,34 @@ object RowConvertors {
   }
 
   def convertValue(v: Any, dataType: DataType, datetimeJava8ApiEnabled: Boolean): Any = {
-    dataType match {
-      case StringType => UTF8String.fromString(v.asInstanceOf[String])
-      case TimestampType if datetimeJava8ApiEnabled => DateTimeUtils.instantToMicros(v.asInstanceOf[Instant])
-      case TimestampType => DateTimeUtils.fromJavaTimestamp(v.asInstanceOf[Timestamp])
-      case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
-      case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
-      case _: MapType =>
-        val map = v.asInstanceOf[java.util.Map[String, String]].asScala
-        val keys = map.keys.toArray.map(UTF8String.fromString)
-        val values = map.values.toArray.map(UTF8String.fromString)
-        ArrayBasedMapData(keys, values)
-      case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
-      case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+    // Check for TimestampNTZType first (Spark 3.4+)
+    if (isTimestampNTZType(dataType)) {
+      // TimestampNTZType: convert LocalDateTime to microsecond timestamp without timezone conversion
+      v match {
+        case localDateTime: LocalDateTime =>
+          // Convert LocalDateTime to microseconds since epoch (1970-01-01T00:00:00)
+          // LocalDateTime.toEpochSecond(ZoneOffset.UTC) gives seconds, then multiply by 1_000_000 for microseconds
+          val seconds = localDateTime.atZone(java.time.ZoneOffset.UTC).toEpochSecond
+          val nanos = localDateTime.getNano
+          seconds * 1_000_000L + nanos / 1_000
+        case null => null
+        case _ => throw new Exception(s"TimestampNTZType expects LocalDateTime, but got ${v.getClass}")
+      }
+    } else {
+      dataType match {
+        case StringType => UTF8String.fromString(v.asInstanceOf[String])
+        case TimestampType if datetimeJava8ApiEnabled => DateTimeUtils.instantToMicros(v.asInstanceOf[Instant])
+        case TimestampType => DateTimeUtils.fromJavaTimestamp(v.asInstanceOf[Timestamp])
+        case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
+        case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
+        case _: MapType =>
+          val map = v.asInstanceOf[java.util.Map[String, String]].asScala
+          val keys = map.keys.toArray.map(UTF8String.fromString)
+          val values = map.values.toArray.map(UTF8String.fromString)
+          ArrayBasedMapData(keys, values)
+        case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
+        case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+      }
     }
   }
 

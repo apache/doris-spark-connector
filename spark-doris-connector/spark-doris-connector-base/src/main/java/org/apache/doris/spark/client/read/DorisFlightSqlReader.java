@@ -61,6 +61,7 @@ public class DorisFlightSqlReader extends DorisReader {
     private AdbcConnection connection;
     private final ArrowReader arrowReader;
     private final Boolean datetimeJava8ApiEnabled;
+    private final Boolean useTimestampNtz;
 
     public DorisFlightSqlReader(DorisReaderPartition partition) throws Exception {
         super(partition);
@@ -85,6 +86,7 @@ public class DorisFlightSqlReader extends DorisReader {
         this.schema = processDorisSchema(partition);
         this.arrowReader = executeQuery();
         this.datetimeJava8ApiEnabled = partition.getDateTimeJava8APIEnabled();
+        this.useTimestampNtz = config.getValue(DorisOptions.DORIS_READ_TIMESTAMP_NTZ_ENABLED);
     }
 
     @Override
@@ -96,7 +98,7 @@ public class DorisFlightSqlReader extends DorisReader {
                 throw new DorisException(e);
             }
             if (!endOfStream.get()) {
-                rowBatch = new RowBatch(arrowReader, schema, datetimeJava8ApiEnabled);
+                rowBatch = new RowBatch(arrowReader, schema, datetimeJava8ApiEnabled, useTimestampNtz);
             }
         }
         return !endOfStream.get();

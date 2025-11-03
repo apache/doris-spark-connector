@@ -25,7 +25,7 @@ import org.junit.Assert
 import org.junit.jupiter.api.Test
 
 import java.sql.{Date, Timestamp}
-import java.time.LocalDate
+import java.time.{LocalDate, LocalDateTime}
 import java.util
 
 class RowConvertorsTest {
@@ -119,6 +119,38 @@ class RowConvertorsTest {
     Assert.assertTrue(RowConvertors.convertValue(map, MapType(DataTypes.StringType, DataTypes.StringType), false).isInstanceOf[MapData])
     Assert.assertTrue(RowConvertors.convertValue("test", DataTypes.StringType, false).isInstanceOf[UTF8String])
 
+  }
+
+  @Test
+  def convertValueTimestampNTZTest(): Unit = {
+    // Test TimestampNTZType conversion (Spark 3.4+)
+    try {
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      val timestampNTZType = instance.asInstanceOf[org.apache.spark.sql.types.DataType]
+
+      // Test LocalDateTime to microsecond timestamp conversion
+      val localDateTime = LocalDateTime.of(2024, 1, 15, 12, 30, 45, 123456000)
+      val result = RowConvertors.convertValue(localDateTime, timestampNTZType, false)
+
+      // Verify result is Long (microsecond timestamp)
+      Assert.assertTrue("Result should be Long", result.isInstanceOf[Long])
+
+      // Verify the timestamp value is correct
+      // 2024-01-15 12:30:45.123456 in UTC = seconds since epoch
+      val expectedSeconds = localDateTime.atZone(java.time.ZoneOffset.UTC).toEpochSecond
+      val expectedMicros = expectedSeconds * 1_000_000L + 123456L
+      Assert.assertEquals("Timestamp should match", expectedMicros, result.asInstanceOf[Long])
+
+      // Test null handling
+      val nullResult = RowConvertors.convertValue(null, timestampNTZType, false)
+      Assert.assertNull("Null should return null", nullResult)
+
+    } catch {
+      case _: ClassNotFoundException =>
+        // Spark < 3.4, skip test
+        println("TimestampNTZType not available (Spark < 3.4), skipping test")
+    }
   }
 
 }

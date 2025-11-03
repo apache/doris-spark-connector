@@ -75,6 +75,7 @@ public abstract class AbstractThriftReader extends DorisReader {
     private int readCount = 0;
 
     private final Boolean datetimeJava8ApiEnabled;
+    private final Boolean useTimestampNtz;
 
     protected AbstractThriftReader(DorisReaderPartition partition) throws Exception {
         super(partition);
@@ -112,6 +113,7 @@ public abstract class AbstractThriftReader extends DorisReader {
             this.asyncThread = null;
         }
         this.datetimeJava8ApiEnabled = partition.getDateTimeJava8APIEnabled();
+        this.useTimestampNtz = config.getValue(DorisOptions.DORIS_READ_TIMESTAMP_NTZ_ENABLED);
     }
 
     private void runAsync() throws DorisException, InterruptedException {
@@ -128,7 +130,7 @@ public abstract class AbstractThriftReader extends DorisReader {
             });
             endOfStream.set(nextResult.isEos());
             if (!endOfStream.get()) {
-                rowBatch = new RowBatch(nextResult, dorisSchema, datetimeJava8ApiEnabled);
+                rowBatch = new RowBatch(nextResult, dorisSchema, datetimeJava8ApiEnabled, useTimestampNtz);
                 offset += rowBatch.getReadRowCount();
                 rowBatch.close();
                 rowBatchQueue.put(rowBatch);
@@ -182,7 +184,7 @@ public abstract class AbstractThriftReader extends DorisReader {
                 });
                 endOfStream.set(nextResult.isEos());
                 if (!endOfStream.get()) {
-                    rowBatch = new RowBatch(nextResult, dorisSchema, datetimeJava8ApiEnabled);
+                    rowBatch = new RowBatch(nextResult, dorisSchema, datetimeJava8ApiEnabled, useTimestampNtz);
                 }
             }
             hasNext = !endOfStream.get();

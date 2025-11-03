@@ -70,8 +70,9 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
   }
 
   private implicit def dorisSchemaToStructType(dorisSchema: Schema): StructType = {
+    val useTimestampNtz = config.getValue(DorisOptions.DORIS_READ_TIMESTAMP_NTZ_ENABLED)
     StructType(dorisSchema.getProperties.asScala.map(field => {
-      StructField(field.getName, SchemaConvertors.toCatalystType(field.getType, field.getPrecision, field.getScale))
+      StructField(field.getName, SchemaConvertors.toCatalystType(field.getType, field.getPrecision, field.getScale, useTimestampNtz))
     }))
   }
 

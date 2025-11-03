@@ -105,13 +105,19 @@ public class RowBatch implements Serializable {
     private List<FieldVector> fieldVectors;
 
     private final Boolean datetimeJava8ApiEnabled;
+    private final Boolean useTimestampNtz;
 
     public RowBatch(TScanBatchResult nextResult, Schema schema, Boolean datetimeJava8ApiEnabled) throws DorisException {
+        this(nextResult, schema, datetimeJava8ApiEnabled, false);
+    }
+
+    public RowBatch(TScanBatchResult nextResult, Schema schema, Boolean datetimeJava8ApiEnabled, Boolean useTimestampNtz) throws DorisException {
 
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         this.arrowReader = new ArrowStreamReader(new ByteArrayInputStream(nextResult.getRows()), rootAllocator);
         this.schema = schema;
         this.datetimeJava8ApiEnabled = datetimeJava8ApiEnabled;
+        this.useTimestampNtz = useTimestampNtz != null ? useTimestampNtz : false;
 
         try {
             VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
@@ -128,10 +134,15 @@ public class RowBatch implements Serializable {
     }
 
     public RowBatch(ArrowReader reader, Schema schema, Boolean datetimeJava8ApiEnabled) throws DorisException {
+        this(reader, schema, datetimeJava8ApiEnabled, false);
+    }
+
+    public RowBatch(ArrowReader reader, Schema schema, Boolean datetimeJava8ApiEnabled, Boolean useTimestampNtz) throws DorisException {
 
         this.arrowReader = reader;
         this.schema = schema;
         this.datetimeJava8ApiEnabled = datetimeJava8ApiEnabled;
+        this.useTimestampNtz = useTimestampNtz != null ? useTimestampNtz : false;
 
         try {
             VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
@@ -409,10 +420,18 @@ public class RowBatch implements Serializable {
                                 String stringValue = completeMilliseconds(new String(varCharVector.get(rowIndex),
                                         StandardCharsets.UTF_8));
                                 LocalDateTime dateTime = LocalDateTime.parse(stringValue, dateTimeV2Formatter);
-                                if (datetimeJava8ApiEnabled) {
+                                
+                                // If useTimestampNtz is enabled, keep LocalDateTime without timezone conversion
+                                // This is for Spark TimestampNTZType support (Spark 3.4+)
+                                if (useTimestampNtz) {
+                                    // For TimestampNTZ, we keep LocalDateTime directly without timezone conversion
+                                    addValueToRow(rowIndex, dateTime);
+                                } else if (datetimeJava8ApiEnabled) {
+                                    // For TimestampType with Java8 API, convert to Instant with timezone
                                     Instant instant = dateTime.atZone(DEFAULT_ZONE_ID).toInstant();
                                     addValueToRow(rowIndex, instant);
                                 } else {
+                                    // For TimestampType without Java8 API, use Timestamp
                                     addValueToRow(rowIndex, Timestamp.valueOf(dateTime));
                                 }
                             }
@@ -424,10 +443,18 @@ public class RowBatch implements Serializable {
                                     continue;
                                 }
                                 LocalDateTime dateTime = getDateTime(rowIndex, timeStampVector);
-                                if (datetimeJava8ApiEnabled) {
+                                
+                                // If useTimestampNtz is enabled, keep LocalDateTime without timezone conversion
+                                // This is for Spark TimestampNTZType support (Spark 3.4+)
+                                if (useTimestampNtz) {
+                                    // For TimestampNTZ, we keep LocalDateTime directly without timezone conversion
+                                    addValueToRow(rowIndex, dateTime);
+                                } else if (datetimeJava8ApiEnabled) {
+                                    // For TimestampType with Java8 API, convert to Instant with timezone
                                     Instant instant = dateTime.atZone(DEFAULT_ZONE_ID).toInstant();
                                     addValueToRow(rowIndex, instant);
                                 } else {
+                                    // For TimestampType without Java8 API, use Timestamp
                                     addValueToRow(rowIndex, Timestamp.valueOf(dateTime));
                                 }
                             }

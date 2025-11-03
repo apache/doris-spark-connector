@@ -63,4 +63,29 @@ class SchemaConvertorsTest {
 
   }
 
+  @Test
+  def toCatalystTypeWithTimestampNTZTest(): Unit = {
+    // Test default behavior (should use TimestampType)
+    Assert.assertEquals(SchemaConvertors.toCatalystType("DATETIME", -1, -1, useTimestampNtz = false), DataTypes.TimestampType)
+    Assert.assertEquals(SchemaConvertors.toCatalystType("DATETIMEV2", -1, -1, useTimestampNtz = false), DataTypes.TimestampType)
+
+    // Test with TimestampNTZ enabled
+    val result1 = SchemaConvertors.toCatalystType("DATETIME", -1, -1, useTimestampNtz = true)
+    val result2 = SchemaConvertors.toCatalystType("DATETIMEV2", -1, -1, useTimestampNtz = true)
+
+    // Try to detect if TimestampNTZType is available (Spark 3.4+)
+    try {
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      // If we can load TimestampNTZType, verify it's used
+      Assert.assertEquals("Should use TimestampNTZType when enabled", instance.getClass, result1.getClass)
+      Assert.assertEquals("Should use TimestampNTZType when enabled", instance.getClass, result2.getClass)
+    } catch {
+      case _: ClassNotFoundException =>
+        // Spark < 3.4, should fall back to TimestampType
+        Assert.assertEquals("Should fallback to TimestampType in Spark < 3.4", DataTypes.TimestampType, result1)
+        Assert.assertEquals("Should fallback to TimestampType in Spark < 3.4", DataTypes.TimestampType, result2)
+    }
+  }
+
 }
