@@ -139,7 +139,7 @@ class RowConvertorsTest {
       // Verify the timestamp value is correct
       // 2024-01-15 12:30:45.123456 in UTC = seconds since epoch
       val expectedSeconds = localDateTime.atZone(java.time.ZoneOffset.UTC).toEpochSecond
-      val expectedMicros = expectedSeconds * 1_000_000L + 123456L
+      val expectedMicros = expectedSeconds * 1000000L + 123456L
       Assert.assertEquals("Timestamp should match", expectedMicros, result.asInstanceOf[Long])
 
       // Test null handling

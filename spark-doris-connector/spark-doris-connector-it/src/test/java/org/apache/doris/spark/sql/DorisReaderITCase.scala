@@ -672,26 +672,40 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
         // Verify data
         val actualData = df.select("id", "name", "ts_ntz").orderBy("id").collect()
 
-        // Convert TimestampNTZType values to strings for comparison
+        // Expected LocalDateTime values
         import java.time.LocalDateTime
-        val expectedData = Array(
-          Row(1, "test1", LocalDateTime.of(2024, 1, 15, 12, 30, 45)),
-          Row(2, "test2", LocalDateTime.of(2024, 3, 20, 15, 45, 30)),
-          Row(3, "test3", LocalDateTime.of(2024, 6, 25, 8, 0, 0))
+        val expectedLocalDateTimes = Array(
+          LocalDateTime.of(2024, 1, 15, 12, 30, 45),
+          LocalDateTime.of(2024, 3, 20, 15, 45, 30),
+          LocalDateTime.of(2024, 6, 25, 8, 0, 0)
         )
 
         // Verify row count
-        assert(actualData.length == expectedData.length, s"Expected ${expectedData.length} rows, got ${actualData.length}")
+        assert(actualData.length == expectedLocalDateTimes.length, s"Expected ${expectedLocalDateTimes.length} rows, got ${actualData.length}")
 
         // Verify each row
-        actualData.zip(expectedData).zipWithIndex.foreach {
-          case ((actualRow, expectedRow), index) =>
-            assert(actualRow.getInt(0) == expectedRow.getInt(0), s"Row $index: id mismatch")
-            assert(actualRow.getString(1) == expectedRow.getString(1), s"Row $index: name mismatch")
-            // Verify LocalDateTime value (TimestampNTZType returns LocalDateTime)
-            val actualTs = actualRow.get(2).asInstanceOf[LocalDateTime]
-            val expectedTs = expectedRow.get(2).asInstanceOf[LocalDateTime]
-            assert(actualTs == expectedTs, s"Row $index: timestamp mismatch - actual=$actualTs, expected=$expectedTs")
+        actualData.zip(expectedLocalDateTimes).zipWithIndex.foreach {
+          case ((actualRow, expectedLdt), index) =>
+            assert(actualRow.getInt(0) == index + 1, s"Row $index: id mismatch")
+            assert(actualRow.getString(1) == s"test${index + 1}", s"Row $index: name mismatch")
+            
+            // TimestampNTZType in Spark Row is stored as Long (microseconds), need to convert to LocalDateTime
+            // Use DateTimeUtils to convert from microseconds to LocalDateTime
+            val micros = actualRow.getLong(2)
+            val actualLdt = try {
+              // Try to use Spark's DateTimeUtils.localDateTimeFromMicros (Spark 3.4+)
+              val method = Class.forName("org.apache.spark.sql.catalyst.util.DateTimeUtils")
+                .getMethod("localDateTimeFromMicros", classOf[Long])
+              method.invoke(null, Long.box(micros)).asInstanceOf[LocalDateTime]
+            } catch {
+              case _: Exception =>
+                // Fallback: convert manually
+                val seconds = micros / 1000000L
+                val nanos = (micros % 1000000L) * 1000
+                LocalDateTime.ofEpochSecond(seconds, nanos.toInt, java.time.ZoneOffset.UTC)
+            }
+            
+            assert(actualLdt == expectedLdt, s"Row $index: timestamp mismatch - actual=$actualLdt, expected=$expectedLdt")
         }
 
         LOG.info("testReadTimestampNTZ passed successfully")

@@ -445,7 +445,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
         def localDateTimeToMicros(ldt: LocalDateTime): Long = {
           val seconds = ldt.atZone(java.time.ZoneOffset.UTC).toEpochSecond
           val nanos = ldt.getNano
-          seconds * 1_000_000L + nanos / 1_000
+          seconds * 1000000L + nanos / 1000
         }
 
         // Create rows with TimestampNTZType values (as microsecond timestamps)
@@ -531,7 +531,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
         def localDateTimeToMicros(ldt: LocalDateTime): Long = {
           val seconds = ldt.atZone(java.time.ZoneOffset.UTC).toEpochSecond
           val nanos = ldt.getNano
-          seconds * 1_000_000L + nanos / 1_000
+          seconds * 1000000L + nanos / 1000
         }
 
         // Create rows with TimestampNTZType values
@@ -566,14 +566,15 @@ class DorisWriterITCase extends AbstractContainerTestBase {
 
         // Expected format: id,datetime (datetimev2(6) supports microsecond precision)
         // Note: Doris may truncate or format the datetime, so we check the main part
-        val actualFormatted = actual.map(_.split(",")(1)).toList
+        val actualScala = actual.asScala.toList
+        val actualFormatted = actualScala.map(_.split(",")(1))
         assert(actualFormatted.exists(_.startsWith("2025-01-01 00:00:00")), "First timestamp should match")
         assert(actualFormatted.exists(_.startsWith("2025-12-31 23:59:59")), "Second timestamp should match")
         
         // Also verify IDs are correct
-        val actualIds = actual.map(_.split(",")(0)).toList
+        val actualIds = actualScala.map(_.split(",")(0)).toArray.map(_.asInstanceOf[AnyRef])
         val expectedIds = util.Arrays.asList("1", "2")
-        checkResultInAnyOrder("testWriteTimestampNTZWithArrowFormat-ids", expectedIds.toArray(), actualIds.toArray)
+        checkResultInAnyOrder("testWriteTimestampNTZWithArrowFormat-ids", expectedIds.toArray(), actualIds)
 
       } finally {
         session.stop()

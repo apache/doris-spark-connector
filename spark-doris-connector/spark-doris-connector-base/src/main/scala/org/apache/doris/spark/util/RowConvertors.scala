@@ -163,7 +163,7 @@ object RowConvertors {
           // LocalDateTime.toEpochSecond(ZoneOffset.UTC) gives seconds, then multiply by 1_000_000 for microseconds
           val seconds = localDateTime.atZone(java.time.ZoneOffset.UTC).toEpochSecond
           val nanos = localDateTime.getNano
-          seconds * 1_000_000L + nanos / 1_000
+          seconds * 1000000L + nanos / 1000
         case null => null
         case _ => throw new Exception(s"TimestampNTZType expects LocalDateTime, but got ${v.getClass}")
       }
