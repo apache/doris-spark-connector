@@ -18,7 +18,7 @@
 
 package org.apache.doris.spark.util
 
-import org.apache.spark.sql.types.{DataTypes, DecimalType, MapType}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, DecimalType, MapType}
 import org.junit.Assert
 import org.junit.jupiter.api.Test
 
@@ -52,7 +52,11 @@ class SchemaConvertorsTest {
     Assert.assertEquals(SchemaConvertors.toCatalystType("DECIMAL128", 20, 4), DecimalType(20, 4))
     Assert.assertEquals(SchemaConvertors.toCatalystType("TIME", -1, -1), DataTypes.DoubleType)
     Assert.assertEquals(SchemaConvertors.toCatalystType("STRING", -1, -1), DataTypes.StringType)
-    Assert.assertEquals(SchemaConvertors.toCatalystType("ARRAY", -1, -1), DataTypes.StringType)
+    // ARRAY type should return ArrayType(StringType, containsNull = true) for backward compatibility
+    val arrayType = SchemaConvertors.toCatalystType("ARRAY", -1, -1)
+    Assert.assertTrue(arrayType.isInstanceOf[ArrayType])
+    Assert.assertEquals(arrayType.asInstanceOf[ArrayType].elementType, DataTypes.StringType)
+    Assert.assertTrue(arrayType.asInstanceOf[ArrayType].containsNull)
     Assert.assertEquals(SchemaConvertors.toCatalystType("MAP", -1, -1), MapType(DataTypes.StringType, DataTypes.StringType))
     Assert.assertEquals(SchemaConvertors.toCatalystType("STRUCT", -1, -1), DataTypes.StringType)
     Assert.assertEquals(SchemaConvertors.toCatalystType("VARIANT", -1, -1), DataTypes.StringType)

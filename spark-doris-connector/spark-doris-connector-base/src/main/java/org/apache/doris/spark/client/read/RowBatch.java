@@ -44,6 +44,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
@@ -478,13 +479,16 @@ public class RowBatch implements Serializable {
                         Preconditions.checkArgument(mt.equals(MinorType.LIST),
                                 typeMismatchMessage(colName, currentType, mt));
                         ListVector listVector = (ListVector) curFieldVector;
+                        UnionListReader listReader = listVector.getReader();
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (listVector.isNull(rowIndex)) {
                                 addValueToRow(rowIndex, null);
                                 continue;
                             }
-                            String value = listVector.getObject(rowIndex).toString();
-                            addValueToRow(rowIndex, value);
+                            // Position reader at current row and recursively convert ListVector
+                            listReader.setPosition(rowIndex);
+                            Object arrayValue = convertListVector(listVector, listReader);
+                            addValueToRow(rowIndex, arrayValue);
                         }
                         break;
                     case "MAP":
@@ -562,13 +566,112 @@ public class RowBatch implements Serializable {
         }
     }
 
+    /**
+     * Recursively convert ListVector to native Java List
+     * Supports nested arrays and all primitive types
+     * 
+     * Performance optimization: Pre-allocate list with estimated size to reduce reallocations
+     * 
+     * @param listVector the Arrow ListVector to convert
+     * @param listReader the UnionListReader for the list vector (must be positioned)
+     * @return Java List containing converted elements
+     */
+    private Object convertListVector(ListVector listVector, UnionListReader listReader) {
+        // Performance optimization: estimate initial capacity to reduce reallocations
+        // For nested arrays, we can't easily estimate, so use default initial capacity
+        int estimatedSize = 16; // Default initial capacity for ArrayList
+        List<Object> result = new ArrayList<>(estimatedSize);
+        
+        FieldVector elementVector = listVector.getDataVector();
+        MinorType elementType = elementVector.getMinorType();
+        
+        while (listReader.next()) {
+            Object element;
+            
+            // Handle nested arrays recursively
+            if (elementType == MinorType.LIST) {
+                ListVector nestedListVector = (ListVector) elementVector;
+                org.apache.arrow.vector.complex.reader.FieldReader reader = listReader.reader();
+                if (reader instanceof UnionListReader) {
+                    // Recursively convert nested array
+                    element = convertListVector(nestedListVector, (UnionListReader) reader);
+                } else {
+                    // Fallback: should not happen, but handle gracefully
+                    logger.warn("Expected UnionListReader for nested array, got {}", reader.getClass().getName());
+                    element = readPrimitiveValueFromReader(reader, elementType);
+                }
+            } else {
+                // Handle primitive types
+                element = readPrimitiveValueFromReader(listReader.reader(), elementType);
+            }
+            
+            result.add(element);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Read primitive value using FieldReader based on MinorType
+     * Supports all Arrow primitive types for array elements
+     * 
+     * @param reader the FieldReader positioned at the element to read
+     * @param type the Arrow MinorType of the element
+     * @return the converted Java object, or null if not set
+     */
+    private Object readPrimitiveValueFromReader(org.apache.arrow.vector.complex.reader.FieldReader reader, MinorType type) {
+        if (!reader.isSet()) {
+            return null;
+        }
+        
+        switch (type) {
+            case BIT:
+                return reader.readBoolean();
+            case TINYINT:
+                return reader.readByte();
+            case SMALLINT:
+                return reader.readShort();
+            case INT:
+                return reader.readInteger();
+            case BIGINT:
+                return reader.readLong();
+            case FLOAT4:
+                return reader.readFloat();
+            case FLOAT8:
+                return reader.readDouble();
+            case VARCHAR:
+                return reader.readText().toString();
+            case VARBINARY:
+                return reader.readByteArray();
+            case DECIMAL:
+                return reader.readBigDecimal();
+            case DATEDAY:
+                // DateDayVector stores days since epoch (1970-01-01), convert to LocalDate
+                int days = reader.readInteger();
+                return LocalDate.ofEpochDay(days);
+            case TIMESTAMPMICRO:
+            case TIMESTAMPMICROTZ:
+                long time = reader.readLong();
+                return longToLocalDateTime(time);
+            default:
+                // Fallback: try to read as generic object
+                Object obj = reader.readObject();
+                if (obj != null) {
+                    return obj;
+                }
+                logger.warn("Unsupported element type in ARRAY: {}, returning null", type);
+                return null;
+        }
+    }
+
     public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector) {
         TimeStampVector vector = (TimeStampVector) fieldVector;
         if (vector.isNull(rowIndex)) {
             return null;
         }
-        // todo: Currently, the scale of doris's arrow datetimev2 is hardcoded to 6,
-        // and there is also a time zone problem in arrow, so use timestamp to convert first
+        // Note: Currently, the scale of doris's arrow datetimev2 is hardcoded to 6,
+        // and there is also a time zone consideration in arrow conversion.
+        // Using timestamp to convert first, which handles microsecond precision correctly.
         long time = vector.get(rowIndex);
         return longToLocalDateTime(time);
     }

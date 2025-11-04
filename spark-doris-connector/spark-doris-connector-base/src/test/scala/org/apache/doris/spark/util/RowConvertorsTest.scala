@@ -121,4 +121,153 @@ class RowConvertorsTest {
 
   }
 
+  @Test def convertValueArrayTypeInt(): Unit = {
+    // Test ARRAY<INT> conversion
+    val intList = new util.ArrayList[Any]()
+    intList.add(1)
+    intList.add(2)
+    intList.add(3)
+    
+    val result = RowConvertors.convertValue(intList, ArrayType(DataTypes.IntegerType), false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val arrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(3, arrayData.numElements())
+    Assert.assertEquals(1, arrayData.getInt(0))
+    Assert.assertEquals(2, arrayData.getInt(1))
+    Assert.assertEquals(3, arrayData.getInt(2))
+  }
+
+  @Test def convertValueArrayTypeString(): Unit = {
+    // Test ARRAY<STRING> conversion
+    val stringList = new util.ArrayList[Any]()
+    stringList.add("hello")
+    stringList.add("world")
+    
+    val result = RowConvertors.convertValue(stringList, ArrayType(DataTypes.StringType), false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val arrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(2, arrayData.numElements())
+    Assert.assertEquals(UTF8String.fromString("hello"), arrayData.getUTF8String(0))
+    Assert.assertEquals(UTF8String.fromString("world"), arrayData.getUTF8String(1))
+  }
+
+  @Test def convertValueArrayTypeWithNull(): Unit = {
+    // Test ARRAY with null elements
+    val list = new util.ArrayList[Any]()
+    list.add(1)
+    list.add(null)
+    list.add(3)
+    
+    val result = RowConvertors.convertValue(list, ArrayType(DataTypes.IntegerType), false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val arrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(3, arrayData.numElements())
+    Assert.assertEquals(1, arrayData.getInt(0))
+    Assert.assertTrue(arrayData.isNullAt(1))
+    Assert.assertEquals(3, arrayData.getInt(2))
+  }
+
+  @Test def convertValueArrayTypeNested(): Unit = {
+    // Test ARRAY<ARRAY<INT>> nested array
+    val innerList1 = new util.ArrayList[Any]()
+    innerList1.add(1)
+    innerList1.add(2)
+    
+    val innerList2 = new util.ArrayList[Any]()
+    innerList2.add(3)
+    innerList2.add(4)
+    innerList2.add(5)
+    
+    val outerList = new util.ArrayList[Any]()
+    outerList.add(innerList1)
+    outerList.add(innerList2)
+    
+    val nestedArrayType = ArrayType(ArrayType(DataTypes.IntegerType))
+    val result = RowConvertors.convertValue(outerList, nestedArrayType, false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val outerArrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(2, outerArrayData.numElements())
+    
+    val innerArrayData1 = outerArrayData.getArray(0).asInstanceOf[ArrayData]
+    Assert.assertEquals(2, innerArrayData1.numElements())
+    Assert.assertEquals(1, innerArrayData1.getInt(0))
+    Assert.assertEquals(2, innerArrayData1.getInt(1))
+    
+    val innerArrayData2 = outerArrayData.getArray(1).asInstanceOf[ArrayData]
+    Assert.assertEquals(3, innerArrayData2.numElements())
+    Assert.assertEquals(3, innerArrayData2.getInt(0))
+    Assert.assertEquals(4, innerArrayData2.getInt(1))
+    Assert.assertEquals(5, innerArrayData2.getInt(2))
+  }
+
+  @Test def convertValueArrayTypeEmpty(): Unit = {
+    // Test empty array
+    val emptyList = new util.ArrayList[Any]()
+    
+    val result = RowConvertors.convertValue(emptyList, ArrayType(DataTypes.IntegerType), false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val arrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(0, arrayData.numElements())
+  }
+
+  @Test def convertValueArrayTypeTypeMismatch(): Unit = {
+    // Test type mismatch: Schema declares StringType but actual data is Integer
+    // Should fallback to StringType conversion
+    val intList = new util.ArrayList[Any]()
+    intList.add(1)
+    intList.add(2)
+    intList.add(3)
+    
+    // Schema declares StringType but actual data is Integer
+    // This should trigger the fallback mechanism
+    val result = RowConvertors.convertValue(intList, ArrayType(DataTypes.StringType), false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val arrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(3, arrayData.numElements())
+    // Should be converted to strings
+    Assert.assertEquals(UTF8String.fromString("1"), arrayData.getUTF8String(0))
+    Assert.assertEquals(UTF8String.fromString("2"), arrayData.getUTF8String(1))
+    Assert.assertEquals(UTF8String.fromString("3"), arrayData.getUTF8String(2))
+  }
+
+  @Test def convertValueArrayTypeLong(): Unit = {
+    // Test ARRAY<LONG> conversion
+    val longList = new util.ArrayList[Any]()
+    longList.add(100L)
+    longList.add(200L)
+    longList.add(300L)
+    
+    val result = RowConvertors.convertValue(longList, ArrayType(DataTypes.LongType), false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val arrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(3, arrayData.numElements())
+    Assert.assertEquals(100L, arrayData.getLong(0))
+    Assert.assertEquals(200L, arrayData.getLong(1))
+    Assert.assertEquals(300L, arrayData.getLong(2))
+  }
+
+  @Test def convertValueArrayTypeDouble(): Unit = {
+    // Test ARRAY<DOUBLE> conversion
+    val doubleList = new util.ArrayList[Any]()
+    doubleList.add(1.1)
+    doubleList.add(2.2)
+    doubleList.add(3.3)
+    
+    val result = RowConvertors.convertValue(doubleList, ArrayType(DataTypes.DoubleType), false)
+    Assert.assertTrue(result.isInstanceOf[ArrayData])
+    
+    val arrayData = result.asInstanceOf[ArrayData]
+    Assert.assertEquals(3, arrayData.numElements())
+    Assert.assertEquals(1.1, arrayData.getDouble(0), 0.0001)
+    Assert.assertEquals(2.2, arrayData.getDouble(1), 0.0001)
+    Assert.assertEquals(3.3, arrayData.getDouble(2), 0.0001)
+  }
+
 }

@@ -44,6 +44,7 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
@@ -1260,6 +1261,474 @@ public class RowBatchTest {
 
         Assert.assertFalse(rowBatch2.hasNext());
 
+    }
+
+    @Test
+    public void testArrayTypeInt() throws DorisException, IOException {
+        // Test ARRAY<INT> type conversion
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        
+        // Create nested field for array element (INT)
+        Field elementField = new Field("element", FieldType.nullable(new ArrowType.Int(32, true)), null);
+        Field arrayField = new Field("arr_int", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(elementField));
+        
+        childrenBuilder.add(new Field("id", FieldType.nullable(new ArrowType.Int(32, true)), null));
+        childrenBuilder.add(arrayField);
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(2);
+
+        // Set id field
+        IntVector idVector = (IntVector) root.getVector("id");
+        idVector.setInitialCapacity(2);
+        idVector.allocateNew();
+        idVector.setSafe(0, 1);
+        idVector.setSafe(1, 2);
+        idVector.setValueCount(2);
+
+        // Set array field
+        ListVector listVector = (ListVector) root.getVector("arr_int");
+        listVector.setInitialCapacity(2);
+        listVector.allocateNew();
+        
+        // First row: [1, 2, 3]
+        listVector.startNewValue(0);
+        IntVector dataVector = (IntVector) listVector.getDataVector();
+        dataVector.setSafe(0, 1);
+        dataVector.setSafe(1, 2);
+        dataVector.setSafe(2, 3);
+        listVector.endValue(0, 3);
+        
+        // Second row: [4, 5]
+        listVector.startNewValue(1);
+        dataVector.setSafe(3, 4);
+        dataVector.setSafe(4, 5);
+        listVector.endValue(1, 2);
+        
+        dataVector.setValueCount(5);
+        listVector.setValueCount(2);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"INT\",\"name\":\"id\",\"comment\":\"\"}," +
+                "{\"type\":\"ARRAY\",\"name\":\"arr_int\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row1 = rowBatch.next();
+        Assert.assertEquals(1, row1.get(0));
+        
+        @SuppressWarnings("unchecked")
+        List<Object> arr1 = (List<Object>) row1.get(1);
+        Assert.assertNotNull(arr1);
+        Assert.assertEquals(3, arr1.size());
+        Assert.assertEquals(1, arr1.get(0));
+        Assert.assertEquals(2, arr1.get(1));
+        Assert.assertEquals(3, arr1.get(2));
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row2 = rowBatch.next();
+        Assert.assertEquals(2, row2.get(0));
+        
+        @SuppressWarnings("unchecked")
+        List<Object> arr2 = (List<Object>) row2.get(1);
+        Assert.assertNotNull(arr2);
+        Assert.assertEquals(2, arr2.size());
+        Assert.assertEquals(4, arr2.get(0));
+        Assert.assertEquals(5, arr2.get(1));
+
+        Assert.assertFalse(rowBatch.hasNext());
+        
+        root.close();
+    }
+
+    @Test
+    public void testArrayTypeString() throws DorisException, IOException {
+        // Test ARRAY<STRING> type conversion
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        
+        Field elementField = new Field("element", FieldType.nullable(ArrowType.Utf8.INSTANCE), null);
+        Field arrayField = new Field("arr_string", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(elementField));
+        
+        childrenBuilder.add(new Field("id", FieldType.nullable(new ArrowType.Int(32, true)), null));
+        childrenBuilder.add(arrayField);
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        IntVector idVector = (IntVector) root.getVector("id");
+        idVector.setInitialCapacity(1);
+        idVector.allocateNew();
+        idVector.setSafe(0, 1);
+        idVector.setValueCount(1);
+
+        ListVector listVector = (ListVector) root.getVector("arr_string");
+        listVector.setInitialCapacity(1);
+        listVector.allocateNew();
+        
+        listVector.startNewValue(0);
+        VarCharVector dataVector = (VarCharVector) listVector.getDataVector();
+        dataVector.setSafe(0, "hello".getBytes(StandardCharsets.UTF_8));
+        dataVector.setSafe(1, "world".getBytes(StandardCharsets.UTF_8));
+        listVector.endValue(0, 2);
+        
+        dataVector.setValueCount(2);
+        listVector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"INT\",\"name\":\"id\",\"comment\":\"\"}," +
+                "{\"type\":\"ARRAY\",\"name\":\"arr_string\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row = rowBatch.next();
+        Assert.assertEquals(1, row.get(0));
+        
+        @SuppressWarnings("unchecked")
+        List<Object> arr = (List<Object>) row.get(1);
+        Assert.assertNotNull(arr);
+        Assert.assertEquals(2, arr.size());
+        Assert.assertEquals("hello", arr.get(0));
+        Assert.assertEquals("world", arr.get(1));
+
+        Assert.assertFalse(rowBatch.hasNext());
+        
+        root.close();
+    }
+
+    @Test
+    public void testArrayTypeNull() throws DorisException, IOException {
+        // Test ARRAY with NULL values
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        
+        Field elementField = new Field("element", FieldType.nullable(new ArrowType.Int(32, true)), null);
+        Field arrayField = new Field("arr_int", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(elementField));
+        
+        childrenBuilder.add(new Field("id", FieldType.nullable(new ArrowType.Int(32, true)), null));
+        childrenBuilder.add(arrayField);
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(3);
+
+        IntVector idVector = (IntVector) root.getVector("id");
+        idVector.setInitialCapacity(3);
+        idVector.allocateNew();
+        idVector.setSafe(0, 1);
+        idVector.setSafe(1, 2);
+        idVector.setSafe(2, 3);
+        idVector.setValueCount(3);
+
+        ListVector listVector = (ListVector) root.getVector("arr_int");
+        listVector.setInitialCapacity(3);
+        listVector.allocateNew();
+        
+        // First row: [1, 2]
+        listVector.startNewValue(0);
+        IntVector dataVector = (IntVector) listVector.getDataVector();
+        dataVector.setSafe(0, 1);
+        dataVector.setSafe(1, 2);
+        listVector.endValue(0, 2);
+        
+        // Second row: NULL array
+        listVector.setNull(1);
+        
+        // Third row: [3, null, 4] - array with null element
+        listVector.startNewValue(2);
+        dataVector.setSafe(2, 3);
+        dataVector.setNull(3); // null element
+        dataVector.setSafe(4, 4);
+        listVector.endValue(2, 3);
+        
+        dataVector.setValueCount(5);
+        listVector.setValueCount(3);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"INT\",\"name\":\"id\",\"comment\":\"\"}," +
+                "{\"type\":\"ARRAY\",\"name\":\"arr_int\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+
+        // First row
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row1 = rowBatch.next();
+        @SuppressWarnings("unchecked")
+        List<Object> arr1 = (List<Object>) row1.get(1);
+        Assert.assertNotNull(arr1);
+        Assert.assertEquals(2, arr1.size());
+
+        // Second row - NULL array
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row2 = rowBatch.next();
+        Assert.assertNull(row2.get(1));
+
+        // Third row - array with null element
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row3 = rowBatch.next();
+        @SuppressWarnings("unchecked")
+        List<Object> arr3 = (List<Object>) row3.get(1);
+        Assert.assertNotNull(arr3);
+        Assert.assertEquals(3, arr3.size());
+        Assert.assertEquals(3, arr3.get(0));
+        Assert.assertNull(arr3.get(1)); // null element
+        Assert.assertEquals(4, arr3.get(2));
+
+        Assert.assertFalse(rowBatch.hasNext());
+        
+        root.close();
+    }
+
+    @Test
+    public void testArrayTypeNested() throws DorisException, IOException {
+        // Test ARRAY<ARRAY<INT>> nested array
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        
+        // Inner array element (INT)
+        Field innerElementField = new Field("element", FieldType.nullable(new ArrowType.Int(32, true)), null);
+        Field innerArrayField = new Field("element", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(innerElementField));
+        
+        // Outer array element (ARRAY<INT>)
+        Field outerArrayField = new Field("arr_nested", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(innerArrayField));
+        
+        childrenBuilder.add(new Field("id", FieldType.nullable(new ArrowType.Int(32, true)), null));
+        childrenBuilder.add(outerArrayField);
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        IntVector idVector = (IntVector) root.getVector("id");
+        idVector.setInitialCapacity(1);
+        idVector.allocateNew();
+        idVector.setSafe(0, 1);
+        idVector.setValueCount(1);
+
+        ListVector outerListVector = (ListVector) root.getVector("arr_nested");
+        outerListVector.setInitialCapacity(1);
+        outerListVector.allocateNew();
+        
+        // Create nested array: [[1, 2], [3, 4, 5]]
+        outerListVector.startNewValue(0);
+        
+        // First inner array [1, 2]
+        ListVector innerListVector = (ListVector) outerListVector.getDataVector();
+        innerListVector.startNewValue(0);
+        IntVector dataVector = (IntVector) innerListVector.getDataVector();
+        dataVector.setSafe(0, 1);
+        dataVector.setSafe(1, 2);
+        innerListVector.endValue(0, 2);
+        
+        // Second inner array [3, 4, 5]
+        innerListVector.startNewValue(1);
+        dataVector.setSafe(2, 3);
+        dataVector.setSafe(3, 4);
+        dataVector.setSafe(4, 5);
+        innerListVector.endValue(1, 3);
+        
+        outerListVector.endValue(0, 2);
+        
+        dataVector.setValueCount(5);
+        innerListVector.setValueCount(2);
+        outerListVector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"INT\",\"name\":\"id\",\"comment\":\"\"}," +
+                "{\"type\":\"ARRAY\",\"name\":\"arr_nested\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row = rowBatch.next();
+        Assert.assertEquals(1, row.get(0));
+        
+        @SuppressWarnings("unchecked")
+        List<Object> outerArray = (List<Object>) row.get(1);
+        Assert.assertNotNull(outerArray);
+        Assert.assertEquals(2, outerArray.size());
+        
+        @SuppressWarnings("unchecked")
+        List<Object> innerArray1 = (List<Object>) outerArray.get(0);
+        Assert.assertNotNull(innerArray1);
+        Assert.assertEquals(2, innerArray1.size());
+        Assert.assertEquals(1, innerArray1.get(0));
+        Assert.assertEquals(2, innerArray1.get(1));
+        
+        @SuppressWarnings("unchecked")
+        List<Object> innerArray2 = (List<Object>) outerArray.get(1);
+        Assert.assertNotNull(innerArray2);
+        Assert.assertEquals(3, innerArray2.size());
+        Assert.assertEquals(3, innerArray2.get(0));
+        Assert.assertEquals(4, innerArray2.get(1));
+        Assert.assertEquals(5, innerArray2.get(2));
+
+        Assert.assertFalse(rowBatch.hasNext());
+        
+        root.close();
+    }
+
+    @Test
+    public void testArrayTypeEmpty() throws DorisException, IOException {
+        // Test empty array
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        
+        Field elementField = new Field("element", FieldType.nullable(new ArrowType.Int(32, true)), null);
+        Field arrayField = new Field("arr_int", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(elementField));
+        
+        childrenBuilder.add(new Field("id", FieldType.nullable(new ArrowType.Int(32, true)), null));
+        childrenBuilder.add(arrayField);
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        IntVector idVector = (IntVector) root.getVector("id");
+        idVector.setInitialCapacity(1);
+        idVector.allocateNew();
+        idVector.setSafe(0, 1);
+        idVector.setValueCount(1);
+
+        ListVector listVector = (ListVector) root.getVector("arr_int");
+        listVector.setInitialCapacity(1);
+        listVector.allocateNew();
+        
+        // Empty array
+        listVector.startNewValue(0);
+        listVector.endValue(0, 0);
+        
+        listVector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"INT\",\"name\":\"id\",\"comment\":\"\"}," +
+                "{\"type\":\"ARRAY\",\"name\":\"arr_int\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row = rowBatch.next();
+        Assert.assertEquals(1, row.get(0));
+        
+        @SuppressWarnings("unchecked")
+        List<Object> arr = (List<Object>) row.get(1);
+        Assert.assertNotNull(arr);
+        Assert.assertEquals(0, arr.size()); // Empty array
+
+        Assert.assertFalse(rowBatch.hasNext());
+        
+        root.close();
     }
 
 }
