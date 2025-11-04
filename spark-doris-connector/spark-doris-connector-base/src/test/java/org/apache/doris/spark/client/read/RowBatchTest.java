@@ -1792,9 +1792,10 @@ public class RowBatchTest {
                 "], \"status\":200}";
 
         Schema schema = MAPPER.readValue(schemaStr, Schema.class);
-        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+        // Test with type inference enabled
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false, true);
 
-        // Verify that type inference works
+        // Verify that type inference works when enabled
         Map<Integer, String> inferredTypes = rowBatch.getInferredArrayElementTypes();
         Assert.assertNotNull(inferredTypes);
         Assert.assertTrue(inferredTypes.containsKey(1)); // Column index 1 is arr_int
@@ -1803,7 +1804,7 @@ public class RowBatchTest {
         // Should infer "INT" as element type
         Assert.assertTrue("Expected inferred type to contain INT, but got: " + inferredType,
                 inferredType.contains("INT") || inferredType.equals("INT"));
-
+        
         // Verify data is correctly read
         Assert.assertTrue(rowBatch.hasNext());
         List<Object> row = rowBatch.next();
@@ -1886,7 +1887,8 @@ public class RowBatchTest {
                 "], \"status\":200}";
 
         Schema schema = MAPPER.readValue(schemaStr, Schema.class);
-        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+        // Test with type inference enabled
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false, true);
 
         // Verify nested array type inference
         Map<Integer, String> inferredTypes = rowBatch.getInferredArrayElementTypes();
