@@ -633,4 +633,94 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
       session.stop()
     }
   }
+
+  @Test
+  def testReadTimestampNTZ(): Unit = {
+    // Test reading DATETIME as TimestampNTZType when enabled
+    // This test only runs in Spark 3.4+
+    try {
+      // Check if TimestampNTZType is available (Spark 3.4+)
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      val timestampNTZType = instance.asInstanceOf[org.apache.spark.sql.types.DataType]
+
+      // Initialize table with DATETIME field and insert test data
+      initializeTimestampNTZTableForRead()
+      val session = SparkSession.builder().master("local[*]").getOrCreate()
+      try {
+        // Read with TimestampNTZ enabled
+        val df = session.read
+          .format("doris")
+          .option("doris.fenodes", getFenodes)
+          .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL_ALL_TYPES + "_ntz")
+          .option("user", getDorisUsername)
+          .option("password", getDorisPassword)
+          .option("doris.read.timestamp.ntz.enabled", "true")
+          .option("doris.read.mode", readMode)
+          .option("doris.read.arrow-flight-sql.port", flightSqlPort.toString)
+          .load()
+
+        // Verify schema - ts_ntz field should be TimestampNTZType
+        val tsField = df.schema.fields.find(_.name == "ts_ntz")
+        assert(tsField.isDefined, "ts_ntz field should exist")
+        // Check if the data type is TimestampNTZType (compare by class)
+        val actualDataTypeClass = tsField.get.dataType.getClass
+        val expectedDataTypeClass = timestampNTZType.getClass
+        assert(actualDataTypeClass == expectedDataTypeClass,
+          s"ts_ntz field should be TimestampNTZType (${expectedDataTypeClass}), but got ${actualDataTypeClass}")
+
+        // Verify data
+        val actualData = df.select("id", "name", "ts_ntz").orderBy("id").collect()
+
+        // Convert TimestampNTZType values to strings for comparison
+        import java.time.LocalDateTime
+        val expectedData = Array(
+          Row(1, "test1", LocalDateTime.of(2024, 1, 15, 12, 30, 45)),
+          Row(2, "test2", LocalDateTime.of(2024, 3, 20, 15, 45, 30)),
+          Row(3, "test3", LocalDateTime.of(2024, 6, 25, 8, 0, 0))
+        )
+
+        // Verify row count
+        assert(actualData.length == expectedData.length, s"Expected ${expectedData.length} rows, got ${actualData.length}")
+
+        // Verify each row
+        actualData.zip(expectedData).zipWithIndex.foreach {
+          case ((actualRow, expectedRow), index) =>
+            assert(actualRow.getInt(0) == expectedRow.getInt(0), s"Row $index: id mismatch")
+            assert(actualRow.getString(1) == expectedRow.getString(1), s"Row $index: name mismatch")
+            // Verify LocalDateTime value (TimestampNTZType returns LocalDateTime)
+            val actualTs = actualRow.get(2).asInstanceOf[LocalDateTime]
+            val expectedTs = expectedRow.get(2).asInstanceOf[LocalDateTime]
+            assert(actualTs == expectedTs, s"Row $index: timestamp mismatch - actual=$actualTs, expected=$expectedTs")
+        }
+
+        LOG.info("testReadTimestampNTZ passed successfully")
+      } finally {
+        session.stop()
+      }
+    } catch {
+      case _: ClassNotFoundException =>
+        // Spark < 3.4, skip test
+        LOG.info("TimestampNTZType not available (Spark < 3.4), skipping testReadTimestampNTZ")
+    }
+  }
+
+  private def initializeTimestampNTZTableForRead(): Unit = {
+    ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection(DATABASE),
+      LOG,
+      String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, TABLE_READ_TBL_ALL_TYPES + "_ntz"),
+      String.format("CREATE TABLE %s.%s ( \n"
+        + "`id` int NOT NULL,\n"
+        + "`name` varchar(256),\n"
+        + "`ts_ntz` datetime\n"
+        + ") "
+        + "DUPLICATE KEY(`id`) "
+        + "DISTRIBUTED BY HASH(`id`) BUCKETS 1\n"
+        + "PROPERTIES ("
+        + "\"replication_num\" = \"1\")", DATABASE, TABLE_READ_TBL_ALL_TYPES + "_ntz"),
+      String.format("INSERT INTO %s.%s VALUES (1, 'test1', '2024-01-15 12:30:45')", DATABASE, TABLE_READ_TBL_ALL_TYPES + "_ntz"),
+      String.format("INSERT INTO %s.%s VALUES (2, 'test2', '2024-03-20 15:45:30')", DATABASE, TABLE_READ_TBL_ALL_TYPES + "_ntz"),
+      String.format("INSERT INTO %s.%s VALUES (3, 'test3', '2024-06-25 08:00:00')", DATABASE, TABLE_READ_TBL_ALL_TYPES + "_ntz"))
+  }
 }

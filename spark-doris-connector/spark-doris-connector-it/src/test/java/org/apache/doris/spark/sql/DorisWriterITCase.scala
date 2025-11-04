@@ -44,6 +44,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   val TABLE_JSON_TBL_OVERWRITE: String = "tbl_json_tbl_overwrite"
   val TABLE_JSON_TBL_ARROW: String = "tbl_json_tbl_arrow"
   val TABLE_BITMAP_TBL: String = "tbl_write_tbl_bitmap"
+  val TABLE_TIMESTAMP_NTZ: String = "tbl_timestamp_ntz"
 
   @Test
   @throws[Exception]
@@ -407,6 +408,211 @@ class DorisWriterITCase extends AbstractContainerTestBase {
         + " DISTRIBUTED BY HASH(`name`) BUCKETS 1\n"
         + "PROPERTIES ("
         + "\"replication_num\" = \"1\"\n" + morProps + ")", DATABASE, table, max, model))
+  }
+
+  @Test
+  @throws[Exception]
+  def testWriteTimestampNTZ(): Unit = {
+    // Test writing TimestampNTZType data to Doris DATETIME field
+    // This test only runs in Spark 3.4+
+    try {
+      // Check if TimestampNTZType is available (Spark 3.4+)
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      val timestampNTZType = instance.asInstanceOf[org.apache.spark.sql.types.DataType]
+
+      // Initialize table with DATETIME field
+      initializeTimestampNTZTable(TABLE_TIMESTAMP_NTZ)
+      val session = SparkSession.builder().master("local[*]").getOrCreate()
+      try {
+        import org.apache.spark.sql.types.{StructType, StructField}
+        import org.apache.spark.sql.Row
+        import java.time.LocalDateTime
+
+        // Create data with LocalDateTime values
+        val localDateTime1 = LocalDateTime.of(2024, 1, 15, 12, 30, 45, 123456000)
+        val localDateTime2 = LocalDateTime.of(2024, 3, 20, 15, 45, 30, 789000000)
+        val localDateTime3 = LocalDateTime.of(2024, 6, 25, 8, 0, 0, 0)
+
+        // Create schema with TimestampNTZType
+        val schema = StructType(Seq(
+          StructField("id", org.apache.spark.sql.types.IntegerType, nullable = false),
+          StructField("name", org.apache.spark.sql.types.StringType, nullable = true),
+          StructField("ts_ntz", timestampNTZType, nullable = true)
+        ))
+
+        // Convert LocalDateTime to microsecond timestamp for Spark
+        def localDateTimeToMicros(ldt: LocalDateTime): Long = {
+          val seconds = ldt.atZone(java.time.ZoneOffset.UTC).toEpochSecond
+          val nanos = ldt.getNano
+          seconds * 1_000_000L + nanos / 1_000
+        }
+
+        // Create rows with TimestampNTZType values (as microsecond timestamps)
+        val rows = Seq(
+          Row(1, "test1", localDateTimeToMicros(localDateTime1)),
+          Row(2, "test2", localDateTimeToMicros(localDateTime2)),
+          Row(3, "test3", localDateTimeToMicros(localDateTime3))
+        )
+
+        val df = session.createDataFrame(session.sparkContext.parallelize(rows), schema)
+
+        // Write to Doris using Arrow format (which supports TimestampNTZ)
+        df.write
+          .format("doris")
+          .option("doris.fenodes", getFenodes)
+          .option("doris.table.identifier", DATABASE + "." + TABLE_TIMESTAMP_NTZ)
+          .option("user", getDorisUsername)
+          .option("password", getDorisPassword)
+          .option("sink.properties.format", "arrow")
+          .option("doris.sink.batch.size", "1")
+          .option("doris.sink.enable-2pc", "true")
+          .mode(SaveMode.Append)
+          .save()
+
+        Thread.sleep(10000)
+
+        // Verify data in Doris
+        val actual = ContainerUtils.executeSQLStatement(
+          getDorisQueryConnection,
+          LOG,
+          String.format("select id, name, ts_ntz from %s.%s order by id", DATABASE, TABLE_TIMESTAMP_NTZ),
+          3)
+
+        // Expected format: id,name,datetime
+        val expected = util.Arrays.asList(
+          "1,test1,2024-01-15 12:30:45",
+          "2,test2,2024-03-20 15:45:30",
+          "3,test3,2024-06-25 08:00:00"
+        )
+
+        checkResultInAnyOrder("testWriteTimestampNTZ", expected.toArray(), actual.toArray)
+
+      } finally {
+        session.stop()
+      }
+    } catch {
+      case _: ClassNotFoundException =>
+        // Spark < 3.4, skip test
+        LOG.info("TimestampNTZType not available (Spark < 3.4), skipping testWriteTimestampNTZ")
+    }
+  }
+
+  @Test
+  @throws[Exception]
+  def testWriteTimestampNTZWithArrowFormat(): Unit = {
+    // Test writing TimestampNTZType data using Arrow format
+    // This test only runs in Spark 3.4+
+    try {
+      // Check if TimestampNTZType is available (Spark 3.4+)
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      val timestampNTZType = instance.asInstanceOf[org.apache.spark.sql.types.DataType]
+
+      // Initialize table with DATETIMEV2 field
+      initializeTimestampNTZTableV2(TABLE_TIMESTAMP_NTZ + "_v2")
+      val session = SparkSession.builder().master("local[*]").getOrCreate()
+      try {
+        import org.apache.spark.sql.types.{StructType, StructField}
+        import org.apache.spark.sql.Row
+        import java.time.LocalDateTime
+
+        // Create data with LocalDateTime values
+        val localDateTime1 = LocalDateTime.of(2025, 1, 1, 0, 0, 0, 0)
+        val localDateTime2 = LocalDateTime.of(2025, 12, 31, 23, 59, 59, 999999000)
+
+        // Create schema with TimestampNTZType
+        val schema = StructType(Seq(
+          StructField("id", org.apache.spark.sql.types.IntegerType, nullable = false),
+          StructField("ts_ntz", timestampNTZType, nullable = true)
+        ))
+
+        // Convert LocalDateTime to microsecond timestamp for Spark
+        def localDateTimeToMicros(ldt: LocalDateTime): Long = {
+          val seconds = ldt.atZone(java.time.ZoneOffset.UTC).toEpochSecond
+          val nanos = ldt.getNano
+          seconds * 1_000_000L + nanos / 1_000
+        }
+
+        // Create rows with TimestampNTZType values
+        val rows = Seq(
+          Row(1, localDateTimeToMicros(localDateTime1)),
+          Row(2, localDateTimeToMicros(localDateTime2))
+        )
+
+        val df = session.createDataFrame(session.sparkContext.parallelize(rows), schema)
+
+        // Write to Doris using Arrow format
+        df.write
+          .format("doris")
+          .option("doris.fenodes", getFenodes)
+          .option("doris.table.identifier", DATABASE + "." + TABLE_TIMESTAMP_NTZ + "_v2")
+          .option("user", getDorisUsername)
+          .option("password", getDorisPassword)
+          .option("sink.properties.format", "arrow")
+          .option("doris.sink.batch.size", "1")
+          .option("doris.sink.enable-2pc", "true")
+          .mode(SaveMode.Append)
+          .save()
+
+        Thread.sleep(10000)
+
+        // Verify data in Doris
+        val actual = ContainerUtils.executeSQLStatement(
+          getDorisQueryConnection,
+          LOG,
+          String.format("select id, ts_ntz from %s.%s order by id", DATABASE, TABLE_TIMESTAMP_NTZ + "_v2"),
+          2)
+
+        // Expected format: id,datetime
+        val expected = util.Arrays.asList(
+          "1,2025-01-01 00:00:00",
+          "2,2025-12-31 23:59:59"
+        )
+
+        checkResultInAnyOrder("testWriteTimestampNTZWithArrowFormat", expected.toArray(), actual.toArray)
+
+      } finally {
+        session.stop()
+      }
+    } catch {
+      case _: ClassNotFoundException =>
+        // Spark < 3.4, skip test
+        LOG.info("TimestampNTZType not available (Spark < 3.4), skipping testWriteTimestampNTZWithArrowFormat")
+    }
+  }
+
+  private def initializeTimestampNTZTable(table: String): Unit = {
+    ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE),
+      String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table),
+      String.format("CREATE TABLE %s.%s ( \n"
+        + "`id` int NOT NULL,\n"
+        + "`name` varchar(256),\n"
+        + "`ts_ntz` datetime\n"
+        + ") "
+        + "DUPLICATE KEY(`id`) "
+        + "DISTRIBUTED BY HASH(`id`) BUCKETS 1\n"
+        + "PROPERTIES ("
+        + "\"replication_num\" = \"1\")", DATABASE, table))
+  }
+
+  private def initializeTimestampNTZTableV2(table: String): Unit = {
+    ContainerUtils.executeSQLStatement(
+      getDorisQueryConnection,
+      LOG,
+      String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE),
+      String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table),
+      String.format("CREATE TABLE %s.%s ( \n"
+        + "`id` int NOT NULL,\n"
+        + "`ts_ntz` datetimev2(6)\n"
+        + ") "
+        + "DUPLICATE KEY(`id`) "
+        + "DISTRIBUTED BY HASH(`id`) BUCKETS 1\n"
+        + "PROPERTIES ("
+        + "\"replication_num\" = \"1\")", DATABASE, table))
   }
 
   private def checkResultInAnyOrder(testName: String, expected: Array[AnyRef], actual: Array[AnyRef]): Unit = {
