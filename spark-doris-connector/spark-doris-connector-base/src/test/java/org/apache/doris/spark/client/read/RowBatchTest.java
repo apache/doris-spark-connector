@@ -1731,4 +1731,173 @@ public class RowBatchTest {
         root.close();
     }
 
+    @Test
+    public void testArrayTypeInference() throws DorisException, IOException {
+        // Test that array element types are correctly inferred from Arrow Field
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        
+        Field elementField = new Field("element", FieldType.nullable(new ArrowType.Int(32, true)), null);
+        Field arrayField = new Field("arr_int", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(elementField));
+        
+        childrenBuilder.add(new Field("id", FieldType.nullable(new ArrowType.Int(32, true)), null));
+        childrenBuilder.add(arrayField);
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        IntVector idVector = (IntVector) root.getVector("id");
+        idVector.setInitialCapacity(1);
+        idVector.allocateNew();
+        idVector.setSafe(0, 1);
+        idVector.setValueCount(1);
+
+        ListVector listVector = (ListVector) root.getVector("arr_int");
+        listVector.setInitialCapacity(1);
+        listVector.allocateNew();
+        
+        listVector.startNewValue(0);
+        IntVector dataVector = (IntVector) listVector.getDataVector();
+        dataVector.setSafe(0, 100);
+        dataVector.setSafe(1, 200);
+        listVector.endValue(0, 2);
+        
+        dataVector.setValueCount(2);
+        listVector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"INT\",\"name\":\"id\",\"comment\":\"\"}," +
+                "{\"type\":\"ARRAY\",\"name\":\"arr_int\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+
+        // Verify that type inference works
+        Map<Integer, String> inferredTypes = rowBatch.getInferredArrayElementTypes();
+        Assert.assertNotNull(inferredTypes);
+        Assert.assertTrue(inferredTypes.containsKey(1)); // Column index 1 is arr_int
+        String inferredType = inferredTypes.get(1);
+        Assert.assertNotNull(inferredType);
+        // Should infer "INT" as element type
+        Assert.assertTrue("Expected inferred type to contain INT, but got: " + inferredType,
+                inferredType.contains("INT") || inferredType.equals("INT"));
+
+        // Verify data is correctly read
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> row = rowBatch.next();
+        Assert.assertEquals(1, row.get(0));
+        
+        @SuppressWarnings("unchecked")
+        List<Object> arr = (List<Object>) row.get(1);
+        Assert.assertNotNull(arr);
+        Assert.assertEquals(2, arr.size());
+        Assert.assertEquals(100, arr.get(0));
+        Assert.assertEquals(200, arr.get(1));
+
+        Assert.assertFalse(rowBatch.hasNext());
+        
+        root.close();
+    }
+
+    @Test
+    public void testArrayTypeInferenceNested() throws DorisException, IOException {
+        // Test nested array type inference
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        
+        Field innerElementField = new Field("element", FieldType.nullable(new ArrowType.Int(32, true)), null);
+        Field innerArrayField = new Field("element", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(innerElementField));
+        Field outerArrayField = new Field("arr_nested", FieldType.nullable(ArrowType.List.INSTANCE), 
+                ImmutableList.of(innerArrayField));
+        
+        childrenBuilder.add(new Field("id", FieldType.nullable(new ArrowType.Int(32, true)), null));
+        childrenBuilder.add(outerArrayField);
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        IntVector idVector = (IntVector) root.getVector("id");
+        idVector.setInitialCapacity(1);
+        idVector.allocateNew();
+        idVector.setSafe(0, 1);
+        idVector.setValueCount(1);
+
+        ListVector outerListVector = (ListVector) root.getVector("arr_nested");
+        outerListVector.setInitialCapacity(1);
+        outerListVector.allocateNew();
+        
+        outerListVector.startNewValue(0);
+        ListVector innerListVector = (ListVector) outerListVector.getDataVector();
+        innerListVector.startNewValue(0);
+        IntVector dataVector = (IntVector) innerListVector.getDataVector();
+        dataVector.setSafe(0, 1);
+        innerListVector.endValue(0, 1);
+        outerListVector.endValue(0, 1);
+        
+        dataVector.setValueCount(1);
+        innerListVector.setValueCount(1);
+        outerListVector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"INT\",\"name\":\"id\",\"comment\":\"\"}," +
+                "{\"type\":\"ARRAY\",\"name\":\"arr_nested\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false);
+
+        // Verify nested array type inference
+        Map<Integer, String> inferredTypes = rowBatch.getInferredArrayElementTypes();
+        Assert.assertNotNull(inferredTypes);
+        Assert.assertTrue(inferredTypes.containsKey(1));
+        String inferredType = inferredTypes.get(1);
+        Assert.assertNotNull(inferredType);
+        // Should infer nested array type like "ARRAY<ARRAY<INT>>" or "ARRAY<INT>"
+        Assert.assertTrue("Expected inferred type to contain ARRAY, but got: " + inferredType,
+                inferredType.contains("ARRAY"));
+
+        root.close();
+    }
+
 }

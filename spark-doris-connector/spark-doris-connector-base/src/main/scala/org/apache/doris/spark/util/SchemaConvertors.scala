@@ -24,6 +24,45 @@ import org.apache.spark.sql.types.{ArrayType, DataType, DataTypes, DecimalType, 
 
 object SchemaConvertors {
 
+  /**
+   * Convert inferred element type string to Spark DataType
+   * Used for ARRAY type precision inference
+   * 
+   * @param elementTypeString the inferred element type (e.g., "INT", "STRING", "ARRAY<INT>")
+   * @param precision precision for decimal types
+   * @param scale scale for decimal types
+   * @return Spark DataType
+   */
+  def elementTypeStringToDataType(elementTypeString: String, precision: Int = -1, scale: Int = -1): DataType = {
+    if (elementTypeString == null || elementTypeString.isEmpty) {
+      return DataTypes.StringType // Default fallback
+    }
+    
+    // Handle nested arrays (e.g., "ARRAY<INT>")
+    if (elementTypeString.startsWith("ARRAY<") && elementTypeString.endsWith(">")) {
+      val innerType = elementTypeString.substring(6, elementTypeString.length - 1)
+      val elementType = elementTypeStringToDataType(innerType, precision, scale)
+      return ArrayType(elementType, containsNull = true)
+    }
+    
+    // Handle primitive types
+    elementTypeString match {
+      case "TINYINT" => DataTypes.ByteType
+      case "SMALLINT" => DataTypes.ShortType
+      case "INT" => DataTypes.IntegerType
+      case "BIGINT" => DataTypes.LongType
+      case "FLOAT" => DataTypes.FloatType
+      case "DOUBLE" => DataTypes.DoubleType
+      case "STRING" => DataTypes.StringType
+      case "BOOLEAN" => DataTypes.BooleanType
+      case "DATE" => DataTypes.DateType
+      case "DATETIME" => DataTypes.TimestampType
+      case "BINARY" => DataTypes.BinaryType
+      case "DECIMAL" => if (precision > 0 && scale >= 0) DecimalType(precision, scale) else DecimalType(10, 0)
+      case _ => DataTypes.StringType // Default fallback
+    }
+  }
+
   @throws[IllegalArgumentException]
   def toCatalystType(dorisType: String, precision: Int, scale: Int): DataType = {
     dorisType match {

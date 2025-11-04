@@ -49,6 +49,11 @@ import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
@@ -104,6 +109,19 @@ public class RowBatch implements Serializable {
     private int rowCountInOneBatch = 0;
     private int readRowCount = 0;
     private List<FieldVector> fieldVectors;
+    
+    // Cache for inferred array element types: column index -> inferred element type string
+    private Map<Integer, String> inferredArrayElementTypes = null;
+    
+    /**
+     * Get inferred array element types
+     * This can be used to update Schema with precise element types
+     * 
+     * @return Map of column index to inferred element type string, or null if not yet inferred
+     */
+    public Map<Integer, String> getInferredArrayElementTypes() {
+        return inferredArrayElementTypes;
+    }
 
     private final Boolean datetimeJava8ApiEnabled;
 
@@ -155,6 +173,12 @@ public class RowBatch implements Serializable {
             logger.debug("One batch in arrow has no data.");
             return;
         }
+        
+        // Infer array element types from Arrow Field on first batch
+        if (inferredArrayElementTypes == null) {
+            inferredArrayElementTypes = inferArrayElementTypes(root);
+        }
+        
         rowCountInOneBatch = root.getRowCount();
         // init the rowBatch
         for (int i = 0; i < rowCountInOneBatch; ++i) {
@@ -162,6 +186,94 @@ public class RowBatch implements Serializable {
         }
         convertArrowToRowBatch();
         readRowCount += root.getRowCount();
+    }
+    
+    /**
+     * Infer array element types from Arrow Schema
+     * This provides precise type information instead of defaulting to StringType
+     * 
+     * @param root the VectorSchemaRoot containing Arrow Field information
+     * @return Map of column index to inferred element type string (e.g., "INT", "STRING", "ARRAY")
+     */
+    private Map<Integer, String> inferArrayElementTypes(VectorSchemaRoot root) {
+        Map<Integer, String> inferredTypes = new HashMap<>();
+        org.apache.arrow.vector.types.pojo.Schema arrowSchema = root.getSchema();
+        
+        for (int i = 0; i < fieldVectors.size() && i < schema.size(); i++) {
+            org.apache.doris.spark.rest.models.Field dorisField = schema.get(i);
+            if ("ARRAY".equals(dorisField.getType())) {
+                Field arrowField = arrowSchema.getFields().get(i);
+                String elementType = inferElementTypeFromArrowField(arrowField);
+                if (elementType != null) {
+                    inferredTypes.put(i, elementType);
+                    logger.debug("Inferred ARRAY element type for column {}: {}", 
+                            dorisField.getName(), elementType);
+                }
+            }
+        }
+        
+        return inferredTypes;
+    }
+    
+    /**
+     * Recursively infer element type from Arrow Field
+     * Returns a string representation of the Spark type (e.g., "INT", "STRING", "ARRAY<INT>")
+     */
+    private String inferElementTypeFromArrowField(Field field) {
+        ArrowType arrowType = field.getType();
+        
+        // Check for List type (both INSTANCE and instanceof)
+        if (arrowType == ArrowType.List.INSTANCE || arrowType instanceof ArrowType.List) {
+            // Get element field from List
+            List<Field> children = field.getChildren();
+            if (children != null && !children.isEmpty()) {
+                Field elementField = children.get(0);
+                String elementType = inferElementTypeFromArrowField(elementField);
+                if (elementType != null && !elementType.isEmpty()) {
+                    return "ARRAY<" + elementType + ">";
+                }
+            }
+            return "ARRAY<STRING>"; // Fallback
+        } else if (arrowType instanceof ArrowType.Int) {
+            ArrowType.Int intType = (ArrowType.Int) arrowType;
+            if (intType.getIsSigned()) {
+                if (intType.getBitWidth() == 8) return "TINYINT";
+                if (intType.getBitWidth() == 16) return "SMALLINT";
+                if (intType.getBitWidth() == 32) return "INT";
+                if (intType.getBitWidth() == 64) return "BIGINT";
+            }
+            return "INT"; // Fallback
+        } else if (arrowType instanceof ArrowType.FloatingPoint) {
+            ArrowType.FloatingPoint floatType = (ArrowType.FloatingPoint) arrowType;
+            if (floatType.getPrecision() == FloatingPointPrecision.SINGLE) {
+                return "FLOAT";
+            } else if (floatType.getPrecision() == FloatingPointPrecision.DOUBLE) {
+                return "DOUBLE";
+            }
+            return "DOUBLE"; // Fallback
+        } else if (arrowType == ArrowType.Utf8.INSTANCE) {
+            return "STRING";
+        } else if (arrowType == ArrowType.Binary.INSTANCE) {
+            return "BINARY";
+        } else if (arrowType instanceof ArrowType.Bool) {
+            return "BOOLEAN";
+        } else if (arrowType instanceof ArrowType.Decimal) {
+            return "DECIMAL";
+        } else if (arrowType instanceof ArrowType.Date) {
+            ArrowType.Date dateType = (ArrowType.Date) arrowType;
+            if (dateType.getUnit() == DateUnit.DAY) {
+                return "DATE";
+            }
+            return "DATE"; // Fallback
+        } else if (arrowType instanceof ArrowType.Timestamp) {
+            ArrowType.Timestamp timestampType = (ArrowType.Timestamp) arrowType;
+            if (timestampType.getUnit() == TimeUnit.MICROSECOND) {
+                return "DATETIME";
+            }
+            return "DATETIME"; // Fallback
+        }
+        
+        return "STRING"; // Default fallback
     }
 
     public static LocalDateTime longToLocalDateTime(long time) {
