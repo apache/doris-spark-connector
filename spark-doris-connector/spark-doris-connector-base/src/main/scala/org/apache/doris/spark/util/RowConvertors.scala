@@ -27,9 +27,9 @@ import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
-import java.time.{Instant, LocalDate}
+import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util
-import scala.collection.JavaConverters.{mapAsScalaMapConverter, seqAsJavaListConverter}
+import scala.collection.JavaConverters.{asScalaBufferConverter, mapAsScalaMapConverter, seqAsJavaListConverter}
 import scala.collection.mutable
 
 object RowConvertors {
@@ -134,11 +134,13 @@ object RowConvertors {
       case at: ArrayType =>
         // Convert Java List to Spark ArrayData
         // Performance optimization: Pre-allocate array with known size
-        val list = v.asInstanceOf[java.util.List[Any]].asScala
-        val listSize = list.size
+        val javaList = v.asInstanceOf[java.util.List[Any]]
+        val listSize = javaList.size()
         val elements = new Array[Any](listSize)
         var i = 0
-        list.foreach { element =>
+        val iterator = javaList.iterator()
+        while (iterator.hasNext) {
+          val element = iterator.next()
           if (element == null) {
             elements(i) = null
           } else {
@@ -198,8 +200,16 @@ object RowConvertors {
         DateTimeUtils.fromJavaDate(element.asInstanceOf[Date])
       case nestedArray: ArrayType =>
         // Handle nested arrays recursively
-        val nestedList = element.asInstanceOf[java.util.List[Any]].asScala
-        val nestedElements = nestedList.map(e => convertArrayElement(e, nestedArray.elementType, datetimeJava8ApiEnabled)).toArray
+        val nestedJavaList = element.asInstanceOf[java.util.List[Any]]
+        val nestedListSize = nestedJavaList.size()
+        val nestedElements = new Array[Any](nestedListSize)
+        var j = 0
+        val nestedIterator = nestedJavaList.iterator()
+        while (nestedIterator.hasNext) {
+          val e = nestedIterator.next()
+          nestedElements(j) = convertArrayElement(e, nestedArray.elementType, datetimeJava8ApiEnabled)
+          j += 1
+        }
         ArrayData.toArrayData(nestedElements)
       case _ => element
     }
