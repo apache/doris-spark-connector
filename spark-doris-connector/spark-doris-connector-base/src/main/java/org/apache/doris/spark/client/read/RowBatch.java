@@ -124,13 +124,19 @@ public class RowBatch implements Serializable {
     }
 
     private final Boolean datetimeJava8ApiEnabled;
+    private final Boolean enableArrayTypeInference;
 
     public RowBatch(TScanBatchResult nextResult, Schema schema, Boolean datetimeJava8ApiEnabled) throws DorisException {
+        this(nextResult, schema, datetimeJava8ApiEnabled, false);
+    }
+
+    public RowBatch(TScanBatchResult nextResult, Schema schema, Boolean datetimeJava8ApiEnabled, Boolean enableArrayTypeInference) throws DorisException {
 
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         this.arrowReader = new ArrowStreamReader(new ByteArrayInputStream(nextResult.getRows()), rootAllocator);
         this.schema = schema;
         this.datetimeJava8ApiEnabled = datetimeJava8ApiEnabled;
+        this.enableArrayTypeInference = enableArrayTypeInference;
 
         try {
             VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
@@ -147,10 +153,15 @@ public class RowBatch implements Serializable {
     }
 
     public RowBatch(ArrowReader reader, Schema schema, Boolean datetimeJava8ApiEnabled) throws DorisException {
+        this(reader, schema, datetimeJava8ApiEnabled, false);
+    }
+
+    public RowBatch(ArrowReader reader, Schema schema, Boolean datetimeJava8ApiEnabled, Boolean enableArrayTypeInference) throws DorisException {
 
         this.arrowReader = reader;
         this.schema = schema;
         this.datetimeJava8ApiEnabled = datetimeJava8ApiEnabled;
+        this.enableArrayTypeInference = enableArrayTypeInference;
 
         try {
             VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
@@ -174,8 +185,8 @@ public class RowBatch implements Serializable {
             return;
         }
         
-        // Infer array element types from Arrow Field on first batch
-        if (inferredArrayElementTypes == null) {
+        // Infer array element types from Arrow Field on first batch (only if enabled)
+        if (enableArrayTypeInference && inferredArrayElementTypes == null) {
             inferredArrayElementTypes = inferArrayElementTypes(root);
         }
         
