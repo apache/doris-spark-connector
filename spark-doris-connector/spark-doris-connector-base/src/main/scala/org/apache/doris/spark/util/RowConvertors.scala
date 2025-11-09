@@ -98,6 +98,7 @@ object RowConvertors {
         case FloatType => row.getFloat(ordinal)
         case DoubleType => row.getDouble(ordinal)
         case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(NULL_VALUE)
+        // Add explicit case for TimestampNTZType to avoid MatchError
         case dt if isTimestampNTZType(dt) =>
           // TimestampNTZType: convert microsecond timestamp to LocalDateTime string
           // DateTimeUtils.localDateTimeFromMicros converts microseconds to LocalDateTime
@@ -154,7 +155,7 @@ object RowConvertors {
   }
 
   def convertValue(v: Any, dataType: DataType, datetimeJava8ApiEnabled: Boolean): Any = {
-    // Check for TimestampNTZType first (Spark 3.4+)
+    // Add explicit case for TimestampNTZType to avoid MatchError
     if (isTimestampNTZType(dataType)) {
       // TimestampNTZType: convert LocalDateTime to microsecond timestamp without timezone conversion
       v match {

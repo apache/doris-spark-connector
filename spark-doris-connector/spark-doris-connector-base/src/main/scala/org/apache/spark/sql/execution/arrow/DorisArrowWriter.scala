@@ -113,6 +113,15 @@ object DorisArrowWriter {
             createFieldWriter(vector.getChildByOrdinal(ordinal))
           }
           new DorisStructWriter(vector, children.toArray)
+        // Add explicit case for TimestampNTZType to avoid MatchError
+        case (dt, _) if TimestampNTZHelper.isTimestampNTZType(dt) =>
+          vector match {
+            case tsVector: TimeStampVector if tsVector.getField.getType.asInstanceOf[org.apache.arrow.vector.types.pojo.ArrowType.Timestamp].getTimezone == null =>
+              new DorisTimestampNTZWriter(tsVector)
+            case _ =>
+              throw new UnsupportedOperationException(
+                s"TimestampNTZType requires TimeStampMicroVector without timezone, but got ${vector.getClass}")
+          }
         case (dt, _) =>
           throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
       }
