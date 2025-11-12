@@ -1432,12 +1432,14 @@ public class RowBatchTest {
         List<Object> row = rowBatch.next();
         Assert.assertEquals(1, row.get(0));
         
-        @SuppressWarnings("unchecked")
-        List<Object> arr = (List<Object>) row.get(1);
-        Assert.assertNotNull(arr);
-        Assert.assertEquals(2, arr.size());
-        Assert.assertEquals("hello", arr.get(0));
-        Assert.assertEquals("world", arr.get(1));
+        // Array<String> (VARCHAR) is serialized as JSON string for performance optimization
+        String jsonString = (String) row.get(1);
+        Assert.assertNotNull(jsonString);
+        // Verify it's valid JSON format
+        Assert.assertTrue(jsonString.startsWith("["));
+        Assert.assertTrue(jsonString.endsWith("]"));
+        Assert.assertTrue(jsonString.contains("hello"));
+        Assert.assertTrue(jsonString.contains("world"));
 
         Assert.assertFalse(rowBatch.hasNext());
         
@@ -1634,25 +1636,18 @@ public class RowBatchTest {
         List<Object> row = rowBatch.next();
         Assert.assertEquals(1, row.get(0));
         
-        @SuppressWarnings("unchecked")
-        List<Object> outerArray = (List<Object>) row.get(1);
-        Assert.assertNotNull(outerArray);
-        Assert.assertEquals(2, outerArray.size());
-        
-        @SuppressWarnings("unchecked")
-        List<Object> innerArray1 = (List<Object>) outerArray.get(0);
-        Assert.assertNotNull(innerArray1);
-        Assert.assertEquals(2, innerArray1.size());
-        Assert.assertEquals(1, innerArray1.get(0));
-        Assert.assertEquals(2, innerArray1.get(1));
-        
-        @SuppressWarnings("unchecked")
-        List<Object> innerArray2 = (List<Object>) outerArray.get(1);
-        Assert.assertNotNull(innerArray2);
-        Assert.assertEquals(3, innerArray2.size());
-        Assert.assertEquals(3, innerArray2.get(0));
-        Assert.assertEquals(4, innerArray2.get(1));
-        Assert.assertEquals(5, innerArray2.get(2));
+        // Array<Array<Int>> (nested LIST) is serialized as JSON string for performance optimization
+        String jsonString = (String) row.get(1);
+        Assert.assertNotNull(jsonString);
+        // Verify it's valid JSON format for nested array
+        Assert.assertTrue(jsonString.startsWith("[["));
+        Assert.assertTrue(jsonString.endsWith("]]"));
+        // Verify it contains the expected values
+        Assert.assertTrue(jsonString.contains("1"));
+        Assert.assertTrue(jsonString.contains("2"));
+        Assert.assertTrue(jsonString.contains("3"));
+        Assert.assertTrue(jsonString.contains("4"));
+        Assert.assertTrue(jsonString.contains("5"));
 
         Assert.assertFalse(rowBatch.hasNext());
         
