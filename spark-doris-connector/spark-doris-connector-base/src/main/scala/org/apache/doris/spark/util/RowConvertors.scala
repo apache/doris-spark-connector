@@ -132,9 +132,29 @@ object RowConvertors {
         val values = map.values.toArray.map(UTF8String.fromString)
         ArrayBasedMapData(keys, values)
       case at: ArrayType =>
+        // ARRAY data from RowBatch comes as JSON string, convert back to List
+        // Examples: "[\"Alice\",\"Bob\"]" or "[1,2,3]"
+        val inputValue = v match {
+          case s: String =>
+            // Parse JSON string to List
+            try {
+              MAPPER.readValue(s, classOf[java.util.List[Any]])
+            } catch {
+              case _: Exception =>
+                // Fallback: return empty list if JSON parsing fails
+                new java.util.ArrayList[Any]()
+            }
+          case list: java.util.List[Any] =>
+            // Already a List (e.g., from direct conversion path)
+            list
+          case _ =>
+            // Unexpected type, return empty list
+            new java.util.ArrayList[Any]()
+        }
+        
         // Convert Java List to Spark ArrayData
         // Performance optimization: Pre-allocate array with known size
-        val javaList = v.asInstanceOf[java.util.List[Any]]
+        val javaList = inputValue.asInstanceOf[java.util.List[Any]]
         val listSize = javaList.size()
         val elements = new Array[Any](listSize)
         var i = 0

@@ -58,6 +58,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -87,6 +88,9 @@ import java.util.Objects;
 public class RowBatch implements Serializable {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
     private static final ZoneId DEFAULT_ZONE_ID = ZoneId.systemDefault();
+    
+    // JSON converter for ARRAY type serialization to maintain consistency with MAP/STRUCT/JSON types
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
             .appendPattern("yyyy-MM-dd HH:mm:ss")
@@ -112,6 +116,10 @@ public class RowBatch implements Serializable {
     
     // Cache for inferred array element types: column index -> inferred element type string
     private Map<Integer, String> inferredArrayElementTypes = null;
+    
+    // Performance optimization: Cache Arrow element types for ARRAY columns
+    // Used to determine if JSON serialization is needed; primitive types need not be converted
+    private Map<Integer, MinorType> arrayElementTypes = new HashMap<>();
     
     /**
      * Get inferred array element types
@@ -188,6 +196,20 @@ public class RowBatch implements Serializable {
         // Infer array element types from Arrow Field on first batch (only if enabled)
         if (enableArrayTypeInference && inferredArrayElementTypes == null) {
             inferredArrayElementTypes = inferArrayElementTypes(root);
+        }
+        
+        // Performance optimization: Cache Arrow element types for ARRAY columns
+        // Used to determine if JSON serialization is needed; avoid unnecessary conversion of primitive types
+        arrayElementTypes.clear();
+        for (int col = 0; col < fieldVectors.size(); col++) {
+            if (col < schema.size() && "ARRAY".equals(schema.get(col).getType())) {
+                FieldVector vector = fieldVectors.get(col);
+                if (vector instanceof ListVector) {
+                    ListVector listVector = (ListVector) vector;
+                    MinorType elementType = listVector.getDataVector().getMinorType();
+                    arrayElementTypes.put(col, elementType);
+                }
+            }
         }
         
         rowCountInOneBatch = root.getRowCount();
@@ -603,6 +625,11 @@ public class RowBatch implements Serializable {
                                 typeMismatchMessage(colName, currentType, mt));
                         ListVector listVector = (ListVector) curFieldVector;
                         UnionListReader listReader = listVector.getReader();
+                        
+                        // Performance optimization: Decide conversion strategy based on element type
+                        MinorType elementType = arrayElementTypes.get(col);
+                        boolean needsJson = needsJsonSerialization(elementType);
+                        
                         for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
                             if (listVector.isNull(rowIndex)) {
                                 addValueToRow(rowIndex, null);
@@ -611,7 +638,17 @@ public class RowBatch implements Serializable {
                             // Position reader at current row and recursively convert ListVector
                             listReader.setPosition(rowIndex);
                             Object arrayValue = convertListVector(listVector, listReader);
-                            addValueToRow(rowIndex, arrayValue);
+                            
+                            // ★ Optimization: Only convert types that need JSON serialization
+                            // Primitive types keep List format for optimal performance
+                            if (needsJson) {
+                                // Complex types: Convert to JSON for consistency
+                                String jsonString = convertArrayToJsonString(arrayValue);
+                                addValueToRow(rowIndex, jsonString);
+                            } else {
+                                // Primitive types: Use List directly with zero overhead
+                                addValueToRow(rowIndex, arrayValue);
+                            }
                         }
                         break;
                     case "MAP":
@@ -686,6 +723,94 @@ public class RowBatch implements Serializable {
             }
         } catch (IOException ioe) {
             // do nothing
+        }
+    }
+
+    /**
+     * Performance optimization: Determine if ARRAY element type needs JSON serialization
+     * 
+     * Primitive types do not need JSON conversion and can keep List format for optimal performance
+     * Complex types need JSON conversion to maintain format consistency
+     * 
+     * Primitive types that do not need JSON:
+     *   - BIT (boolean)
+     *   - TINYINT/SMALLINT/INT/BIGINT (integer types)
+     *   - FLOAT4/FLOAT8 (floating-point types)
+     *   - DATEDAY (date)
+     *   - TIMESTAMPMICRO/TIMESTAMPMICROTZ (timestamps)
+     * 
+     * Complex types that need JSON:
+     *   - VARCHAR (strings - may contain special characters)
+     *   - LIST (nested arrays)
+     *   - STRUCT (structures)
+     *   - MAP (mappings)
+     *   - DECIMAL (decimal numbers)
+     * 
+     * @param elementType Arrow element type
+     * @return true if JSON serialization is needed, false to keep List format
+     */
+    private boolean needsJsonSerialization(MinorType elementType) {
+        if (elementType == null) {
+            return false;  // If undetermined, keep List format (safe)
+        }
+        
+        switch (elementType) {
+            // Complex types: Need JSON serialization
+            case VARCHAR:           // Strings (may contain special characters)
+            case VARBINARY:         // Binary data
+            case LIST:              // Nested arrays
+            case STRUCT:            // Structures
+            case MAP:               // Mappings
+            case DECIMAL:           // Decimal numbers
+                return true;
+            
+            // Primitive types: No JSON needed
+            case BIT:               // Boolean
+            case TINYINT:           // Byte
+            case SMALLINT:          // Short integer
+            case INT:               // Integer
+            case BIGINT:            // Long integer
+            case FLOAT4:            // Single-precision floating point
+            case FLOAT8:            // Double-precision floating point
+            case DATEDAY:           // Date
+            case TIMESTAMPMICRO:    // Timestamp (microsecond precision)
+            case TIMESTAMPMICROTZ:  // Timestamp (with timezone)
+                return false;
+            
+            default:
+                // Unknown types, use JSON conversion for safety
+                return true;
+        }
+    }
+
+    /**
+     * Convert Java List object to JSON string for consistency with other complex types
+     * This ensures ARRAY types are represented the same way as MAP, STRUCT, and JSON types
+     * 
+     * Examples:
+     *   ["Alice", "Bob"] -> ["Alice","Bob"]
+     *   [1, 2, 3] -> [1,2,3]
+     *   [["a", "b"], ["c", "d"]] -> [["a","b"],["c","d"]]
+     * 
+     * @param arrayValue the Java List object from convertListVector
+     * @return JSON string representation of the array
+     */
+    private String convertArrayToJsonString(Object arrayValue) {
+        try {
+            if (arrayValue == null) {
+                return null;
+            }
+            if (!(arrayValue instanceof List)) {
+                logger.warn("Expected List for ARRAY type, got {}", arrayValue.getClass().getName());
+                return arrayValue.toString();
+            }
+            // Use Jackson to serialize the List to JSON string
+            // This provides consistent, compact JSON formatting
+            return objectMapper.writeValueAsString(arrayValue);
+        } catch (Exception e) {
+            logger.warn("Failed to convert array to JSON string: {}", e.getMessage());
+            // Fallback: use toString() for the array
+            return arrayValue.toString();
         }
     }
 
