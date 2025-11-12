@@ -36,6 +36,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
 
   val DATABASE: String = "test_doris_write"
   val TABLE_CSV: String = "tbl_csv"
+  val TABLE_CSV_BENODES: String = "tbl_csv_benodes"
   val TABLE_CSV_HIDE_SEP: String = "tbl_csv_hide_sep"
   val TABLE_GROUP_COMMIT: String = "tbl_group_commit"
   val TABLE_JSON: String = "tbl_json"
@@ -75,6 +76,45 @@ class DorisWriterITCase extends AbstractContainerTestBase {
         getDorisQueryConnection,
         LOG,
         String.format("select * from %s.%s", DATABASE, TABLE_CSV),
+        2)
+      val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
+      checkResultInAnyOrder("testSinkCsvFormat", expected.toArray(), actual.toArray)
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
+  @throws[Exception]
+  def testSinkBeNodes(): Unit = {
+    initializeTable(TABLE_CSV_BENODES, DataModel.DUPLICATE)
+    val session = SparkSession.builder().master("local[1]").getOrCreate()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_csv", 1),
+        ("spark_csv", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.benodes", getBenodes)
+        .option("doris.sink.auto-redirect", false)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_CSV_BENODES)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.column_separator", ",")
+        .option("sink.properties.line_delimiter", "\n")
+        .option("sink.properties.format", "csv")
+        .option("doris.sink.batch.interval.ms", "5000")
+        .option("doris.sink.batch.size", "1")
+        .mode(SaveMode.Append)
+        .save()
+
+      Thread.sleep(15000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_CSV_BENODES),
         2)
       val expected = util.Arrays.asList("doris_csv,1", "spark_csv,2")
       checkResultInAnyOrder("testSinkCsvFormat", expected.toArray(), actual.toArray)

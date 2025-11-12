@@ -447,7 +447,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     private List<Backend> getBackends() throws Exception {
         if (config.contains(DorisOptions.DORIS_BENODES)) {
             String beNodes = config.getValue(DorisOptions.DORIS_BENODES);
-            String[] beNodesArr = beNodes.split("\\.");
+            String[] beNodesArr = beNodes.split(",");
             return Arrays.stream(beNodesArr).map(beNode -> {
                 String[] beNodeArr = beNode.split(":");
                 return new Backend(beNodeArr[0], Integer.valueOf(beNodeArr[1]), -1);
