@@ -88,68 +88,70 @@ object RowConvertors {
   private def asScalaValue(row: SpecializedGetters, dataType: DataType, ordinal: Int): Any = {
     if (row.isNullAt(ordinal)) null
     else {
-      dataType match {
-        case NullType => NULL_VALUE
-        case BooleanType => row.getBoolean(ordinal)
-        case ByteType => row.getByte(ordinal)
-        case ShortType => row.getShort(ordinal)
-        case IntegerType => row.getInt(ordinal)
-        case LongType => row.getLong(ordinal)
-        case FloatType => row.getFloat(ordinal)
-        case DoubleType => row.getDouble(ordinal)
-        case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(NULL_VALUE)
-        // Add explicit case for TimestampNTZType to avoid MatchError
-        case dt if isTimestampNTZType(dt) =>
-          // TimestampNTZType: convert microsecond timestamp to LocalDateTime string
-          // DateTimeUtils.localDateTimeFromMicros converts microseconds to LocalDateTime
-          try {
-            val method = Class.forName("org.apache.spark.sql.catalyst.util.DateTimeUtils")
-              .getMethod("localDateTimeFromMicros", classOf[Long])
-            val localDateTime = method.invoke(null, Long.box(row.getLong(ordinal))).asInstanceOf[LocalDateTime]
-            localDateTime.toString
-          } catch {
-            case _: Exception =>
-              // Fallback: use timestamp directly as string
-              row.getLong(ordinal).toString
-          }
-        case TimestampType =>
-          DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
-        case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
-        case BinaryType => row.getBinary(ordinal)
-        case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
-        case at: ArrayType =>
-          val arrayData = row.getArray(ordinal)
-          if (arrayData == null) NULL_VALUE
-          else {
-            (0 until arrayData.numElements()).map(i => {
-              if (arrayData.isNullAt(i)) null else asScalaValue(arrayData, at.elementType, i)
-            }).mkString("[", ",", "]")
-          }
-        case mt: MapType =>
-          val mapData = row.getMap(ordinal)
-          if (mapData.numElements() == 0) "{}"
-          else {
-            val keys = mapData.keyArray()
-            val values = mapData.valueArray()
-            val map = mutable.HashMap[Any, Any]()
+      // Check for TimestampNTZType first to avoid MatchError
+      if (isTimestampNTZType(dataType)) {
+        // TimestampNTZType: convert microsecond timestamp to LocalDateTime string
+        // DateTimeUtils.localDateTimeFromMicros converts microseconds to LocalDateTime
+        try {
+          val method = Class.forName("org.apache.spark.sql.catalyst.util.DateTimeUtils")
+            .getMethod("localDateTimeFromMicros", classOf[Long])
+          val localDateTime = method.invoke(null, Long.box(row.getLong(ordinal))).asInstanceOf[LocalDateTime]
+          localDateTime.toString
+        } catch {
+          case _: Exception =>
+            // Fallback: use timestamp directly as string
+            row.getLong(ordinal).toString
+        }
+      } else {
+        dataType match {
+          case NullType => NULL_VALUE
+          case BooleanType => row.getBoolean(ordinal)
+          case ByteType => row.getByte(ordinal)
+          case ShortType => row.getShort(ordinal)
+          case IntegerType => row.getInt(ordinal)
+          case LongType => row.getLong(ordinal)
+          case FloatType => row.getFloat(ordinal)
+          case DoubleType => row.getDouble(ordinal)
+          case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(NULL_VALUE)
+          case TimestampType =>
+            DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
+          case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
+          case BinaryType => row.getBinary(ordinal)
+          case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
+          case at: ArrayType =>
+            val arrayData = row.getArray(ordinal)
+            if (arrayData == null) NULL_VALUE
+            else {
+              (0 until arrayData.numElements()).map(i => {
+                if (arrayData.isNullAt(i)) null else asScalaValue(arrayData, at.elementType, i)
+              }).mkString("[", ",", "]")
+            }
+          case mt: MapType =>
+            val mapData = row.getMap(ordinal)
+            if (mapData.numElements() == 0) "{}"
+            else {
+              val keys = mapData.keyArray()
+              val values = mapData.valueArray()
+              val map = mutable.HashMap[Any, Any]()
+              var i = 0
+              while (i < keys.numElements()) {
+                map += asScalaValue(keys, mt.keyType, i) -> asScalaValue(values, mt.valueType, i)
+                i += 1
+              }
+              MAPPER.writeValueAsString(map)
+            }
+          case st: StructType =>
+            val structData = row.getStruct(ordinal, st.length)
+            val map = new java.util.TreeMap[String, Any]()
             var i = 0
-            while (i < keys.numElements()) {
-              map += asScalaValue(keys, mt.keyType, i) -> asScalaValue(values, mt.valueType, i)
+            while (i < structData.numFields) {
+              val field = st.fields(i)
+              map.put(field.name, asScalaValue(structData, field.dataType, i))
               i += 1
             }
             MAPPER.writeValueAsString(map)
-          }
-        case st: StructType =>
-          val structData = row.getStruct(ordinal, st.length)
-          val map = new java.util.TreeMap[String, Any]()
-          var i = 0
-          while (i < structData.numFields) {
-            val field = st.fields(i)
-            map.put(field.name, asScalaValue(structData, field.dataType, i))
-            i += 1
-          }
-          MAPPER.writeValueAsString(map)
-        case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+          case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+        }
       }
     }
   }
