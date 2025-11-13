@@ -27,7 +27,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
-import java.time.{Instant, LocalDate, LocalDateTime}
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneId}
 import java.util
 import scala.collection.JavaConverters.{asScalaBufferConverter, mapAsScalaMapConverter, seqAsJavaListConverter}
 import scala.collection.mutable
@@ -210,7 +210,7 @@ object RowConvertors {
       case StringType => UTF8String.fromString(element.toString)
       case TimestampType if datetimeJava8ApiEnabled && element.isInstanceOf[LocalDateTime] =>
         val localDateTime = element.asInstanceOf[LocalDateTime]
-        val instant = localDateTime.atZone(java.time.ZoneId.systemDefault()).toInstant
+        val instant = localDateTime.atZone(ZoneId.systemDefault()).toInstant
         DateTimeUtils.instantToMicros(instant)
       case TimestampType if element.isInstanceOf[Timestamp] =>
         DateTimeUtils.fromJavaTimestamp(element.asInstanceOf[Timestamp])
