@@ -24,8 +24,33 @@ import org.apache.spark.sql.types.{DataType, DataTypes, DecimalType, MapType}
 
 object SchemaConvertors {
 
+  /**
+   * Try to get TimestampNTZType using reflection for Spark 3.4+ compatibility.
+   * Returns None if TimestampNTZType is not available (Spark < 3.4).
+   */
+  private lazy val timestampNTZTypeOption: Option[DataType] = {
+    try {
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      Some(instance.asInstanceOf[DataType])
+    } catch {
+      case _: ClassNotFoundException | _: NoSuchFieldException | _: NoSuchMethodException =>
+        None
+    }
+  }
+
+  /**
+   * Convert Doris type to Spark Catalyst type.
+   *
+   * @param dorisType Doris column type string
+   * @param precision Precision for DECIMAL types
+   * @param scale Scale for DECIMAL types
+   * @param useTimestampNtz If true and Spark >= 3.4, use TimestampNTZType for DATETIME/DATETIMEV2.
+   *                        If false or Spark < 3.4, use TimestampType (default behavior).
+   * @return Spark Catalyst DataType
+   */
   @throws[IllegalArgumentException]
-  def toCatalystType(dorisType: String, precision: Int, scale: Int): DataType = {
+  def toCatalystType(dorisType: String, precision: Int, scale: Int, useTimestampNtz: Boolean = false): DataType = {
     dorisType match {
       case "NULL_TYPE" => DataTypes.NullType
       case "BOOLEAN" => DataTypes.BooleanType
@@ -37,8 +62,18 @@ object SchemaConvertors {
       case "DOUBLE" => DataTypes.DoubleType
       case "DATE" => DataTypes.DateType
       case "DATEV2" => DataTypes.DateType
-      case "DATETIME" => DataTypes.TimestampType
-      case "DATETIMEV2" => DataTypes.TimestampType
+      case "DATETIME" =>
+        if (useTimestampNtz && timestampNTZTypeOption.isDefined) {
+          timestampNTZTypeOption.get
+        } else {
+          DataTypes.TimestampType
+        }
+      case "DATETIMEV2" =>
+        if (useTimestampNtz && timestampNTZTypeOption.isDefined) {
+          timestampNTZTypeOption.get
+        } else {
+          DataTypes.TimestampType
+        }
       case "BINARY" => DataTypes.BinaryType
       case "DECIMAL" => DecimalType(precision, scale)
       case "CHAR" => DataTypes.StringType

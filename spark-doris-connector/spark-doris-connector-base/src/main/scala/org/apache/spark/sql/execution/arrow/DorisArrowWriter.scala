@@ -27,6 +27,32 @@ import org.apache.spark.sql.util.DorisArrowUtils
 import scala.collection.JavaConverters._
 
 /**
+ * Helper object to detect TimestampNTZType using reflection for Spark 3.4+ compatibility.
+ */
+object TimestampNTZHelper {
+  /**
+   * Try to get TimestampNTZType using reflection for Spark 3.4+ compatibility.
+   */
+  private lazy val timestampNTZTypeOption: Option[DataType] = {
+    try {
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      Some(instance.asInstanceOf[DataType])
+    } catch {
+      case _: ClassNotFoundException | _: NoSuchFieldException | _: NoSuchMethodException =>
+        None
+    }
+  }
+
+  /**
+   * Check if a DataType is TimestampNTZType (for Spark 3.4+).
+   */
+  def isTimestampNTZType(dt: DataType): Boolean = {
+    timestampNTZTypeOption.exists(_.getClass == dt.getClass)
+  }
+}
+
+/**
  * Copied from Spark 3.1.2. To avoid the package conflicts between spark 2 and spark 3.
  */
 object DorisArrowWriter {
@@ -47,35 +73,49 @@ object DorisArrowWriter {
 
   private def createFieldWriter(vector: ValueVector): DorisArrowFieldWriter = {
     val field = vector.getField()
-    (DorisArrowUtils.fromArrowField(field), vector) match {
-      case (BooleanType, vector: BitVector) => new DorisBooleanWriter(vector)
-      case (ByteType, vector: TinyIntVector) => new DorisByteWriter(vector)
-      case (ShortType, vector: SmallIntVector) => new DorisShortWriter(vector)
-      case (IntegerType, vector: IntVector) => new DorisIntegerWriter(vector)
-      case (LongType, vector: BigIntVector) => new DorisLongWriter(vector)
-      case (FloatType, vector: Float4Vector) => new DorisFloatWriter(vector)
-      case (DoubleType, vector: Float8Vector) => new DorisDoubleWriter(vector)
-      case (DecimalType.Fixed(precision, scale), vector: DecimalVector) =>
-        new DorisDecimalWriter(vector, precision, scale)
-      case (StringType, vector: VarCharVector) => new DorisStringWriter(vector)
-      case (BinaryType, vector: VarBinaryVector) => new DorisBinaryWriter(vector)
-      case (DateType, vector: DateDayVector) => new DorisDateWriter(vector)
-      case (TimestampType, vector: TimeStampMicroTZVector) => new DorisTimestampWriter(vector)
-      case (ArrayType(_, _), vector: ListVector) =>
-        val elementVector = createFieldWriter(vector.getDataVector())
-        new DorisArrayWriter(vector, elementVector)
-      case (MapType(_, _, _), vector: MapVector) =>
-        val structVector = vector.getDataVector.asInstanceOf[StructVector]
-        val keyWriter = createFieldWriter(structVector.getChild(MapVector.KEY_NAME))
-        val valueWriter = createFieldWriter(structVector.getChild(MapVector.VALUE_NAME))
-        new DorisMapWriter(vector, structVector, keyWriter, valueWriter)
-      case (StructType(_), vector: StructVector) =>
-        val children = (0 until vector.size()).map { ordinal =>
-          createFieldWriter(vector.getChildByOrdinal(ordinal))
-        }
-        new DorisStructWriter(vector, children.toArray)
-      case (dt, _) =>
-        throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
+    val dataType = DorisArrowUtils.fromArrowField(field)
+    
+    // Check for TimestampNTZType first (Spark 3.4+)
+    if (TimestampNTZHelper.isTimestampNTZType(dataType)) {
+      // TimestampNTZType uses TimeStampMicroVector (without timezone)
+      vector match {
+        case tsVector: TimeStampVector if tsVector.getField.getType.asInstanceOf[org.apache.arrow.vector.types.pojo.ArrowType.Timestamp].getTimezone == null =>
+          new DorisTimestampNTZWriter(tsVector)
+        case _ =>
+          throw new UnsupportedOperationException(
+            s"TimestampNTZType requires TimeStampMicroVector without timezone, but got ${vector.getClass}")
+      }
+    } else {
+      (dataType, vector) match {
+        case (BooleanType, vector: BitVector) => new DorisBooleanWriter(vector)
+        case (ByteType, vector: TinyIntVector) => new DorisByteWriter(vector)
+        case (ShortType, vector: SmallIntVector) => new DorisShortWriter(vector)
+        case (IntegerType, vector: IntVector) => new DorisIntegerWriter(vector)
+        case (LongType, vector: BigIntVector) => new DorisLongWriter(vector)
+        case (FloatType, vector: Float4Vector) => new DorisFloatWriter(vector)
+        case (DoubleType, vector: Float8Vector) => new DorisDoubleWriter(vector)
+        case (DecimalType.Fixed(precision, scale), vector: DecimalVector) =>
+          new DorisDecimalWriter(vector, precision, scale)
+        case (StringType, vector: VarCharVector) => new DorisStringWriter(vector)
+        case (BinaryType, vector: VarBinaryVector) => new DorisBinaryWriter(vector)
+        case (DateType, vector: DateDayVector) => new DorisDateWriter(vector)
+        case (TimestampType, vector: TimeStampMicroTZVector) => new DorisTimestampWriter(vector)
+        case (ArrayType(_, _), vector: ListVector) =>
+          val elementVector = createFieldWriter(vector.getDataVector())
+          new DorisArrayWriter(vector, elementVector)
+        case (MapType(_, _, _), vector: MapVector) =>
+          val structVector = vector.getDataVector.asInstanceOf[StructVector]
+          val keyWriter = createFieldWriter(structVector.getChild(MapVector.KEY_NAME))
+          val valueWriter = createFieldWriter(structVector.getChild(MapVector.VALUE_NAME))
+          new DorisMapWriter(vector, structVector, keyWriter, valueWriter)
+        case (StructType(_), vector: StructVector) =>
+          val children = (0 until vector.size()).map { ordinal =>
+            createFieldWriter(vector.getChildByOrdinal(ordinal))
+          }
+          new DorisStructWriter(vector, children.toArray)
+        case (dt, _) =>
+          throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
+      }
     }
   }
 }
@@ -283,6 +323,24 @@ private[spark] class DorisTimestampWriter(
   }
 
   override def setValue(input: SpecializedGetters, ordinal: Int): Unit = {
+    valueVector.setSafe(count, input.getLong(ordinal))
+  }
+}
+
+/**
+ * Writer for TimestampNTZType (Spark 3.4+).
+ * Uses TimeStampMicroVector without timezone instead of TimeStampMicroTZVector.
+ */
+private[spark] class DorisTimestampNTZWriter(
+                                      val valueVector: TimeStampVector) extends DorisArrowFieldWriter {
+
+  override def setNull(): Unit = {
+    valueVector.setNull(count)
+  }
+
+  override def setValue(input: SpecializedGetters, ordinal: Int): Unit = {
+    // TimestampNTZType stores microsecond timestamp directly, same as TimestampType
+    // The difference is that TimestampNTZType doesn't apply timezone conversion
     valueVector.setSafe(count, input.getLong(ordinal))
   }
 }

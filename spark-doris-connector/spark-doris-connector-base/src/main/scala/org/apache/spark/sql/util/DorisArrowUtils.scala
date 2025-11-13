@@ -32,6 +32,28 @@ object DorisArrowUtils {
 
   val rootAllocator = new RootAllocator(Long.MaxValue)
 
+  /**
+   * Try to get TimestampNTZType using reflection for Spark 3.4+ compatibility.
+   * Returns None if TimestampNTZType is not available (Spark < 3.4).
+   */
+  private lazy val timestampNTZTypeOption: Option[DataType] = {
+    try {
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      Some(instance.asInstanceOf[DataType])
+    } catch {
+      case _: ClassNotFoundException | _: NoSuchFieldException | _: NoSuchMethodException =>
+        None
+    }
+  }
+
+  /**
+   * Check if a DataType is TimestampNTZType (for Spark 3.4+).
+   */
+  private def isTimestampNTZType(dt: DataType): Boolean = {
+    timestampNTZTypeOption.exists(_.getClass == dt.getClass)
+  }
+
   def toArrowSchema(schema: StructType, timeZoneId: String): Schema = {
     new Schema(schema.map { field =>
       toArrowField(field.name, field.dataType, field.nullable, timeZoneId)
@@ -67,27 +89,35 @@ object DorisArrowUtils {
     }
   }
 
-  def toArrowType(dt: DataType, timeZoneId: String): ArrowType = dt match {
-    case BooleanType => ArrowType.Bool.INSTANCE
-    case ByteType => new ArrowType.Int(8, true)
-    case ShortType => new ArrowType.Int(8 * 2, true)
-    case IntegerType => new ArrowType.Int(8 * 4, true)
-    case LongType => new ArrowType.Int(8 * 8, true)
-    case FloatType => new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)
-    case DoubleType => new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
-    case StringType => ArrowType.Utf8.INSTANCE
-    case BinaryType => ArrowType.Binary.INSTANCE
-    case DecimalType.Fixed(precision, scale) => new ArrowType.Decimal(precision, scale, 128)
-    case DateType => new ArrowType.Date(DateUnit.DAY)
-    case TimestampType =>
-      if (timeZoneId == null) {
-        throw new UnsupportedOperationException(
-          s"${TimestampType.catalogString} must supply timeZoneId parameter")
-      } else {
-        new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZoneId)
+  def toArrowType(dt: DataType, timeZoneId: String): ArrowType = {
+    // Check for TimestampNTZType first (Spark 3.4+)
+    if (isTimestampNTZType(dt)) {
+      // TimestampNTZType uses Arrow Timestamp without timezone (null timezone)
+      new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)
+    } else {
+      dt match {
+        case BooleanType => ArrowType.Bool.INSTANCE
+        case ByteType => new ArrowType.Int(8, true)
+        case ShortType => new ArrowType.Int(8 * 2, true)
+        case IntegerType => new ArrowType.Int(8 * 4, true)
+        case LongType => new ArrowType.Int(8 * 8, true)
+        case FloatType => new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)
+        case DoubleType => new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+        case StringType => ArrowType.Utf8.INSTANCE
+        case BinaryType => ArrowType.Binary.INSTANCE
+        case DecimalType.Fixed(precision, scale) => new ArrowType.Decimal(precision, scale, 128)
+        case DateType => new ArrowType.Date(DateUnit.DAY)
+        case TimestampType =>
+          if (timeZoneId == null) {
+            throw new UnsupportedOperationException(
+              s"${TimestampType.catalogString} must supply timeZoneId parameter")
+          } else {
+            new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZoneId)
+          }
+        case _ =>
+          throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
       }
-    case _ =>
-      throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
+    }
   }
 
   def fromArrowField(field: Field): DataType = {
@@ -125,7 +155,14 @@ object DorisArrowUtils {
     case ArrowType.Binary.INSTANCE => BinaryType
     case d: ArrowType.Decimal => DecimalType(d.getPrecision, d.getScale)
     case date: ArrowType.Date if date.getUnit == DateUnit.DAY => DateType
-    case ts: ArrowType.Timestamp if ts.getUnit == TimeUnit.MICROSECOND => TimestampType
+    case ts: ArrowType.Timestamp if ts.getUnit == TimeUnit.MICROSECOND =>
+      // If timezone is null, it's a TimestampNTZ (Spark 3.4+)
+      // Otherwise, it's a regular TimestampType with timezone
+      if (ts.getTimezone == null && timestampNTZTypeOption.isDefined) {
+        timestampNTZTypeOption.get
+      } else {
+        TimestampType
+      }
     case _ => throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 

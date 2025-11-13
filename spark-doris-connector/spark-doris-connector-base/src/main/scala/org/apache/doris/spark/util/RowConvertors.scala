@@ -27,12 +27,33 @@ import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
-import java.time.{Instant, LocalDate}
+import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 
 object RowConvertors {
+
+  /**
+   * Try to get TimestampNTZType using reflection for Spark 3.4+ compatibility.
+   */
+  private lazy val timestampNTZTypeOption: Option[DataType] = {
+    try {
+      val timestampNTZClass = Class.forName("org.apache.spark.sql.types.TimestampNTZType$")
+      val instance = timestampNTZClass.getField("MODULE$").get(null)
+      Some(instance.asInstanceOf[DataType])
+    } catch {
+      case _: ClassNotFoundException | _: NoSuchFieldException | _: NoSuchMethodException =>
+        None
+    }
+  }
+
+  /**
+   * Check if a DataType is TimestampNTZType (for Spark 3.4+).
+   */
+  private def isTimestampNTZType(dt: DataType): Boolean = {
+    timestampNTZTypeOption.exists(_.getClass == dt.getClass)
+  }
 
   private val MAPPER = JsonMapper.builder().addModule(DefaultScalaModule)
     .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true).build()
@@ -67,72 +88,103 @@ object RowConvertors {
   private def asScalaValue(row: SpecializedGetters, dataType: DataType, ordinal: Int): Any = {
     if (row.isNullAt(ordinal)) null
     else {
-      dataType match {
-        case NullType => NULL_VALUE
-        case BooleanType => row.getBoolean(ordinal)
-        case ByteType => row.getByte(ordinal)
-        case ShortType => row.getShort(ordinal)
-        case IntegerType => row.getInt(ordinal)
-        case LongType => row.getLong(ordinal)
-        case FloatType => row.getFloat(ordinal)
-        case DoubleType => row.getDouble(ordinal)
-        case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(NULL_VALUE)
-        case TimestampType =>
-          DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
-        case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
-        case BinaryType => row.getBinary(ordinal)
-        case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
-        case at: ArrayType =>
-          val arrayData = row.getArray(ordinal)
-          if (arrayData == null) NULL_VALUE
-          else {
-            (0 until arrayData.numElements()).map(i => {
-              if (arrayData.isNullAt(i)) null else asScalaValue(arrayData, at.elementType, i)
-            }).mkString("[", ",", "]")
-          }
-        case mt: MapType =>
-          val mapData = row.getMap(ordinal)
-          if (mapData.numElements() == 0) "{}"
-          else {
-            val keys = mapData.keyArray()
-            val values = mapData.valueArray()
-            val map = mutable.HashMap[Any, Any]()
+      // Check for TimestampNTZType first to avoid MatchError
+      if (isTimestampNTZType(dataType)) {
+        // TimestampNTZType: convert microsecond timestamp to LocalDateTime string
+        // DateTimeUtils.localDateTimeFromMicros converts microseconds to LocalDateTime
+        try {
+          val method = Class.forName("org.apache.spark.sql.catalyst.util.DateTimeUtils")
+            .getMethod("localDateTimeFromMicros", classOf[Long])
+          val localDateTime = method.invoke(null, Long.box(row.getLong(ordinal))).asInstanceOf[LocalDateTime]
+          localDateTime.toString
+        } catch {
+          case _: Exception =>
+            // Fallback: use timestamp directly as string
+            row.getLong(ordinal).toString
+        }
+      } else {
+        dataType match {
+          case NullType => NULL_VALUE
+          case BooleanType => row.getBoolean(ordinal)
+          case ByteType => row.getByte(ordinal)
+          case ShortType => row.getShort(ordinal)
+          case IntegerType => row.getInt(ordinal)
+          case LongType => row.getLong(ordinal)
+          case FloatType => row.getFloat(ordinal)
+          case DoubleType => row.getDouble(ordinal)
+          case StringType => Option(row.getUTF8String(ordinal)).map(_.toString).getOrElse(NULL_VALUE)
+          case TimestampType =>
+            DateTimeUtils.toJavaTimestamp(row.getLong(ordinal)).toString
+          case DateType => DateTimeUtils.toJavaDate(row.getInt(ordinal)).toString
+          case BinaryType => row.getBinary(ordinal)
+          case dt: DecimalType => row.getDecimal(ordinal, dt.precision, dt.scale).toJavaBigDecimal
+          case at: ArrayType =>
+            val arrayData = row.getArray(ordinal)
+            if (arrayData == null) NULL_VALUE
+            else {
+              (0 until arrayData.numElements()).map(i => {
+                if (arrayData.isNullAt(i)) null else asScalaValue(arrayData, at.elementType, i)
+              }).mkString("[", ",", "]")
+            }
+          case mt: MapType =>
+            val mapData = row.getMap(ordinal)
+            if (mapData.numElements() == 0) "{}"
+            else {
+              val keys = mapData.keyArray()
+              val values = mapData.valueArray()
+              val map = mutable.HashMap[Any, Any]()
+              var i = 0
+              while (i < keys.numElements()) {
+                map += asScalaValue(keys, mt.keyType, i) -> asScalaValue(values, mt.valueType, i)
+                i += 1
+              }
+              MAPPER.writeValueAsString(map)
+            }
+          case st: StructType =>
+            val structData = row.getStruct(ordinal, st.length)
+            val map = new java.util.TreeMap[String, Any]()
             var i = 0
-            while (i < keys.numElements()) {
-              map += asScalaValue(keys, mt.keyType, i) -> asScalaValue(values, mt.valueType, i)
+            while (i < structData.numFields) {
+              val field = st.fields(i)
+              map.put(field.name, asScalaValue(structData, field.dataType, i))
               i += 1
             }
             MAPPER.writeValueAsString(map)
-          }
-        case st: StructType =>
-          val structData = row.getStruct(ordinal, st.length)
-          val map = new java.util.TreeMap[String, Any]()
-          var i = 0
-          while (i < structData.numFields) {
-            val field = st.fields(i)
-            map.put(field.name, asScalaValue(structData, field.dataType, i))
-            i += 1
-          }
-          MAPPER.writeValueAsString(map)
-        case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+          case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+        }
       }
     }
   }
 
   def convertValue(v: Any, dataType: DataType, datetimeJava8ApiEnabled: Boolean): Any = {
-    dataType match {
-      case StringType => UTF8String.fromString(v.asInstanceOf[String])
-      case TimestampType if datetimeJava8ApiEnabled => DateTimeUtils.instantToMicros(v.asInstanceOf[Instant])
-      case TimestampType => DateTimeUtils.fromJavaTimestamp(v.asInstanceOf[Timestamp])
-      case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
-      case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
-      case _: MapType =>
-        val map = v.asInstanceOf[java.util.Map[String, String]].asScala
-        val keys = map.keys.toArray.map(UTF8String.fromString)
-        val values = map.values.toArray.map(UTF8String.fromString)
-        ArrayBasedMapData(keys, values)
-      case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
-      case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+    // Add explicit case for TimestampNTZType to avoid MatchError
+    if (isTimestampNTZType(dataType)) {
+      // TimestampNTZType: convert LocalDateTime to microsecond timestamp without timezone conversion
+      v match {
+        case localDateTime: LocalDateTime =>
+          // Convert LocalDateTime to microseconds since epoch (1970-01-01T00:00:00)
+          // LocalDateTime.toEpochSecond(ZoneOffset.UTC) gives seconds, then multiply by 1_000_000 for microseconds
+          val seconds = localDateTime.atZone(java.time.ZoneOffset.UTC).toEpochSecond
+          val nanos = localDateTime.getNano
+          seconds * 1000000L + nanos / 1000
+        case null => null
+        case _ => throw new Exception(s"TimestampNTZType expects LocalDateTime, but got ${v.getClass}")
+      }
+    } else {
+      dataType match {
+        case StringType => UTF8String.fromString(v.asInstanceOf[String])
+        case TimestampType if datetimeJava8ApiEnabled => DateTimeUtils.instantToMicros(v.asInstanceOf[Instant])
+        case TimestampType => DateTimeUtils.fromJavaTimestamp(v.asInstanceOf[Timestamp])
+        case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
+        case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
+        case _: MapType =>
+          val map = v.asInstanceOf[java.util.Map[String, String]].asScala
+          val keys = map.keys.toArray.map(UTF8String.fromString)
+          val values = map.values.toArray.map(UTF8String.fromString)
+          ArrayBasedMapData(keys, values)
+        case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
+        case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+      }
     }
   }
 

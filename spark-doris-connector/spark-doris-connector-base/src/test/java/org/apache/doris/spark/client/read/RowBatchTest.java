@@ -1262,4 +1262,194 @@ public class RowBatchTest {
 
     }
 
+    @Test
+    public void testDatetimeWithTimestampNTZ() throws DorisException, IOException {
+        // Test DATETIME/DATETIMEV2 with useTimestampNtz=true
+        // This should keep LocalDateTime without timezone conversion
+
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        childrenBuilder.add(new Field("k0", FieldType.nullable(new ArrowType.Utf8()), null));
+        childrenBuilder.add(new Field("k1", FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND,
+                null)), null));
+        childrenBuilder.add(new Field("k2", FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND,
+                null)), null));
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        // Set string value for DATETIME
+        FieldVector vector = root.getVector("k0");
+        VarCharVector varCharVector = (VarCharVector) vector;
+        varCharVector.setInitialCapacity(1);
+        varCharVector.allocateNew();
+        varCharVector.setIndexDefined(0);
+        varCharVector.setValueLengthSafe(0, 26);
+        varCharVector.setSafe(0, "2025-03-15 14:30:45.123456".getBytes());
+        vector.setValueCount(1);
+
+        // Set timestamp for DATETIMEV2 from TimeStampVector
+        LocalDateTime localDateTime = LocalDateTime.of(2025, 3, 15, 15, 45, 30, 789000000);
+        long micros = localDateTime.atZone(ZoneId.systemDefault()).toEpochSecond() * 1_000_000L +
+                localDateTime.getNano() / 1_000;
+
+        vector = root.getVector("k1");
+        TimeStampMicroVector timeStampVector1 = (TimeStampMicroVector) vector;
+        timeStampVector1.setInitialCapacity(1);
+        timeStampVector1.allocateNew();
+        timeStampVector1.setIndexDefined(0);
+        timeStampVector1.setSafe(0, micros);
+        vector.setValueCount(1);
+
+        LocalDateTime localDateTime2 = LocalDateTime.of(2025, 3, 16, 16, 50, 40, 456000000);
+        long micros2 = localDateTime2.atZone(ZoneId.systemDefault()).toEpochSecond() * 1_000_000L +
+                localDateTime2.getNano() / 1_000;
+
+        vector = root.getVector("k2");
+        TimeStampMicroVector timeStampVector2 = (TimeStampMicroVector) vector;
+        timeStampVector2.setInitialCapacity(1);
+        timeStampVector2.allocateNew();
+        timeStampVector2.setIndexDefined(0);
+        timeStampVector2.setSafe(0, micros2);
+        vector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"DATETIME\",\"name\":\"k0\",\"comment\":\"\"}," +
+                "{\"type\":\"DATETIMEV2\",\"name\":\"k1\",\"comment\":\"\"}," +
+                "{\"type\":\"DATETIMEV2\",\"name\":\"k2\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+
+        // Test with useTimestampNtz=true
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, false, true);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> actualRow = rowBatch.next();
+
+        // When useTimestampNtz=true, should return LocalDateTime directly without timezone conversion
+        Object value0 = actualRow.get(0);
+        Assert.assertTrue("Should return LocalDateTime when useTimestampNtz=true",
+                value0 instanceof LocalDateTime);
+        LocalDateTime result0 = (LocalDateTime) value0;
+        Assert.assertEquals("Year should match", 2025, result0.getYear());
+        Assert.assertEquals("Month should match", 3, result0.getMonthValue());
+        Assert.assertEquals("Day should match", 15, result0.getDayOfMonth());
+        Assert.assertEquals("Hour should match", 14, result0.getHour());
+        Assert.assertEquals("Minute should match", 30, result0.getMinute());
+        Assert.assertEquals("Second should match", 45, result0.getSecond());
+
+        Object value1 = actualRow.get(1);
+        Assert.assertTrue("Should return LocalDateTime when useTimestampNtz=true",
+                value1 instanceof LocalDateTime);
+        LocalDateTime result1 = (LocalDateTime) value1;
+        // Note: The exact values depend on timezone conversion logic in getDateTime
+        // But we verify it's LocalDateTime and not Instant/Timestamp
+        Assert.assertEquals("Year should match", 2025, result1.getYear());
+        Assert.assertEquals("Month should match", 3, result1.getMonthValue());
+
+        Object value2 = actualRow.get(2);
+        Assert.assertTrue("Should return LocalDateTime when useTimestampNtz=true",
+                value2 instanceof LocalDateTime);
+
+        Assert.assertFalse(rowBatch.hasNext());
+
+        // Test with useTimestampNtz=false (default behavior)
+        TScanBatchResult scanBatchResult2 = new TScanBatchResult();
+        scanBatchResult2.setStatus(status);
+        scanBatchResult2.setEos(false);
+        scanBatchResult2.setRows(outputStream.toByteArray());
+
+        RowBatch rowBatch2 = new RowBatch(scanBatchResult2, schema, false, false);
+        Assert.assertTrue(rowBatch2.hasNext());
+        List<Object> actualRow2 = rowBatch2.next();
+
+        // When useTimestampNtz=false, should return Timestamp (old behavior)
+        Object value0_2 = actualRow2.get(0);
+        Assert.assertTrue("Should return Timestamp when useTimestampNtz=false",
+                value0_2 instanceof Timestamp);
+
+    }
+
+    @Test
+    public void testDatetimeWithTimestampNTZAndJava8API() throws DorisException, IOException {
+        // Test DATETIME with both useTimestampNtz=true and datetimeJava8ApiEnabled=true
+        // TimestampNTZ should take precedence, returning LocalDateTime
+
+        ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+        childrenBuilder.add(new Field("k0", FieldType.nullable(new ArrowType.Utf8()), null));
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(childrenBuilder.build(), null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
+                root,
+                new DictionaryProvider.MapDictionaryProvider(),
+                outputStream);
+
+        arrowStreamWriter.start();
+        root.setRowCount(1);
+
+        FieldVector vector = root.getVector("k0");
+        VarCharVector varCharVector = (VarCharVector) vector;
+        varCharVector.setInitialCapacity(1);
+        varCharVector.allocateNew();
+        varCharVector.setIndexDefined(0);
+        varCharVector.setValueLengthSafe(0, 19);
+        varCharVector.setSafe(0, "2025-04-20 10:20:30".getBytes());
+        vector.setValueCount(1);
+
+        arrowStreamWriter.writeBatch();
+        arrowStreamWriter.end();
+        arrowStreamWriter.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult scanBatchResult = new TScanBatchResult();
+        scanBatchResult.setStatus(status);
+        scanBatchResult.setEos(false);
+        scanBatchResult.setRows(outputStream.toByteArray());
+
+        String schemaStr = "{\"properties\":[" +
+                "{\"type\":\"DATETIME\",\"name\":\"k0\",\"comment\":\"\"}" +
+                "], \"status\":200}";
+
+        Schema schema = MAPPER.readValue(schemaStr, Schema.class);
+
+        // Test with useTimestampNtz=true and datetimeJava8ApiEnabled=true
+        // TimestampNTZ should take precedence
+        RowBatch rowBatch = new RowBatch(scanBatchResult, schema, true, true);
+
+        Assert.assertTrue(rowBatch.hasNext());
+        List<Object> actualRow = rowBatch.next();
+
+        Object value = actualRow.get(0);
+        // When useTimestampNtz=true, should return LocalDateTime even if datetimeJava8ApiEnabled=true
+        Assert.assertTrue("Should return LocalDateTime when useTimestampNtz=true",
+                value instanceof LocalDateTime);
+        Assert.assertFalse("Should NOT return Instant when useTimestampNtz=true",
+                value instanceof java.time.Instant);
+
+    }
+
 }
