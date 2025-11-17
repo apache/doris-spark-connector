@@ -639,7 +639,7 @@ public class RowBatch implements Serializable {
                             listReader.setPosition(rowIndex);
                             Object arrayValue = convertListVector(listVector, listReader);
                             
-                            // ★ Optimization: Only convert types that need JSON serialization
+                            //  Optimization: Only convert types that need JSON serialization
                             // Primitive types keep List format for optimal performance
                             if (needsJson) {
                                 // Complex types: Convert to JSON for consistency
