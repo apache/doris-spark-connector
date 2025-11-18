@@ -144,5 +144,7 @@ public class DorisOptions {
 
     public static final ConfigOption<Integer> DORIS_SINK_NET_BUFFER_SIZE = ConfigOptions.name("doris.sink.net.buffer.size").intType().defaultValue(1024 * 1024).withDescription("");
 
+    public static final ConfigOption<Boolean> DORIS_SINK_HTTP_UTF8_CHARSET = ConfigOptions.name("doris.sink.http-utf8-charset").booleanType().defaultValue(false).withDescription("");
+
 
 }
