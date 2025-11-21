@@ -142,6 +142,13 @@ public class DorisOptions {
 
     public static final ConfigOption<Boolean> DORIS_READ_BITMAP_TO_BASE64 = ConfigOptions.name("doris.read.bitmap-to-base64").booleanType().defaultValue(false).withDescription("");
 
+    /**
+     * Enable Arrow type inference for ARRAY elements.
+     * When enabled, the connector will infer precise element types from Arrow schema instead of defaulting to StringType.
+     * Default: false (backward compatible, maintains existing behavior)
+     */
+    public static final ConfigOption<Boolean> DORIS_READ_ARRAY_TYPE_INFERENCE = ConfigOptions.name("doris.read.array.type.inference").booleanType().defaultValue(false).withDescription("Enable Arrow type inference for ARRAY elements. When enabled, precise element types are inferred from Arrow schema instead of defaulting to StringType.");
+
     public static final ConfigOption<Integer> DORIS_SINK_NET_BUFFER_SIZE = ConfigOptions.name("doris.sink.net.buffer.size").intType().defaultValue(1024 * 1024).withDescription("");
 
     public static final ConfigOption<Boolean> DORIS_SINK_HTTP_UTF8_CHARSET = ConfigOptions.name("doris.sink.http-utf8-charset").booleanType().defaultValue(false).withDescription("");

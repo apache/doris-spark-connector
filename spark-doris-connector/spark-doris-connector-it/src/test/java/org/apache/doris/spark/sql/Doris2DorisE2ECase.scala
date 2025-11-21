@@ -65,6 +65,19 @@ class Doris2DorisE2ECase(readMode: String, flightSqlPort: Int) extends AbstractC
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, targetInitSql: _*)
 
     val session = SparkSession.builder().master("local[*]").getOrCreate()
+    
+    // Drop temporary views if they exist (for parameterized tests that reuse SparkSession)
+    try {
+      session.sql("DROP TEMPORARY VIEW IF EXISTS test_source")
+    } catch {
+      case _: Exception => // Ignore if view doesn't exist
+    }
+    try {
+      session.sql("DROP TEMPORARY VIEW IF EXISTS test_sink")
+    } catch {
+      case _: Exception => // Ignore if view doesn't exist
+    }
+    
     session.sql(
       s"""
          |CREATE TEMPORARY VIEW test_source

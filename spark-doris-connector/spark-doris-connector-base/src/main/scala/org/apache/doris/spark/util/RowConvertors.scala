@@ -22,14 +22,14 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
-import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, DateTimeUtils}
+import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, ArrayData, DateTimeUtils}
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.sql.{Date, Timestamp}
-import java.time.{Instant, LocalDate}
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneId}
 import java.util
-import scala.collection.JavaConverters.mapAsScalaMapConverter
+import scala.collection.JavaConverters.{asScalaBufferConverter, mapAsScalaMapConverter, seqAsJavaListConverter}
 import scala.collection.mutable
 
 object RowConvertors {
@@ -120,19 +120,135 @@ object RowConvertors {
   }
 
   def convertValue(v: Any, dataType: DataType, datetimeJava8ApiEnabled: Boolean): Any = {
-    dataType match {
-      case StringType => UTF8String.fromString(v.asInstanceOf[String])
-      case TimestampType if datetimeJava8ApiEnabled => DateTimeUtils.instantToMicros(v.asInstanceOf[Instant])
-      case TimestampType => DateTimeUtils.fromJavaTimestamp(v.asInstanceOf[Timestamp])
-      case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
-      case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
-      case _: MapType =>
-        val map = v.asInstanceOf[java.util.Map[String, String]].asScala
-        val keys = map.keys.toArray.map(UTF8String.fromString)
-        val values = map.values.toArray.map(UTF8String.fromString)
-        ArrayBasedMapData(keys, values)
-      case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
-      case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+      dataType match {
+        case StringType => UTF8String.fromString(v.asInstanceOf[String])
+        case TimestampType if datetimeJava8ApiEnabled => DateTimeUtils.instantToMicros(v.asInstanceOf[Instant])
+        case TimestampType => DateTimeUtils.fromJavaTimestamp(v.asInstanceOf[Timestamp])
+        case DateType if datetimeJava8ApiEnabled => v.asInstanceOf[LocalDate].toEpochDay.toInt
+        case DateType => DateTimeUtils.fromJavaDate(v.asInstanceOf[Date])
+        case _: MapType =>
+          val map = v.asInstanceOf[java.util.Map[String, String]].asScala
+          val keys = map.keys.toArray.map(UTF8String.fromString)
+          val values = map.values.toArray.map(UTF8String.fromString)
+          ArrayBasedMapData(keys, values)
+      case at: ArrayType =>
+        // Handle different input types for ARRAY
+        // 1. ArrayData (from Spark DataFrame) - already in correct format, return directly
+        // 2. String (from RowBatch JSON serialization) - parse JSON to List
+        // 3. List (from direct conversion) - convert to ArrayData
+        v match {
+          case arrayData: ArrayData =>
+            // Already ArrayData (e.g., from DataFrame operations), return directly
+            // This handles cases where DataFrame is converted to RDD and ARRAY columns are already ArrayData
+            arrayData
+          case s: String =>
+            // ARRAY data from RowBatch comes as JSON string, convert back to List
+            // Examples: "[\"Alice\",\"Bob\"]" or "[1,2,3]"
+            val inputValue = try {
+              MAPPER.readValue(s, classOf[java.util.List[Any]])
+            } catch {
+              case _: Exception =>
+                // Fallback: return empty list if JSON parsing fails
+                new java.util.ArrayList[Any]()
+            }
+            convertListToArrayData(inputValue, at, datetimeJava8ApiEnabled)
+          case list: java.util.List[Any] =>
+            // Already a List (e.g., from direct conversion path)
+            convertListToArrayData(list, at, datetimeJava8ApiEnabled)
+          case _ =>
+            // Unexpected type, return empty ArrayData
+            ArrayData.toArrayData(new Array[Any](0))
+        }
+        case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
+        case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
+      }
+  }
+
+  /**
+   * Convert Java List to Spark ArrayData
+   * This is a helper method to convert List objects (from JSON parsing or direct conversion) to Spark's ArrayData format
+   * 
+   * @param javaList the Java List to convert
+   * @param arrayType the ArrayType schema definition
+   * @param datetimeJava8ApiEnabled whether to use Java 8 date/time API
+   * @return Spark ArrayData object
+   */
+  private def convertListToArrayData(javaList: java.util.List[Any], arrayType: ArrayType, datetimeJava8ApiEnabled: Boolean): ArrayData = {
+    // Performance optimization: Pre-allocate array with known size
+    val listSize = javaList.size()
+    val elements = new Array[Any](listSize)
+    var i = 0
+    val iterator = javaList.iterator()
+    while (iterator.hasNext) {
+      val element = iterator.next()
+      if (element == null) {
+        elements(i) = null
+      } else {
+        // Recursively convert element based on element type
+        elements(i) = convertArrayElement(element, arrayType.elementType, datetimeJava8ApiEnabled)
+      }
+      i += 1
+    }
+    
+    // Create ArrayData based on element type with proper type conversion
+    // If schema declares StringType but actual data is another type, convert to string
+    try {
+      arrayType.elementType match {
+        case BooleanType => ArrayData.toArrayData(elements.map(_.asInstanceOf[Boolean]))
+        case ByteType => ArrayData.toArrayData(elements.map(_.asInstanceOf[Byte]))
+        case ShortType => ArrayData.toArrayData(elements.map(_.asInstanceOf[Short]))
+        case IntegerType => ArrayData.toArrayData(elements.map(_.asInstanceOf[Int]))
+        case LongType => ArrayData.toArrayData(elements.map(_.asInstanceOf[Long]))
+        case FloatType => ArrayData.toArrayData(elements.map(_.asInstanceOf[Float]))
+        case DoubleType => ArrayData.toArrayData(elements.map(_.asInstanceOf[Double]))
+        case StringType => ArrayData.toArrayData(elements.map(e => UTF8String.fromString(e.toString)))
+        case _ => ArrayData.toArrayData(elements)
+      }
+    } catch {
+      case _: ClassCastException =>
+        // Fallback: if type conversion fails, convert to string array
+        // This handles cases where schema declares a specific type but actual data is another type
+        // Common scenario: Schema declares StringType (default) but actual data is IntegerType, etc.
+        ArrayData.toArrayData(elements.map(e => UTF8String.fromString(e.toString)))
+    }
+  }
+
+  /**
+   * Recursively convert array element based on element type
+   * Supports nested arrays and all primitive types with proper type conversion
+   * 
+   * @param element the element value to convert
+   * @param elementType the expected Spark DataType for the element
+   * @param datetimeJava8ApiEnabled whether to use Java 8 date/time API
+   * @return converted element value suitable for Spark InternalRow
+   */
+  private def convertArrayElement(element: Any, elementType: DataType, datetimeJava8ApiEnabled: Boolean): Any = {
+    elementType match {
+      case StringType => UTF8String.fromString(element.toString)
+      case TimestampType if datetimeJava8ApiEnabled && element.isInstanceOf[LocalDateTime] =>
+        val localDateTime = element.asInstanceOf[LocalDateTime]
+        val instant = localDateTime.atZone(ZoneId.systemDefault()).toInstant
+        DateTimeUtils.instantToMicros(instant)
+      case TimestampType if element.isInstanceOf[Timestamp] =>
+        DateTimeUtils.fromJavaTimestamp(element.asInstanceOf[Timestamp])
+      case DateType if datetimeJava8ApiEnabled && element.isInstanceOf[LocalDate] =>
+        element.asInstanceOf[LocalDate].toEpochDay.toInt
+      case DateType if element.isInstanceOf[Date] =>
+        DateTimeUtils.fromJavaDate(element.asInstanceOf[Date])
+      case nestedArray: ArrayType =>
+        // Handle nested arrays recursively
+        val nestedJavaList = element.asInstanceOf[java.util.List[Any]]
+        val nestedListSize = nestedJavaList.size()
+        val nestedElements = new Array[Any](nestedListSize)
+        var j = 0
+        val nestedIterator = nestedJavaList.iterator()
+        while (nestedIterator.hasNext) {
+          val e = nestedIterator.next()
+          nestedElements(j) = convertArrayElement(e, nestedArray.elementType, datetimeJava8ApiEnabled)
+          j += 1
+        }
+        ArrayData.toArrayData(nestedElements)
+      case _ => element
     }
   }
 
