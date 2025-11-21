@@ -20,13 +20,14 @@ package org.apache.doris.spark.util
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.http.HttpHeaders
 import org.apache.http.client.methods.HttpRequestBase
+import org.apache.http.config.ConnectionConfig
 import org.apache.http.conn.ssl.{SSLConnectionSocketFactory, TrustAllStrategy}
 import org.apache.http.impl.client.{CloseableHttpClient, DefaultRedirectStrategy, HttpClients}
 import org.apache.http.protocol.HttpRequestExecutor
 import org.apache.http.ssl.SSLContexts
 
 import java.io.{File, FileInputStream}
-import java.nio.charset.StandardCharsets
+import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.security.KeyStore
 import java.util.Base64
 import scala.util.{Failure, Success, Try}
@@ -34,7 +35,16 @@ import scala.util.{Failure, Success, Try}
 object HttpUtils {
 
   def getHttpClient(config: DorisConfig): CloseableHttpClient = {
+
+    var connectionConfig = ConnectionConfig.DEFAULT;
+    if (config.getValue(DorisOptions.DORIS_SINK_HTTP_UTF8_CHARSET)) {
+      connectionConfig = ConnectionConfig.custom()
+        .setCharset(StandardCharsets.UTF_8)
+        .setMalformedInputAction(CodingErrorAction.REPLACE)
+        .setUnmappableInputAction(CodingErrorAction.REPLACE).build()
+    }
     val builder = HttpClients.custom()
+      .setDefaultConnectionConfig(connectionConfig)
       .setRequestExecutor(new HttpRequestExecutor(60000))
       .setRedirectStrategy(new DefaultRedirectStrategy {
         override def isRedirectable(method: String): Boolean = true

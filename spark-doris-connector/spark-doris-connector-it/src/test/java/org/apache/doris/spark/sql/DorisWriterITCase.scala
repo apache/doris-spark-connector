@@ -45,6 +45,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   val TABLE_JSON_TBL_OVERWRITE: String = "tbl_json_tbl_overwrite"
   val TABLE_JSON_TBL_ARROW: String = "tbl_json_tbl_arrow"
   val TABLE_BITMAP_TBL: String = "tbl_write_tbl_bitmap"
+  val TABLE_UNICODE_COL: String = "tbl_unicode_col"
 
   @Test
   @throws[Exception]
@@ -453,4 +454,51 @@ class DorisWriterITCase extends AbstractContainerTestBase {
     LOG.info("Checking DorisWriterITCase result. testName={}, actual={}, expected={}", testName, actual, expected)
     assertEqualsInAnyOrder(expected.toList.asJava, actual.toList.asJava)
   }
+
+  @Test
+  def testWriteUnicodeColumn(): Unit = {
+    val createDb = String.format("CREATE DATABASE IF NOT EXISTS %s", DATABASE)
+    val targetInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/write_unicode_col.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection, LOG, Array(createDb): _*)
+    val connection = getDorisQueryConnection(DATABASE)
+    ContainerUtils.executeSQLStatement(connection, LOG, targetInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      val df = session.createDataFrame(Seq(
+        (1, "243"),
+        (2, "1"),
+        (3, "287667876573")
+      )).toDF("序号", "内容")
+      df.createTempView("mock_source")
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_sink
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_UNICODE_COL}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.sink.http-utf8-charset"="true"
+           |)
+           |""".stripMargin)
+      session.sql(
+        """
+          |insert into test_sink select `序号`,`内容` from mock_source
+          |""".stripMargin)
+
+      Thread.sleep(10000)
+      val actual = ContainerUtils.executeSQLStatement(
+        connection,
+        LOG,
+        String.format("select `序号`,`内容` from %s.%s", DATABASE, TABLE_UNICODE_COL),
+        2)
+      val expected = util.Arrays.asList("1,243", "2,1", "3,287667876573");
+      checkResultInAnyOrder("testWriteUnicodeColumn", expected.toArray, actual.toArray)
+    } finally {
+      session.stop()
+    }
+  }
+
 }
