@@ -234,7 +234,7 @@ public class DorisBackendThriftClient {
                 logger.warn("Close scanner from {} failed.", backend, e);
             }
         }
-        logger.info("CloseScanner to Doris BE '{}' success.", backend);
+        logger.info("CloseScanner to Doris BE '{}' success or contextId {} .", backend, closeParams.getContextId());
         close();
     }
 }

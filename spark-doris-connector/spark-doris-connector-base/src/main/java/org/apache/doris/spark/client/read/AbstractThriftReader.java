@@ -132,6 +132,11 @@ public abstract class AbstractThriftReader extends DorisReader {
                 offset += rowBatch.getReadRowCount();
                 rowBatch.close();
                 rowBatchQueue.put(rowBatch);
+            } else {
+                logger.info(
+                        "Async scan finished , tablets: {}, offset: {}",
+                        Arrays.toString(partition.getTablets()),
+                        offset);
             }
         }
     }
@@ -183,6 +188,11 @@ public abstract class AbstractThriftReader extends DorisReader {
                 endOfStream.set(nextResult.isEos());
                 if (!endOfStream.get()) {
                     rowBatch = new RowBatch(nextResult, dorisSchema, datetimeJava8ApiEnabled);
+                } else {
+                    logger.info(
+                            "Scan finished, tablets: {}, offset: {}",
+                            Arrays.toString(partition.getTablets()),
+                            offset);
                 }
             }
             hasNext = !endOfStream.get();
