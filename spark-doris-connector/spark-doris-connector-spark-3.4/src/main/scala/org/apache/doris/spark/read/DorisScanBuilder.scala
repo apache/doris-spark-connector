@@ -33,7 +33,7 @@ class DorisScanBuilder(config: DorisConfig, schema: StructType) extends DorisSca
 
   private var limitSize: Int = -1
 
-  override def build(): Scan = new DorisScanV2(config, schema, pushDownPredicates, limitSize)
+  override def build(): Scan = new DorisScanV2(config, readSchema, pushDownPredicates, limitSize)
 
   override def pushPredicates(predicates: Array[Predicate]): Array[Predicate] = {
     val (pushed, unsupported) = predicates.partition(predicate => {
