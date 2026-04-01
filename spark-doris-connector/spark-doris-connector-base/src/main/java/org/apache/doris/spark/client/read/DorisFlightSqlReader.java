@@ -166,7 +166,7 @@ public class DorisFlightSqlReader extends DorisReader {
         statement.setSqlQuery(flightSql);
         long start = System.currentTimeMillis();
         AdbcStatement.QueryResult queryResult = statement.executeQuery();
-        log.info("Query submitted, tablet={}, cost={}ms", partition.getTablets(), System.currentTimeMillis() - start);
+        log.info("Query submitted, tablet={}, cost={}ms", Arrays.toString(partition.getTablets()), System.currentTimeMillis() - start);
         return queryResult.getReader();
     }
 
