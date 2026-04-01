@@ -38,6 +38,7 @@ import org.apache.arrow.adbc.driver.flightsql.FlightSqlDriver;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -61,6 +62,8 @@ public class DorisFlightSqlReader extends DorisReader {
     private AdbcConnection connection;
     private final ArrowReader arrowReader;
     private final Boolean datetimeJava8ApiEnabled;
+    private int totalBatches = 0;
+    private long totalRows = 0;
 
     public DorisFlightSqlReader(DorisReaderPartition partition) throws Exception {
         super(partition);
@@ -91,7 +94,16 @@ public class DorisFlightSqlReader extends DorisReader {
     public boolean hasNext() throws DorisException {
         if (!endOfStream.get() && (rowBatch == null || !rowBatch.hasNext())) {
             try {
+                long batchStart = System.currentTimeMillis();
                 endOfStream.set(!arrowReader.loadNextBatch());
+                if (!endOfStream.get()) {
+                    VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+                    int rows = root.getRowCount();
+                    totalBatches++;
+                    totalRows += rows;
+                    log.info("Batch loaded: tablet={}, rows={}, cost={}ms",
+                            partition.getTablets(), rows, System.currentTimeMillis() - batchStart);
+                }
             } catch (IOException e) {
                 throw new DorisException(e);
             }
@@ -112,6 +124,8 @@ public class DorisFlightSqlReader extends DorisReader {
 
     @Override
     public void close() {
+        log.info("Partition read finished: tablet={}, batches={}, totalRows={}",
+                partition.getTablets(), totalBatches, totalRows);
         if (rowBatch != null) {
             rowBatch.close();
         }
@@ -147,7 +161,9 @@ public class DorisFlightSqlReader extends DorisReader {
         String flightSql = generateQuerySql(partition);
         log.info("Query SQL Sending to Doris FE is: {}", flightSql);
         statement.setSqlQuery(flightSql);
+        long start = System.currentTimeMillis();
         AdbcStatement.QueryResult queryResult = statement.executeQuery();
+        log.info("Query submitted, tablet={}, cost={}ms", partition.getTablets(), System.currentTimeMillis() - start);
         return queryResult.getReader();
     }
 
