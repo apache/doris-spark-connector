@@ -103,6 +103,8 @@ public class DorisFlightSqlReader extends DorisReader {
                     totalRows += rows;
                     log.info("Batch loaded: tablet={}, rows={}, cost={}ms",
                             partition.getTablets(), rows, System.currentTimeMillis() - batchStart);
+                } else {
+                    log.info("No more data from tablet={}", (Object) partition.getTablets());
                 }
             } catch (IOException e) {
                 throw new DorisException(e);
