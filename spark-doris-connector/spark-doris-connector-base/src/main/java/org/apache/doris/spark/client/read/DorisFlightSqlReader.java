@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -102,9 +103,9 @@ public class DorisFlightSqlReader extends DorisReader {
                     totalBatches++;
                     totalRows += rows;
                     log.info("Batch loaded: tablet={}, rows={}, cost={}ms",
-                            partition.getTablets(), rows, System.currentTimeMillis() - batchStart);
+                            Arrays.toString(partition.getTablets()), rows, System.currentTimeMillis() - batchStart);
                 } else {
-                    log.info("No more data from tablet={}", (Object) partition.getTablets());
+                    log.info("No more data from tablet={}", Arrays.toString(partition.getTablets()));
                 }
             } catch (IOException e) {
                 throw new DorisException(e);
