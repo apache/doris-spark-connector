@@ -46,6 +46,8 @@ class DorisWriterITCase extends AbstractContainerTestBase {
   val TABLE_JSON_TBL_ARROW: String = "tbl_json_tbl_arrow"
   val TABLE_BITMAP_TBL: String = "tbl_write_tbl_bitmap"
   val TABLE_UNICODE_COL: String = "tbl_unicode_col"
+  val TABLE_CSV_NO_COMPRESS: String = "tbl_csv_no_compress"
+  val TABLE_CSV_GZ_COMPRESS: String = "tbl_csv_gz_compress"
 
   @Test
   @throws[Exception]
@@ -430,6 +432,78 @@ class DorisWriterITCase extends AbstractContainerTestBase {
     }
   }
 
+
+  @Test
+  @throws[Exception]
+  def testSinkCsvGzCompression(): Unit = {
+    initializeTable(TABLE_CSV_GZ_COMPRESS, DataModel.DUPLICATE)
+    val session = SparkSession.builder().master("local[1]").getOrCreate()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_gz", 1),
+        ("spark_gz", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_CSV_GZ_COMPRESS)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.column_separator", ",")
+        .option("sink.properties.line_delimiter", "\n")
+        .option("sink.properties.format", "csv")
+        .option("sink.properties.compress_type", "gz")
+        .mode(SaveMode.Append)
+        .save()
+
+      Thread.sleep(15000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_CSV_GZ_COMPRESS),
+        2)
+      val expected = util.Arrays.asList("doris_gz,1", "spark_gz,2")
+      checkResultInAnyOrder("testSinkCsvGzCompression", expected.toArray(), actual.toArray)
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
+  @throws[Exception]
+  def testSinkCsvNoCompression(): Unit = {
+    initializeTable(TABLE_CSV_NO_COMPRESS, DataModel.DUPLICATE)
+    val session = SparkSession.builder().master("local[1]").getOrCreate()
+    try {
+      val df = session.createDataFrame(Seq(
+        ("doris_no_compress", 1),
+        ("spark_no_compress", 2)
+      )).toDF("name", "age")
+      df.write
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_CSV_NO_COMPRESS)
+        .option("user", getDorisUsername)
+        .option("password", getDorisPassword)
+        .option("sink.properties.column_separator", ",")
+        .option("sink.properties.line_delimiter", "\n")
+        .option("sink.properties.format", "csv")
+        .option("sink.properties.compress_type", "")
+        .mode(SaveMode.Append)
+        .save()
+
+      Thread.sleep(15000)
+      val actual = ContainerUtils.executeSQLStatement(
+        getDorisQueryConnection,
+        LOG,
+        String.format("select * from %s.%s", DATABASE, TABLE_CSV_NO_COMPRESS),
+        2)
+      val expected = util.Arrays.asList("doris_no_compress,1", "spark_no_compress,2")
+      checkResultInAnyOrder("testSinkCsvNoCompression", expected.toArray(), actual.toArray)
+    } finally {
+      session.stop()
+    }
+  }
 
   private def initializeTable(table: String, dataModel: DataModel): Unit = {
     val max = if (DataModel.AGGREGATE == dataModel) "MAX" else ""
