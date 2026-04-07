@@ -96,6 +96,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         .option("user", getDorisUsername)
         .option("password", getDorisPassword)
         .option("doris.sink.properties.format", "json")
+        .option("doris.sink.properties.compress_type", "")
         .option("sink.batch.size", 2)
         .option("sink.max-retries", 2)
         .mode(SaveMode.Append)
@@ -131,6 +132,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         .option("user", getDorisUsername)
         .option("password", getDorisPassword)
         .option("doris.sink.properties.format", "json")
+        .option("doris.sink.properties.compress_type", "")
         .option("doris.sink.properties.partial_columns", "true")
         .option("doris.write.fields", "siteid,citycode,username,pv")
         .option("sink.batch.size", 2)
@@ -280,6 +282,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
            | "user"="${getDorisUsername}",
            | "password"="${getDorisPassword}",
            | "doris.sink.properties.format" = "json",
+           | "doris.sink.properties.compress_type" = "",
            | "doris.sink.properties.partial_columns" = "true"
            |)
            |""".stripMargin)
@@ -336,6 +339,7 @@ class DorisAnySchemaITCase extends AbstractContainerTestBase {
         .option("user", getDorisUsername)
         .option("password", getDorisPassword)
         .option("doris.sink.properties.format", "json")
+        .option("doris.sink.properties.compress_type", "")
         .option("doris.write.schemaless", "true")
         .option("sink.batch.size", 2)
         .option("sink.max-retries", 2)

@@ -111,8 +111,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         // init stream load props
         this.isTwoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC);
         this.format = DataFormat.valueOf(properties.getOrDefault("format", "csv").toUpperCase());
-        this.isGzipCompressionEnabled =
-                properties.containsKey("compress_type") && "gzip".equals(properties.get("compress_type"));
+        // enable gzip compression by default for non-arrow formats
+        if (!DataFormat.ARROW.equals(format)) {
+            properties.putIfAbsent("compress_type", "gz");
+        }
+        this.isGzipCompressionEnabled = "gz".equals(properties.get("compress_type"));
         if (properties.containsKey(GROUP_COMMIT)) {
             String message = "";
             if (isTwoPhaseCommitEnabled) {
