@@ -145,19 +145,24 @@ public class RowBatch implements Serializable {
 
     private void readBatch(VectorSchemaRoot root) throws DorisException {
         fieldVectors = root.getFieldVectors();
-        if (fieldVectors.size() > schema.size()) {
-            logger.error("Data schema size '{}' should not be bigger than arrow field size '{}'.",
-                    schema.size(), fieldVectors.size());
+        if (fieldVectors.size() < schema.size()) {
+            logger.error("Arrow field size '{}' is less than data schema size '{}'.",
+                    fieldVectors.size(), schema.size());
             throw new DorisException("Load Doris data failed, schema size of fetch data is wrong.");
+        }
+        if (fieldVectors.size() > schema.size()) {
+            logger.warn("Arrow field size '{}' is greater than schema size '{}'. " +
+                    "This may be due to internal columns in Doris 2.0+. Only processing schema-defined columns.",
+                    fieldVectors.size(), schema.size());
         }
         if (fieldVectors.isEmpty() || root.getRowCount() == 0) {
             logger.debug("One batch in arrow has no data.");
             return;
         }
         rowCountInOneBatch = root.getRowCount();
-        // init the rowBatch
+        // init the rowBatch with schema size (not fieldVectors size) to avoid internal columns
         for (int i = 0; i < rowCountInOneBatch; ++i) {
-            rowBatch.add(new Row(fieldVectors.size()));
+            rowBatch.add(new Row(schema.size()));
         }
         convertArrowToRowBatch();
         readRowCount += root.getRowCount();
@@ -195,7 +200,8 @@ public class RowBatch implements Serializable {
 
     public void convertArrowToRowBatch() throws DorisException {
         try {
-            for (int col = 0; col < fieldVectors.size(); col++) {
+            // Only process columns defined in schema, ignore extra internal columns from Doris 2.0+
+            for (int col = 0; col < schema.size(); col++) {
                 FieldVector curFieldVector = fieldVectors.get(col);
                 MinorType mt = curFieldVector.getMinorType();
 
