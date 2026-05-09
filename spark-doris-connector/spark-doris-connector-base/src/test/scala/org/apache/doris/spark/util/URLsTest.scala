@@ -18,7 +18,7 @@
 package org.apache.doris.spark.util
 
 import org.junit.Assert
-import org.junit.jupiter.api.Test
+import org.junit.Test
 
 class URLsTest {
 
@@ -56,6 +56,12 @@ class URLsTest {
   def getFrontEndNodesTest(): Unit = {
     Assert.assertEquals(URLs.getFrontEndNodes("127.0.0.1", 8030), "http://127.0.0.1:8030/rest/v2/manager/node/frontends")
     Assert.assertEquals(URLs.getFrontEndNodes("127.0.0.1", 8030, enableHttps = true), "https://127.0.0.1:8030/rest/v2/manager/node/frontends")
+  }
+
+  @Test
+  def managerBackendsTest(): Unit = {
+    Assert.assertEquals(URLs.managerBackends("127.0.0.1", 8030), "http://127.0.0.1:8030/rest/v2/manager/node/backends")
+    Assert.assertEquals(URLs.managerBackends("127.0.0.1", 8030, enableHttps = true), "https://127.0.0.1:8030/rest/v2/manager/node/backends")
   }
 
 }

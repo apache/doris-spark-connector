@@ -34,6 +34,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
@@ -71,6 +72,8 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     protected static final JsonMapper MAPPER =
             JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).build();
     private static final int arrowBufferSize = 1000;
+    private static final String CLOUD_CLUSTER = "cloud_cluster";
+    private static final String COMPUTE_GROUP = "compute_group";
     protected final Logger logger = LoggerFactory.getLogger(this.getClass().getName().replaceAll("\\$", ""));
     protected final DorisConfig config;
     private final DorisFrontendClient frontend;
@@ -105,9 +108,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         this.table = dbTableArr[1].replaceAll("`", "").trim();
         this.frontend = new DorisFrontendClient(config);
         this.autoRedirect = config.getValue(DorisOptions.DORIS_SINK_AUTO_REDIRECT);
+        this.properties = config.getSinkProperties();
         this.backendHttpClient = autoRedirect ? null : new DorisBackendHttpClient(getBackends());
         this.isHttpsEnabled = config.getValue(DorisOptions.DORIS_ENABLE_HTTPS);
-        this.properties = config.getSinkProperties();
         // init stream load props
         this.isTwoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC);
         this.format = DataFormat.valueOf(properties.getOrDefault("format", "csv").toUpperCase());
@@ -456,8 +459,19 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                 return new Backend(beNodeArr[0], Integer.valueOf(beNodeArr[1]), -1);
             }).collect(Collectors.toList());
         } else {
-            return frontend.getAliveBackends();
+            return frontend.getAliveBackends(getLoadTargetComputeGroup(properties));
         }
+    }
+
+    static String getLoadTargetComputeGroup(Map<String, String> properties) {
+        if (properties == null) {
+            return null;
+        }
+        String computeGroup = properties.get(COMPUTE_GROUP);
+        if (StringUtils.isNotBlank(computeGroup)) {
+            return computeGroup;
+        }
+        return properties.get(CLOUD_CLUSTER);
     }
 
     protected abstract R copy(R row);
