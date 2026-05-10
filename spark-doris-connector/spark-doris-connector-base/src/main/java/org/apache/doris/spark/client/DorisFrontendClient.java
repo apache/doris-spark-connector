@@ -60,7 +60,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -70,6 +73,9 @@ public class DorisFrontendClient implements Serializable {
     private static final Logger LOG = LoggerFactory.getLogger(DorisFrontendClient.class);
 
     private static final ObjectMapper MAPPER = JsonMapper.builder().build();
+    private static final String MANAGER_BACKENDS = "/rest/v2/manager/node/backends";
+    private static final String COMPUTE_GROUP_NAME = "compute_group_name";
+    private static final String CLOUD_CLUSTER_NAME = "cloud_cluster_name";
 
     private final DorisConfig config;
     private final String username;
@@ -355,6 +361,13 @@ public class DorisFrontendClient implements Serializable {
     }
 
     public List<Backend> getAliveBackends() throws Exception {
+        return getAliveBackends(null);
+    }
+
+    public List<Backend> getAliveBackends(String computeGroupName) throws Exception {
+        if (StringUtils.isNotBlank(computeGroupName)) {
+            return getManagerBackends(computeGroupName);
+        }
         return requestFrontends((frontend, client) -> {
             String url = URLs.aliveBackend(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
             HttpGet httpGet = new HttpGet(url);
@@ -376,6 +389,184 @@ public class DorisFrontendClient implements Serializable {
             Collections.shuffle(backends);
             return backends;
         });
+    }
+
+    private List<Backend> getManagerBackends(String computeGroupName) throws Exception {
+        return requestFrontends((frontend, client) -> {
+            String url = URLs.managerBackends(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
+            HttpGet httpGet = new HttpGet(url);
+            HttpUtils.setAuth(httpGet, username, password);
+            try (CloseableHttpResponse response = client.execute(httpGet)) {
+                if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                    throw new RuntimeException("request fe with url: [" + url + "] failed with http code: "
+                            + response.getStatusLine().getStatusCode() + ", reason: "
+                            + response.getStatusLine().getReasonPhrase());
+                }
+                String entity = EntityUtils.toString(response.getEntity());
+                List<Backend> backends = parseManagerBackends(entity, computeGroupName);
+                Collections.shuffle(backends);
+                return backends;
+            } catch (IOException e) {
+                throw new RuntimeException("get manager backends failed", e);
+            }
+        });
+    }
+
+    static List<Backend> parseManagerBackends(String response, String computeGroupName) {
+        if (StringUtils.isBlank(computeGroupName)) {
+            throw managerBackendsException(computeGroupName, "compute group is empty");
+        }
+
+        JsonNode rootNode;
+        try {
+            rootNode = MAPPER.readTree(response);
+        } catch (IOException e) {
+            throw managerBackendsException(computeGroupName, "Parse Doris manager backend response to json failed. res: " + response);
+        }
+
+        JsonNode dataNode = unwrapManagerBackendData(rootNode, computeGroupName);
+        JsonNode columnNode = dataNode.path("columnNames");
+        if (!columnNode.isArray()) {
+            columnNode = dataNode.path("column_names");
+        }
+        JsonNode rowNode = dataNode.path("rows");
+        if (!columnNode.isArray() || !rowNode.isArray()) {
+            throw managerBackendsException(computeGroupName, "response does not contain columnNames/column_names and rows");
+        }
+
+        Map<String, Integer> columnIndexes = getColumnIndexes(columnNode, computeGroupName);
+        int hostIndex = requireColumn(columnIndexes, "Host", computeGroupName);
+        int httpPortIndex = requireColumn(columnIndexes, "HttpPort", computeGroupName);
+        int aliveIndex = requireColumn(columnIndexes, "Alive", computeGroupName);
+        int tagIndex = requireColumn(columnIndexes, "Tag", computeGroupName);
+
+        List<Backend> backends = new ArrayList<>();
+        for (JsonNode row : rowNode) {
+            if (!row.isArray()) {
+                throw managerBackendsException(computeGroupName, "backend row is not an array");
+            }
+            if (!Boolean.parseBoolean(getManagerBackendCell(row, aliveIndex))) {
+                continue;
+            }
+            String rowComputeGroupName = getComputeGroupNameFromTag(getManagerBackendCell(row, tagIndex));
+            if (!computeGroupName.equals(rowComputeGroupName)) {
+                continue;
+            }
+            String httpPort = getManagerBackendCell(row, httpPortIndex);
+            try {
+                backends.add(new Backend(getManagerBackendCell(row, hostIndex), Integer.parseInt(httpPort), -1));
+            } catch (NumberFormatException e) {
+                throw managerBackendsException(computeGroupName, "backend HttpPort is invalid: " + httpPort);
+            }
+        }
+
+        if (backends.isEmpty()) {
+            throw managerBackendsException(computeGroupName,
+                    "no alive backend found. If the target is a virtual compute group, configure its physical active compute group");
+        }
+        return backends;
+    }
+
+    private static JsonNode unwrapManagerBackendData(JsonNode rootNode, String computeGroupName) {
+        if (rootNode.has("code") && rootNode.has("msg")) {
+            if (!"0".equalsIgnoreCase(rootNode.path("code").asText())) {
+                throw managerBackendsException(computeGroupName,
+                        rootNode.path("msg").asText() + ": " + rootNode.path("data").asText());
+            }
+            return rootNode.path("data");
+        }
+        return rootNode;
+    }
+
+    private static Map<String, Integer> getColumnIndexes(JsonNode columnNode, String computeGroupName) {
+        Map<String, Integer> columnIndexes = new HashMap<>();
+        for (int i = 0; i < columnNode.size(); i++) {
+            String columnName = columnNode.get(i).asText();
+            if (StringUtils.isNotBlank(columnName)) {
+                columnIndexes.put(columnName.toLowerCase(), i);
+            }
+        }
+        if (columnIndexes.isEmpty()) {
+            throw managerBackendsException(computeGroupName, "backend columns are empty");
+        }
+        return columnIndexes;
+    }
+
+    private static int requireColumn(Map<String, Integer> columnIndexes, String columnName, String computeGroupName) {
+        Integer index = columnIndexes.get(columnName.toLowerCase());
+        if (index == null) {
+            throw managerBackendsException(computeGroupName, "backend response missing required column " + columnName);
+        }
+        return index;
+    }
+
+    private static String getManagerBackendCell(JsonNode row, int index) {
+        JsonNode cell = row.get(index);
+        if (cell == null || cell.isNull()) {
+            return "";
+        }
+        return cell.asText();
+    }
+
+    static String getComputeGroupNameFromTag(String tag) {
+        Map<String, String> tagMap = parseBackendTag(tag);
+        String computeGroupName = tagMap.get(COMPUTE_GROUP_NAME);
+        if (StringUtils.isNotBlank(computeGroupName)) {
+            return computeGroupName;
+        }
+        return tagMap.get(CLOUD_CLUSTER_NAME);
+    }
+
+    private static Map<String, String> parseBackendTag(String tag) {
+        Map<String, String> tagMap = new HashMap<>();
+        if (StringUtils.isBlank(tag)) {
+            return tagMap;
+        }
+
+        try {
+            JsonNode tagNode = MAPPER.readTree(tag);
+            if (tagNode.isObject()) {
+                Iterator<Map.Entry<String, JsonNode>> fields = tagNode.fields();
+                while (fields.hasNext()) {
+                    Map.Entry<String, JsonNode> entry = fields.next();
+                    tagMap.put(entry.getKey(), entry.getValue().asText());
+                }
+                return tagMap;
+            }
+        } catch (IOException e) {
+            // Fall through to parse Doris PrintableMap style tag strings.
+        }
+
+        String tagContent = tag.trim();
+        if (tagContent.startsWith("{") && tagContent.endsWith("}")) {
+            tagContent = tagContent.substring(1, tagContent.length() - 1);
+        }
+        for (String entry : tagContent.split(",")) {
+            String[] keyValue = entry.split(":", 2);
+            if (keyValue.length != 2) {
+                continue;
+            }
+            tagMap.put(stripQuote(keyValue[0]), stripQuote(keyValue[1]));
+        }
+        return tagMap;
+    }
+
+    private static String stripQuote(String value) {
+        String result = value.trim();
+        if (result.length() >= 2) {
+            char first = result.charAt(0);
+            char last = result.charAt(result.length() - 1);
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+                return result.substring(1, result.length() - 1);
+            }
+        }
+        return result;
+    }
+
+    private static RuntimeException managerBackendsException(String computeGroupName, String reason) {
+        return new RuntimeException(String.format(
+                "Failed to get backends for compute group '%s' from %s: %s. Required privileges: information_schema SELECT on Doris 3.x/4.x, or ADMIN on Doris 2.1.",
+                computeGroupName, MANAGER_BACKENDS, reason));
     }
 
     public void truncateTable(String database, String table) throws Exception {
