@@ -106,12 +106,19 @@ public class RowBatch implements Serializable {
 
     private final Boolean datetimeJava8ApiEnabled;
 
+    private final boolean arrayNativeType;
+
     public RowBatch(TScanBatchResult nextResult, Schema schema, Boolean datetimeJava8ApiEnabled) throws DorisException {
+        this(nextResult, schema, datetimeJava8ApiEnabled, false);
+    }
+
+    public RowBatch(TScanBatchResult nextResult, Schema schema, Boolean datetimeJava8ApiEnabled, boolean arrayNativeType) throws DorisException {
 
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         this.arrowReader = new ArrowStreamReader(new ByteArrayInputStream(nextResult.getRows()), rootAllocator);
         this.schema = schema;
         this.datetimeJava8ApiEnabled = datetimeJava8ApiEnabled;
+        this.arrayNativeType = arrayNativeType;
 
         try {
             VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
@@ -128,10 +135,15 @@ public class RowBatch implements Serializable {
     }
 
     public RowBatch(ArrowReader reader, Schema schema, Boolean datetimeJava8ApiEnabled) throws DorisException {
+        this(reader, schema, datetimeJava8ApiEnabled, false);
+    }
+
+    public RowBatch(ArrowReader reader, Schema schema, Boolean datetimeJava8ApiEnabled, boolean arrayNativeType) throws DorisException {
 
         this.arrowReader = reader;
         this.schema = schema;
         this.datetimeJava8ApiEnabled = datetimeJava8ApiEnabled;
+        this.arrayNativeType = arrayNativeType;
 
         try {
             VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
@@ -483,8 +495,16 @@ public class RowBatch implements Serializable {
                                 addValueToRow(rowIndex, null);
                                 continue;
                             }
-                            String value = listVector.getObject(rowIndex).toString();
-                            addValueToRow(rowIndex, value);
+                            List<?> rawList = listVector.getObject(rowIndex);
+                            if (arrayNativeType) {
+                                List<String> stringList = new ArrayList<>(rawList.size());
+                                for (Object item : rawList) {
+                                    stringList.add(item == null ? null : item.toString());
+                                }
+                                addValueToRow(rowIndex, stringList);
+                            } else {
+                                addValueToRow(rowIndex, rawList.toString());
+                            }
                         }
                         break;
                     case "MAP":

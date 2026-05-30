@@ -18,7 +18,7 @@
 
 package org.apache.doris.spark.util
 
-import org.apache.spark.sql.types.{DataTypes, DecimalType, MapType}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, DecimalType, MapType}
 import org.junit.Assert
 import org.junit.jupiter.api.Test
 
@@ -61,6 +61,12 @@ class SchemaConvertorsTest {
     Assert.assertEquals(SchemaConvertors.toCatalystType("BITMAP", -1, -1), DataTypes.StringType)
     Assert.assertEquals(SchemaConvertors.toCatalystType("HLL", -1, -1), DataTypes.StringType)
 
+  }
+
+  @Test
+  def toCatalystTypeArrayNativeTypeTest(): Unit = {
+    Assert.assertEquals(SchemaConvertors.toCatalystType("ARRAY", -1, -1, true), ArrayType(DataTypes.StringType, true))
+    Assert.assertEquals(SchemaConvertors.toCatalystType("ARRAY", -1, -1, false), DataTypes.StringType)
   }
 
 }

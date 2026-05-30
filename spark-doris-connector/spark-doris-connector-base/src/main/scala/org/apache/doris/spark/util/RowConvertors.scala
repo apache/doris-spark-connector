@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
-import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, DateTimeUtils}
+import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, DateTimeUtils, GenericArrayData}
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
@@ -131,6 +131,16 @@ object RowConvertors {
         val keys = map.keys.toArray.map(UTF8String.fromString)
         val values = map.values.toArray.map(UTF8String.fromString)
         ArrayBasedMapData(keys, values)
+      case at: ArrayType =>
+        val list = v.asInstanceOf[java.util.List[_]]
+        val elements = new Array[Any](list.size())
+        var i = 0
+        while (i < list.size()) {
+          val elem = list.get(i)
+          elements(i) = if (elem == null) null else convertValue(elem, at.elementType, datetimeJava8ApiEnabled)
+          i += 1
+        }
+        new GenericArrayData(elements)
       case NullType | BooleanType | ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | BinaryType | _: DecimalType => v
       case _ => throw new Exception(s"Unsupported spark type: ${dataType.typeName}")
     }

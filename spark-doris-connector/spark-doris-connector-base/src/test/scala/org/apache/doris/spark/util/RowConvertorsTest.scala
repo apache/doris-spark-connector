@@ -119,6 +119,18 @@ class RowConvertorsTest {
     Assert.assertTrue(RowConvertors.convertValue(map, MapType(DataTypes.StringType, DataTypes.StringType), false).isInstanceOf[MapData])
     Assert.assertTrue(RowConvertors.convertValue("test", DataTypes.StringType, false).isInstanceOf[UTF8String])
 
+    val list = new util.ArrayList[String]()
+    list.add("a")
+    list.add(null)
+    list.add("b")
+    val arrayValue = RowConvertors.convertValue(list, ArrayType(DataTypes.StringType), false)
+    Assert.assertTrue(arrayValue.isInstanceOf[ArrayData])
+    val arrayData = arrayValue.asInstanceOf[ArrayData]
+    Assert.assertEquals(3, arrayData.numElements())
+    Assert.assertEquals(UTF8String.fromString("a"), arrayData.getUTF8String(0))
+    Assert.assertTrue(arrayData.isNullAt(1))
+    Assert.assertEquals(UTF8String.fromString("b"), arrayData.getUTF8String(2))
+
   }
 
 }
