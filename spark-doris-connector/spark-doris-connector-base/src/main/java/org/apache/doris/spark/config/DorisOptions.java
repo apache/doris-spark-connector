@@ -142,7 +142,7 @@ public class DorisOptions {
 
     public static final ConfigOption<Boolean> DORIS_READ_BITMAP_TO_BASE64 = ConfigOptions.name("doris.read.bitmap-to-base64").booleanType().defaultValue(false).withDescription("");
 
-    public static final ConfigOption<Boolean> DORIS_READ_ARRAY_NATIVE_TYPE = ConfigOptions.name("doris.read.array.native-type").booleanType().defaultValue(false).withDescription("If true, Doris ARRAY columns are read as Spark ArrayType(StringType) instead of a JSON-formatted String. Defaults to false for backward compatibility.");
+    public static final ConfigOption<Boolean> DORIS_READ_ARRAY_NATIVE_TYPE = ConfigOptions.name("doris.read.array.native-type").booleanType().defaultValue(false).withDescription("If true, Doris ARRAY columns are read as Spark ArrayType(StringType). If false (default), they are read as a JSON-encoded String for backward compatibility.");
 
     public static final ConfigOption<Integer> DORIS_SINK_NET_BUFFER_SIZE = ConfigOptions.name("doris.sink.net.buffer.size").intType().defaultValue(1024 * 1024).withDescription("");
 

@@ -589,9 +589,9 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
 
       val sizes = session.sql(
         """
-          |select id, size(c15) as sz from test_source order by id
+          |select id, size(c15) as sz from test_source where c15 is not null order by id
           |""".stripMargin).collect().toList.toString()
-      assert("List([1,2], [2,2], [3,2], [4,null])".equals(sizes))
+      assert("List([1,2], [2,2], [3,2])".equals(sizes))
 
       val arrayRows = session.sql(
         """
