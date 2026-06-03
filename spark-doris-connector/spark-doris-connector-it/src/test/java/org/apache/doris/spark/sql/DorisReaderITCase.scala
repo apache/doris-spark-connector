@@ -608,6 +608,37 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   }
 
   @Test
+  def testDataFrameSourceArrayNativeType(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      val dorisSparkDF = session.read
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL_ALL_TYPES)
+        .option("doris.user", getDorisUsername)
+        .option("doris.password", getDorisPassword)
+        .option("doris.read.mode", readMode)
+        .option("doris.read.arrow-flight-sql.port", flightSqlPort.toString)
+        .option("doris.read.array.native-type", "true")
+        .load()
+
+      assert("array".equals(dorisSparkDF.schema("c15").dataType.typeName))
+
+      val sizes = dorisSparkDF
+        .where("c15 is not null")
+        .selectExpr("id", "size(c15) as sz")
+        .orderBy("id")
+        .collect().toList.toString()
+      assert("List([1,2], [2,2], [3,2])".equals(sizes))
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
   def testReadArrayDefaultsToString(): Unit = {
     val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
