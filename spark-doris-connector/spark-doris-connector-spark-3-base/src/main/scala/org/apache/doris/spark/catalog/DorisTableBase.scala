@@ -31,7 +31,6 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.language.implicitConversions
 
 
 abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schema: Option[StructType]) extends Table with SupportsRead with SupportsWrite {
@@ -42,7 +41,7 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
 
   override def schema(): StructType = schema.getOrElse({
     val dorisSchema = frontend.getTableSchema(identifier.namespace()(0), identifier.name())
-    dorisSchema
+    dorisSchemaToStructType(dorisSchema)
   })
 
   override def capabilities(): util.Set[TableCapability] = {
@@ -69,9 +68,10 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
     createWriteBuilder(config, logicalWriteInfo.schema())
   }
 
-  private implicit def dorisSchemaToStructType(dorisSchema: Schema): StructType = {
+  private def dorisSchemaToStructType(dorisSchema: Schema): StructType = {
+    val arrayNativeType = config.getValue(DorisOptions.DORIS_READ_ARRAY_NATIVE_TYPE)
     StructType(dorisSchema.getProperties.asScala.map(field => {
-      StructField(field.getName, SchemaConvertors.toCatalystType(field.getType, field.getPrecision, field.getScale))
+      StructField(field.getName, SchemaConvertors.toCatalystType(field.getType, field.getPrecision, field.getScale, arrayNativeType))
     }))
   }
 

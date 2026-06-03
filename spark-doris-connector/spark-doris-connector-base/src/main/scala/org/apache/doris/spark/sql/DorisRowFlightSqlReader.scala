@@ -36,6 +36,8 @@ class DorisRowFlightSqlReader(partition: DorisReaderPartition) extends DorisFlig
     rowBatch.next.asScala.zipWithIndex.foreach {
       case (s, index) if index < row.values.size && s.isInstanceOf[java.util.HashMap[String, String]] =>
         row.values.update(index, s.asInstanceOf[java.util.HashMap[String, String]].asScala)
+      case (s, index) if index < row.values.size && s.isInstanceOf[java.util.List[_]] =>
+        row.values.update(index, s.asInstanceOf[java.util.List[_]].asScala)
       case (s, index) if index < row.values.size => row.values.update(index, s)
       case _ => // nothing
     }

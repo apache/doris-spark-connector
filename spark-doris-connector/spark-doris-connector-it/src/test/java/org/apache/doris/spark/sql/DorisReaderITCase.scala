@@ -563,6 +563,110 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
   }
 
   @Test
+  def testReadArrayNativeType(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}",
+           | "doris.read.array.native-type"="true"
+           |)
+           |""".stripMargin)
+
+      val schemaType = session.sql("select c15 from test_source").schema.fields(0).dataType.typeName
+      assert("array".equals(schemaType))
+
+      val sizes = session.sql(
+        """
+          |select id, size(c15) as sz from test_source where c15 is not null order by id
+          |""".stripMargin).collect().toList.toString()
+      assert("List([1,2], [2,2], [3,2])".equals(sizes))
+
+      val arrayRows = session.sql(
+        """
+          |select id, c15 from test_source order by id
+          |""".stripMargin).collect()
+
+      assert(arrayRows(0).getList[String](1).toString == "[Alice, Bob]")
+      assert(arrayRows(1).getList[String](1).toString == "[Charlie, David]")
+      assert(arrayRows(2).getList[String](1).toString == "[Eve, Frank]")
+      assert(arrayRows(3).isNullAt(1))
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
+  def testDataFrameSourceArrayNativeType(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      val dorisSparkDF = session.read
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL_ALL_TYPES)
+        .option("doris.user", getDorisUsername)
+        .option("doris.password", getDorisPassword)
+        .option("doris.read.mode", readMode)
+        .option("doris.read.arrow-flight-sql.port", flightSqlPort.toString)
+        .option("doris.read.array.native-type", "true")
+        .load()
+
+      assert("array".equals(dorisSparkDF.schema("c15").dataType.typeName))
+
+      val sizes = dorisSparkDF
+        .where("c15 is not null")
+        .selectExpr("id", "size(c15) as sz")
+        .orderBy("id")
+        .collect().toList.toString()
+      assert("List([1,2], [2,2], [3,2])".equals(sizes))
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
+  def testReadArrayDefaultsToString(): Unit = {
+    val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_all_type.sql")
+    ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)
+
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      session.sql(
+        s"""
+           |CREATE TEMPORARY VIEW test_source
+           |USING doris
+           |OPTIONS(
+           | "table.identifier"="${DATABASE + "." + TABLE_READ_TBL_ALL_TYPES}",
+           | "fenodes"="${getFenodes}",
+           | "user"="${getDorisUsername}",
+           | "password"="${getDorisPassword}",
+           | "doris.read.mode"="${readMode}",
+           | "doris.read.arrow-flight-sql.port"="${flightSqlPort}"
+           |)
+           |""".stripMargin)
+
+      val schemaType = session.sql("select c15 from test_source").schema.fields(0).dataType.typeName
+      assert("string".equals(schemaType))
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
   def testExpressionNotPushDown(): Unit = {
     val sourceInitSql: Array[String] = ContainerUtils.parseFileContentSQL("container/ddl/read_filter_pushdown.sql")
     ContainerUtils.executeSQLStatement(getDorisQueryConnection(DATABASE), LOG, sourceInitSql: _*)

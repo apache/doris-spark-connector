@@ -20,12 +20,12 @@ package org.apache.doris.spark.util
 
 import org.apache.doris.sdk.thrift.TScanColumnDesc
 import org.apache.doris.spark.rest.models.{Field, Schema}
-import org.apache.spark.sql.types.{DataType, DataTypes, DecimalType, MapType}
+import org.apache.spark.sql.types.{ArrayType, DataType, DataTypes, DecimalType, MapType}
 
 object SchemaConvertors {
 
   @throws[IllegalArgumentException]
-  def toCatalystType(dorisType: String, precision: Int, scale: Int): DataType = {
+  def toCatalystType(dorisType: String, precision: Int, scale: Int, arrayNativeType: Boolean = false): DataType = {
     dorisType match {
       case "NULL_TYPE" => DataTypes.NullType
       case "BOOLEAN" => DataTypes.BooleanType
@@ -52,7 +52,7 @@ object SchemaConvertors {
       case "DECIMAL128" => DecimalType(precision, scale)
       case "TIME" => DataTypes.DoubleType
       case "STRING" => DataTypes.StringType
-      case "ARRAY" => DataTypes.StringType
+      case "ARRAY" => if (arrayNativeType) ArrayType(DataTypes.StringType, containsNull = true) else DataTypes.StringType
       case "MAP" => MapType(DataTypes.StringType, DataTypes.StringType)
       case "STRUCT" => DataTypes.StringType
       case "VARIANT" => DataTypes.StringType
