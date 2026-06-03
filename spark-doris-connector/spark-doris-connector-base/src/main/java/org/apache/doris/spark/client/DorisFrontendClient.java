@@ -366,7 +366,12 @@ public class DorisFrontendClient implements Serializable {
 
     public List<Backend> getAliveBackends(String computeGroupName) throws Exception {
         if (StringUtils.isNotBlank(computeGroupName)) {
-            return getManagerBackends(computeGroupName);
+            try {
+                return getManagerBackends(computeGroupName);
+            } catch (Exception e) {
+                LOG.warn("Failed to get backends via /rest/v2/manager/node/backends for compute group '{}', "
+                        + "falling back to standard backends API. Error: {}", computeGroupName, e.getMessage());
+            }
         }
         return requestFrontends((frontend, client) -> {
             String url = URLs.aliveBackend(frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
