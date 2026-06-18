@@ -49,6 +49,8 @@
         <module>spark-doris-connector-spark-3.3</module>
         <module>spark-doris-connector-spark-3.4</module>
         <module>spark-doris-connector-spark-3.5</module>
+        <module>spark-doris-connector-spark-4-base</module>
+        <module>spark-doris-connector-spark-4.0</module>
     </modules>
 
     <scm>
@@ -86,6 +88,9 @@
         <scala.major.version>2.11</scala.major.version>
         <libthrift.version>0.16.0</libthrift.version>
         <arrow.version>15.0.2</arrow.version>
+        <adbc.version>0.14.0</adbc.version>
+        <grpc.version>1.60.0</grpc.version>
+        <protobuf.version>3.22.3</protobuf.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.110.Final</netty.version>
@@ -137,6 +142,16 @@
             <dependency>
                 <groupId>org.apache.doris</groupId>
                 <artifactId>spark-doris-connector-spark-3.5</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-4-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-4.0</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -233,7 +248,7 @@
             <dependency>
                 <groupId>org.apache.arrow.adbc</groupId>
                 <artifactId>adbc-driver-flight-sql</artifactId>
-                <version>0.14.0</version>
+                <version>${adbc.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.arrow</groupId>
@@ -273,7 +288,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-netty</artifactId>
-                <version>1.60.0</version>
+                <version>${grpc.version}</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>netty-codec-http2</artifactId>
@@ -313,7 +328,7 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.22.3</version>
+                <version>${protobuf.version}</version>
             </dependency>
 
             <dependency>
@@ -877,6 +892,24 @@
                 <spark.major.version>3.5</spark.major.version>
                 <scala.version>2.12.18</scala.version>
                 <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-4.0</id>
+            <properties>
+                <spark.version>4.0.0</spark.version>
+                <spark.major.version>4.0</spark.major.version>
+                <scala.version>2.13.16</scala.version>
+                <scala.major.version>2.13</scala.major.version>
+                <!-- Match Spark 4's Arrow so the connector and Spark agree on one Arrow on the
+                     (unshaded) integration-test classpath; bump adbc/flight in lockstep. -->
+                <arrow.version>18.1.0</arrow.version>
+                <adbc.version>0.18.0</adbc.version>
+                <grpc.version>1.65.0</grpc.version>
+                <protobuf.version>3.25.1</protobuf.version>
+                <!-- Spark 4 on JDK 17 needs these module opens (Arrow off-heap, Spark date/time,
+                     Catalyst codegen, etc.) — mirrors Spark's own JavaModuleOptions. -->
+                <argLine>-Xmx512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED</argLine>
             </properties>
         </profile>
     </profiles>

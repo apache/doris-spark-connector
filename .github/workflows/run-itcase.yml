@@ -62,3 +62,24 @@ jobs:
       run: |
         cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.5 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
 
+  run-itcase-spark4:
+    name: "Run ITCases (Spark 4.x)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master
+
+    # Spark 4.x requires JDK 17.
+    - name: Setup java
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - name: Run ITCases for spark 4.0
+      run: |
+        cd spark-doris-connector && mvn clean test -Pspark-4-it,spark-4.0 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+

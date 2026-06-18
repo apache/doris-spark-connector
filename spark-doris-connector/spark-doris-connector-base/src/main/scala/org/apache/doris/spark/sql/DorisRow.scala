@@ -54,6 +54,4 @@ private[spark] class DorisRow(rowOrder: Seq[String]) extends Row {
   override def getString(i: Int): String = get(i).toString
 
   override def copy(): Row = this
-
-  override def toSeq: Seq[Any] = values
 }

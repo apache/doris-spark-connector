@@ -137,7 +137,7 @@ object TestStreamLoadForArrowType {
       inputList.append(row)
     }
 
-    val rdd = spark.sparkContext.parallelize(inputList, 1)
+    val rdd = spark.sparkContext.parallelize(inputList.toList, 1)
     val df = spark.createDataFrame(rdd, schema).toDF()
 
     df.write
@@ -242,7 +242,7 @@ object TestStreamLoadForArrowType {
       inputList.append(row)
     }
 
-    val rdd = spark.sparkContext.parallelize(inputList, 1)
+    val rdd = spark.sparkContext.parallelize(inputList.toList, 1)
     val df = spark.createDataFrame(rdd, schema).toDF()
 
     df.write
@@ -347,7 +347,7 @@ object TestStreamLoadForArrowType {
       inputList.append(row)
     }
 
-    val rdd = spark.sparkContext.parallelize(inputList, 1)
+    val rdd = spark.sparkContext.parallelize(inputList.toList, 1)
     val df = spark.createDataFrame(rdd, schema).toDF()
 
     df.write
@@ -444,7 +444,7 @@ CREATE TABLE `spark_connector_struct` (
       inputList.append(row)
     }
 
-    val rdd = spark.sparkContext.parallelize(inputList, 1)
+    val rdd = spark.sparkContext.parallelize(inputList.toList, 1)
     val df = spark.createDataFrame(rdd, schema).toDF()
 
     df.write

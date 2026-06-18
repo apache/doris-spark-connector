@@ -103,6 +103,15 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Pin arrow-memory-core to the connector's Arrow version so the test classpath stays
+             internally consistent. Spark 4.x ships a newer Arrow (provided), which otherwise
+             leaks a mismatched arrow-memory-core and breaks the allocation-manager lookup. -->
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-core</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.arrow.adbc</groupId>
             <artifactId>adbc-driver-flight-sql</artifactId>
