@@ -61,5 +61,15 @@ ${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10
 echo "Deploying spark3.5..."
 ${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.5 -pl spark-doris-connector-spark-3.5 -am
 
+# Spark 4.x requires JDK 17 and Scala 2.13 (the modules above target JDK 8). Set JAVA17_HOME to a
+# JDK 17 home to deploy them with the right toolchain; otherwise the current JAVA_HOME must be JDK 17.
+SPARK4_MVN_ENV=""
+if [ -n "${JAVA17_HOME:-}" ]; then
+    SPARK4_MVN_ENV="JAVA_HOME=${JAVA17_HOME}"
+fi
+
+echo "Deploying spark4.1..."
+env ${SPARK4_MVN_ENV} ${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-4.1 -pl spark-doris-connector-spark-4.1 -am
+
 echo "Deploy jar finished."
 cd ${CURR_DIR}

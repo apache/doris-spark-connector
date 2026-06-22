@@ -17,7 +17,6 @@
 
 package org.apache.doris.spark.config;
 
-import org.apache.commons.collections.MapUtils;
 import org.apache.doris.spark.exception.OptionRequiredException;
 
 import java.io.Serializable;
@@ -184,7 +183,7 @@ public class DorisConfig implements Serializable {
 
     public static DorisConfig fromMap(Map<String, String> sparkConfMap, Map<String, String> options, Boolean ignoreTableCheck) throws OptionRequiredException {
         Map<String, String> map = new HashMap<>(sparkConfMap);
-        if (MapUtils.isNotEmpty(options)) {
+        if (options != null && !options.isEmpty()) {
             map.putAll(options);
         }
         return new DorisConfig(map, ignoreTableCheck);
