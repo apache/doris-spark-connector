@@ -56,6 +56,9 @@ object URLs {
   def getFrontEndNodes(host: String, port: Int, enableHttps: Boolean = false) =
     s"${schema(enableHttps)}://${assemblePath(host, port)}/rest/v2/manager/node/frontends"
 
+  def managerBackends(host: String, port: Int, enableHttps: Boolean = false) =
+    s"${schema(enableHttps)}://${assemblePath(host, port)}/rest/v2/manager/node/backends"
+
   def copyIntoUpload(host: String, port: Int, enableHttps: Boolean = false) =
     s"${schema(enableHttps)}://${assemblePath(host, port)}/copy/upload"
 
