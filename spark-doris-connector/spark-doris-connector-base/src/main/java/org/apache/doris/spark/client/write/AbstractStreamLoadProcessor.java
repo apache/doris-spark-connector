@@ -96,6 +96,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     // Owns the stream-load label across batches; reuses the label on a retry so the backend can
     // deduplicate a batch that already committed (exactly-once on retry).
     private final StreamLoadLabelManager labelManager;
+    // Whether the in-flight batch's commit outcome is unknown (e.g. a lost response or interrupt), so
+    // a retry must reuse the label to let the backend dedup a possible prior commit. A definite
+    // rejection — most importantly a fresh-label "Label Already Exists" collision — sets this false so
+    // the retry mints a new label instead of reusing the colliding one.
+    private volatile boolean batchCommitOutcomeUnknown = true;
     private Exception unexpectedException = null;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
@@ -181,8 +186,10 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                     throw new StreamLoadException("response is null");
                 }
             } catch (Exception e) {
-                // Batch failed: keep the current label so the retry reuses it (dedup-safe).
-                labelManager.onBatchFailed();
+                // Batch failed: reuse the label on the retry only when the commit outcome is unknown
+                // (a possibly-committed batch must be deduped). A definite rejection — e.g. a
+                // fresh-label collision — keeps a fresh label so we don't mask another load as ours.
+                labelManager.onBatchFailed(batchCommitOutcomeUnknown);
                 if (unexpectedException != null) {
                     throw unexpectedException;
                 }
@@ -389,6 +396,8 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     protected abstract String generateStreamLoadLabel() throws OptionRequiredException;
 
     private Future<StreamLoadResponse> buildReqAndExec(String host, Integer port, CloseableHttpClient client) {
+        // New batch attempt: assume the outcome is unknown until a definite rejection proves otherwise.
+        batchCommitOutcomeUnknown = true;
         HttpPut httpPut = new HttpPut(URLs.streamLoad(host, port, database, table, isHttpsEnabled));
         try {
             handleStreamLoadProperties(httpPut);
@@ -436,6 +445,13 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                         // retry as a success instead of writing them twice (exactly-once on retry).
                         logger.info("reused label {} already committed; retry is a no-op", labelManager.currentLabel());
                     } else {
+                        if (StreamLoadLabelManager.isFreshLabelCollision(labelReused, streamLoadResponse.getStatus())) {
+                            // A freshly minted label already exists on the backend — a definite
+                            // rejection (the label belongs to another load), not a lost response. Keep
+                            // a fresh label on the retry; reusing this one could mask that other load's
+                            // commit as ours and silently drop this batch's rows.
+                            batchCommitOutcomeUnknown = false;
+                        }
                         throw new StreamLoadException(
                                 "stream load failed, txnId: " + streamLoadResponse.getTxnId()
                                         + ", status: " + streamLoadResponse.getStatus()

@@ -89,13 +89,22 @@ class StreamLoadLabelManager implements Serializable {
     }
 
     /**
-     * The previous batch failed: reuse the same label on the retry so the backend can deduplicate it.
-     * Only applies to auto-commit loads; 2PC loads always get a fresh label.
+     * The previous batch failed. Reuse the same label on the retry ONLY when the batch's commit
+     * outcome is unknown (e.g. a lost response or an interrupt): the batch may have actually
+     * committed on the backend, so reusing the label lets the backend reject the retry as a
+     * duplicate.
+     *
+     * <p>A definite rejection must NOT reuse the label — in particular a fresh-label
+     * "Label Already Exists" collision, whose existing FINISHED load belongs to a different batch.
+     * Reusing it would let {@link #isAlreadyCommitted} mask that other load as this batch's success
+     * and silently drop this batch's rows; instead the next attempt mints a fresh label. Only
+     * applies to auto-commit loads; 2PC loads always get a fresh label.
+     *
+     * @param commitOutcomeUnknown whether the failure left the batch's commit outcome unknown (so it
+     *                             may have committed and the retry must reuse the label to dedup)
      */
-    void onBatchFailed() {
-        if (!twoPhaseCommitEnabled) {
-            reuseLabel = true;
-        }
+    void onBatchFailed(boolean commitOutcomeUnknown) {
+        reuseLabel = !twoPhaseCommitEnabled && commitOutcomeUnknown;
     }
 
     /**
@@ -110,5 +119,15 @@ class StreamLoadLabelManager implements Serializable {
         return labelReused
                 && LABEL_ALREADY_EXISTS_STATUS.equalsIgnoreCase(status)
                 && EXISTING_JOB_FINISHED.equalsIgnoreCase(existingJobStatus);
+    }
+
+    /**
+     * Whether a failed-load response is a fresh-label "Label Already Exists" collision: the label was
+     * freshly minted (not reused) yet already exists on the backend, so it belongs to a different
+     * load. This is a definite rejection of this batch — the commit outcome is known (rejected), not
+     * unknown — so it must NOT enable label reuse; the retry mints a new label instead.
+     */
+    static boolean isFreshLabelCollision(boolean labelReused, String status) {
+        return !labelReused && LABEL_ALREADY_EXISTS_STATUS.equalsIgnoreCase(status);
     }
 }
