@@ -52,8 +52,8 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
 
   // for batch write
   override def abort(writerCommitMessages: Array[WriterCommitMessage]): Unit = {
-    LOG.info("writerCommitMessages size: " + writerCommitMessages.length)
-    if (writerCommitMessages.exists(_ != null) && writerCommitMessages.nonEmpty) {
+    if (writerCommitMessages != null && writerCommitMessages.nonEmpty) {
+      LOG.info("writerCommitMessages size: " + writerCommitMessages.length)
       writerCommitMessages.filter(_ != null)
         .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.abort))
     }
@@ -68,8 +68,10 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
   // for streaming write
   override def commit(epochId: Long, writerCommitMessages: Array[WriterCommitMessage]): Unit = {
     committedEpochLock.synchronized {
-      if (lastCommittedEpoch.isEmpty || epochId > lastCommittedEpoch.get && writerCommitMessages.exists(_ != null)) {
-        writerCommitMessages.foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.commit))
+      if ((lastCommittedEpoch.isEmpty || epochId > lastCommittedEpoch.get)
+        && writerCommitMessages != null && writerCommitMessages.exists(_ != null)) {
+        writerCommitMessages.filter(_ != null)
+          .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.commit))
         lastCommittedEpoch = Some(epochId)
       }
     }
@@ -78,8 +80,10 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
   // for streaming write
   override def abort(epochId: Long, writerCommitMessages: Array[WriterCommitMessage]): Unit = {
     committedEpochLock.synchronized {
-      if ((lastCommittedEpoch.isEmpty || epochId > lastCommittedEpoch.get) && writerCommitMessages.exists(_ != null)) {
-        writerCommitMessages.foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.abort))
+      if ((lastCommittedEpoch.isEmpty || epochId > lastCommittedEpoch.get)
+        && writerCommitMessages != null && writerCommitMessages.exists(_ != null)) {
+        writerCommitMessages.filter(_ != null)
+          .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.abort))
       }
     }
   }

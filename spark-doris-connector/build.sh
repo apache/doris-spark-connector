@@ -184,7 +184,7 @@ if [ ${ScalaVer} -eq 1 ]; then
 elif [ ${ScalaVer} -eq 2 ]; then
     SCALA_VERSION="2.12.18"
 elif [ ${ScalaVer} -eq 3 ]; then
-    SCALA_VERSION="2.13.16"
+    SCALA_VERSION="2.13.17"
 fi
 
 
@@ -217,12 +217,12 @@ if [[ $SPARK_VERSION =~ ^3.* && $SCALA_VERSION == "2.11.12" ]]; then
   exit 1
 fi
 
-if [[ $SPARK_VERSION =~ ^4.* && $SCALA_VERSION != "2.13.16" ]]; then
+if [[ $SPARK_VERSION =~ ^4.* && $SCALA_VERSION != "2.13.17" ]]; then
   echo_r "Spark 4.x requires scala 2.13, will exit."
   exit 1
 fi
 
-if [[ ! $SPARK_VERSION =~ ^4.* && $SCALA_VERSION == "2.13.16" ]]; then
+if [[ ! $SPARK_VERSION =~ ^4.* && $SCALA_VERSION == "2.13.17" ]]; then
   echo_r "Scala 2.13 is only supported with Spark 4.x, will exit."
   exit 1
 fi
