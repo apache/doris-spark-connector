@@ -71,7 +71,7 @@ public class StreamLoadLabelManagerTest {
         AtomicInteger seq = new AtomicInteger();
 
         String first = mgr.labelForNextBatch(counting(seq));
-        mgr.onBatchFailed();
+        mgr.onBatchFailed(true);
         Assertions.assertTrue(mgr.isReusingLabel());
 
         String retry = mgr.labelForNextBatch(counting(seq));
@@ -85,7 +85,7 @@ public class StreamLoadLabelManagerTest {
         AtomicInteger seq = new AtomicInteger();
 
         mgr.labelForNextBatch(counting(seq)); // label-0
-        mgr.onBatchFailed();
+        mgr.onBatchFailed(true);
         mgr.labelForNextBatch(counting(seq)); // reuse label-0
         mgr.onBatchCommitted();               // retry committed
         String next = mgr.labelForNextBatch(counting(seq));
@@ -102,7 +102,7 @@ public class StreamLoadLabelManagerTest {
         AtomicInteger seq = new AtomicInteger();
 
         String first = mgr.labelForNextBatch(counting(seq));
-        mgr.onBatchFailed();
+        mgr.onBatchFailed(true);
         Assertions.assertFalse(mgr.isReusingLabel(), "2PC must not reuse labels");
 
         String retry = mgr.labelForNextBatch(counting(seq));
@@ -116,7 +116,7 @@ public class StreamLoadLabelManagerTest {
         // executors, so the manager must stay Serializable and round-trip its state.
         StreamLoadLabelManager mgr = autoCommit();
         mgr.labelForNextBatch(counting(new AtomicInteger())); // label-0
-        mgr.onBatchFailed();
+        mgr.onBatchFailed(true);
 
         byte[] bytes;
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -149,5 +149,35 @@ public class StreamLoadLabelManagerTest {
         // Any other failure status is a real error even on a reused label.
         Assertions.assertFalse(StreamLoadLabelManager.isAlreadyCommitted(true, "Fail", "FINISHED"));
         Assertions.assertFalse(StreamLoadLabelManager.isAlreadyCommitted(true, null, "FINISHED"));
+    }
+
+    @Test
+    public void definiteRejectKeepsAFreshLabel() throws Exception {
+        // A failure whose commit outcome is KNOWN-rejected (e.g. a fresh-label collision) must not
+        // reuse the label: reusing it could let a different load's FINISHED state be masked as this
+        // batch's success and drop the rows. The retry mints a fresh label instead.
+        StreamLoadLabelManager mgr = autoCommit();
+        AtomicInteger seq = new AtomicInteger();
+
+        String first = mgr.labelForNextBatch(counting(seq)); // label-0
+        mgr.onBatchFailed(false);
+        Assertions.assertFalse(mgr.isReusingLabel(), "a definite rejection must not reuse the label");
+
+        String retry = mgr.labelForNextBatch(counting(seq));
+        Assertions.assertEquals("label-0", first);
+        Assertions.assertEquals("label-1", retry, "the retry must mint a fresh label");
+    }
+
+    @Test
+    public void freshLabelCollisionIsADefiniteReject() {
+        // A fresh (non-reused) label that already exists belongs to another load — a definite reject.
+        Assertions.assertTrue(StreamLoadLabelManager.isFreshLabelCollision(false, LABEL_EXISTS));
+        Assertions.assertTrue(StreamLoadLabelManager.isFreshLabelCollision(false, "label already exists"));
+
+        // A reused label hitting "Label Already Exists" is the dedup path, not a fresh collision.
+        Assertions.assertFalse(StreamLoadLabelManager.isFreshLabelCollision(true, LABEL_EXISTS));
+        // Any other failure status on a fresh label is not a label collision.
+        Assertions.assertFalse(StreamLoadLabelManager.isFreshLabelCollision(false, "Fail"));
+        Assertions.assertFalse(StreamLoadLabelManager.isFreshLabelCollision(false, null));
     }
 }
