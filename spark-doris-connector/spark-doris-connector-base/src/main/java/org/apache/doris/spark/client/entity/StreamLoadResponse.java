@@ -93,14 +93,6 @@ public class StreamLoadResponse {
         return Status;
     }
 
-    /**
-     * When {@link #getStatus()} is "Label Already Exists", the state of the load that already used
-     * the label: "FINISHED" (committed/visible), "PRECOMMITTED", or "RUNNING" (still in flight).
-     */
-    public String getExistingJobStatus() {
-        return ExistingJobStatus;
-    }
-
     public String getMessage() {
         return Message;
     }

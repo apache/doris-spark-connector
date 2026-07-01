@@ -38,8 +38,18 @@ import org.apache.spark.sql.util.DorisArrowUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow> {
+
+    /**
+     * Monotonic per-JVM sequence appended to every generated label. The label already carries
+     * {@code currentTimeMillis()}, but consecutive committed batches of the same task (e.g.
+     * {@code batch.size=1} with a zero batch interval) can fall in the same millisecond and collide;
+     * a colliding fresh label is rejected as "Label Already Exists". The sequence guarantees each
+     * label is distinct so a retry (which mints a new label) never clashes with a prior batch.
+     */
+    private static final AtomicLong LABEL_SEQ = new AtomicLong();
 
     private StructType schema;
 
@@ -110,7 +120,8 @@ public class StreamLoadProcessor extends AbstractStreamLoadProcessor<InternalRow
         long taskAttemptId = taskContext.taskAttemptId();
         int partitionId = taskContext.partitionId();
         String prefix = config.getValue(DorisOptions.DORIS_SINK_LABEL_PREFIX);
-        return String.format("%s-%d-%d-%d-%d", prefix, stageId, taskAttemptId, partitionId, System.currentTimeMillis());
+        return String.format("%s-%d-%d-%d-%d-%d", prefix, stageId, taskAttemptId, partitionId,
+                System.currentTimeMillis(), LABEL_SEQ.getAndIncrement());
     }
 
     public void setSchema(StructType schema) {
