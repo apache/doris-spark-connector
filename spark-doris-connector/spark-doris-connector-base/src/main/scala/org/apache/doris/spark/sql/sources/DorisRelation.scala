@@ -48,7 +48,7 @@ private[sql] class DorisRelation(
     val arrayNativeType = cfg.getValue(DorisOptions.DORIS_READ_ARRAY_NATIVE_TYPE)
     StructType(dorisSchema.getProperties.asScala.map(field => {
       StructField(field.getName, SchemaConvertors.toCatalystType(field.getType, field.getPrecision, field.getScale, arrayNativeType))
-    }))
+    }).toArray)
 
   }
 

@@ -61,7 +61,10 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
   @Test
   def testFailoverForRetry(): Unit = {
     LOG.info("start to test testFailoverForRetry.")
-    initializeTable(TABLE_WRITE_TBL_RETRY, DataModel.DUPLICATE)
+    // Use a UNIQUE (primary-key) table: without 2PC a retried batch may re-load rows that already
+    // landed, and the unique key on `name` makes that re-load idempotent. The three rows have
+    // distinct names, so dedup removes duplicates without dropping any legitimate row.
+    initializeTable(TABLE_WRITE_TBL_RETRY, DataModel.UNIQUE)
     val session = SparkSession.builder().master("local[1]").getOrCreate()
     val df = session.createDataFrame(Seq(
       ("doris", "1234"),

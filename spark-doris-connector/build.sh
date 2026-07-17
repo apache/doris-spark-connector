@@ -122,8 +122,8 @@ if [[ -f ${DORIS_HOME}/custom_env.sh ]]; then
 fi
 
 selectScala() {
-  echo 'Spark-Doris-Connector supports Scala 2.11 and 2.12. Which version do you need ?'
-  select scala in "2.11" "2.12"
+  echo 'Spark-Doris-Connector supports Scala 2.11, 2.12 and 2.13. Which version do you need ?'
+  select scala in "2.11" "2.12" "2.13"
   do
     case $scala in
       "2.11")
@@ -131,6 +131,9 @@ selectScala() {
         ;;
       "2.12")
         return 2
+        ;;
+      "2.13")
+        return 3
         ;;
       *)
         echo "invalid selected, exit.."
@@ -142,7 +145,7 @@ selectScala() {
 
 selectSpark() {
   echo 'Spark-Doris-Connector supports multiple versions of spark. Which version do you need ?'
-  select spark in "2.4" "3.1" "3.2" "3.3" "3.4" "3.5"  "other"
+  select spark in "2.4" "3.1" "3.2" "3.3" "3.4" "3.5" "4.1" "other"
   do
     case $spark in
       "2.4")
@@ -163,8 +166,11 @@ selectSpark() {
       "3.5")
         return 6
         ;;
-      "other")
+      "4.1")
         return 7
+        ;;
+      "other")
+        return 8
         ;;
     esac
   done
@@ -177,6 +183,8 @@ if [ ${ScalaVer} -eq 1 ]; then
     SCALA_VERSION="2.11.12"
 elif [ ${ScalaVer} -eq 2 ]; then
     SCALA_VERSION="2.12.18"
+elif [ ${ScalaVer} -eq 3 ]; then
+    SCALA_VERSION="2.13.17"
 fi
 
 
@@ -196,6 +204,8 @@ elif [ ${SparkVer} -eq 5 ]; then
 elif [ ${SparkVer} -eq 6 ]; then
     SPARK_VERSION="3.5.3"
 elif [ ${SparkVer} -eq 7 ]; then
+    SPARK_VERSION="4.1.0"
+elif [ ${SparkVer} -eq 8 ]; then
     # shellcheck disable=SC2162
     read -p 'Which spark version do you need? please input
     :' ver
@@ -204,6 +214,22 @@ fi
 
 if [[ $SPARK_VERSION =~ ^3.* && $SCALA_VERSION == "2.11.12" ]]; then
   echo_r "Spark 3.x is not compatible with scala 2.11, will exit."
+  exit 1
+fi
+
+if [[ $SPARK_VERSION =~ ^4.* && $SCALA_VERSION != "2.13.17" ]]; then
+  echo_r "Spark 4.x requires scala 2.13, will exit."
+  exit 1
+fi
+
+if [[ ! $SPARK_VERSION =~ ^4.* && $SCALA_VERSION == "2.13.17" ]]; then
+  echo_r "Scala 2.13 is only supported with Spark 4.x, will exit."
+  exit 1
+fi
+
+# Spark 4.x requires JDK 17. JAVA_VER is the class-file major version from env.sh (52=JDK8, 61=JDK17).
+if [[ $SPARK_VERSION =~ ^4.* && ${JAVA_VER:-0} -lt 61 ]]; then
+  echo_r "Spark 4.x requires JDK 17 or later, will exit."
   exit 1
 fi
 
@@ -218,7 +244,7 @@ echo_g " scala version: ${SCALA_VERSION}, major version: ${SCALA_MAJOR_VERSION}"
 echo_g " spark version: ${SPARK_VERSION}, major version: ${SPARK_MAJOR_VERSION}"
 echo_g " build starting..."
 
-if [[ $SPARK_VERSION =~ ^3.* ]]; then
+if [[ $SPARK_VERSION =~ ^3.* || $SPARK_VERSION =~ ^4.* ]]; then
   profile_name="spark-${SPARK_MAJOR_VERSION}"
   module_suffix=${SPARK_MAJOR_VERSION}
 else

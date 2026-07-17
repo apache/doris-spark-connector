@@ -49,6 +49,8 @@
         <module>spark-doris-connector-spark-3.3</module>
         <module>spark-doris-connector-spark-3.4</module>
         <module>spark-doris-connector-spark-3.5</module>
+        <module>spark-doris-connector-spark-4-base</module>
+        <module>spark-doris-connector-spark-4.1</module>
     </modules>
 
     <scm>
@@ -86,6 +88,9 @@
         <scala.major.version>2.11</scala.major.version>
         <libthrift.version>0.16.0</libthrift.version>
         <arrow.version>15.0.2</arrow.version>
+        <adbc.version>0.14.0</adbc.version>
+        <grpc.version>1.60.0</grpc.version>
+        <protobuf.version>3.22.3</protobuf.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.scm.id>github</project.scm.id>
         <netty.version>4.1.110.Final</netty.version>
@@ -137,6 +142,16 @@
             <dependency>
                 <groupId>org.apache.doris</groupId>
                 <artifactId>spark-doris-connector-spark-3.5</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-4-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.doris</groupId>
+                <artifactId>spark-doris-connector-spark-4.1</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -233,7 +248,7 @@
             <dependency>
                 <groupId>org.apache.arrow.adbc</groupId>
                 <artifactId>adbc-driver-flight-sql</artifactId>
-                <version>0.14.0</version>
+                <version>${adbc.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.arrow</groupId>
@@ -270,10 +285,22 @@
                 </exclusions>
             </dependency>
 
+            <!-- Keep the whole gRPC stack on one version. grpc-netty pulls grpc-api/core/util at
+                 ${grpc.version}, but adbc -> arrow-flight pulls grpc-stub/grpc-protobuf transitively
+                 (e.g. flight 18 -> grpc 1.65 while grpc-netty is 1.69 under Spark 4.1). Importing the
+                 BOM aligns every io.grpc artifact, avoiding a mixed-version gRPC frozen into the
+                 shaded jar. The explicit grpc-netty entry below still applies its netty exclusions. -->
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>${grpc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-netty</artifactId>
-                <version>1.60.0</version>
+                <version>${grpc.version}</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>netty-codec-http2</artifactId>
@@ -313,7 +340,7 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.22.3</version>
+                <version>${protobuf.version}</version>
             </dependency>
 
             <dependency>
@@ -400,6 +427,15 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.module</groupId>
                 <artifactId>jackson-module-scala_${scala.major.version}</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+
+            <!-- Pin jackson-datatype-jsr310 to the connector's jackson version. Spark/Arrow pull a
+                 newer jsr310 transitively (e.g. 2.20.0 on Spark 4.1), which would otherwise be
+                 shaded next to the connector's databind and break on java.time (de)serialization. -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
                 <version>${fasterxml.jackson.version}</version>
             </dependency>
 
@@ -509,7 +545,9 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.4.1</version>
+                    <!-- 3.6.0 bundles an ASM that can process Java 21 multi-release classes, e.g.
+                         bcprov-jdk18on (pulled transitively under Spark 4.1's grpc 1.69 / netty 4.2). -->
+                    <version>3.6.0</version>
                     <configuration>
                         <filters>
                             <filter>
@@ -877,6 +915,26 @@
                 <spark.major.version>3.5</spark.major.version>
                 <scala.version>2.12.18</scala.version>
                 <scala.major.version>2.12</scala.major.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark-4.1</id>
+            <properties>
+                <spark.version>4.1.0</spark.version>
+                <spark.major.version>4.1</spark.major.version>
+                <scala.version>2.13.17</scala.version>
+                <scala.major.version>2.13</scala.major.version>
+                <!-- Match Spark 4.1's Arrow and Netty so the connector and Spark agree on one copy
+                     of each on the (unshaded) integration-test classpath; bump adbc/flight/grpc in
+                     lockstep (grpc 1.69 supports Netty 4.2). -->
+                <arrow.version>18.3.0</arrow.version>
+                <adbc.version>0.18.0</adbc.version>
+                <grpc.version>1.69.0</grpc.version>
+                <protobuf.version>3.25.1</protobuf.version>
+                <netty.version>4.2.7.Final</netty.version>
+                <!-- Spark 4 on JDK 17 needs these module opens (Arrow off-heap, Spark date/time,
+                     Catalyst codegen, etc.) — mirrors Spark's own JavaModuleOptions. -->
+                <argLine>-Xmx512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED</argLine>
             </properties>
         </profile>
     </profiles>

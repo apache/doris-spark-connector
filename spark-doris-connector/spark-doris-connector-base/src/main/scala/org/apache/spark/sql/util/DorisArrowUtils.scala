@@ -106,7 +106,7 @@ object DorisArrowUtils {
           val dt = fromArrowField(child)
           StructField(child.getName, dt, child.isNullable)
         }
-        StructType(fields)
+        StructType(fields.toArray)
       case arrowType => fromArrowType(arrowType)
     }
   }

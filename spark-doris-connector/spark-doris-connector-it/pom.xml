@@ -82,12 +82,6 @@
             <version>8.0.33</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
-            <version>1.7.25</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <profiles>
@@ -99,9 +93,34 @@
             <properties>
                 <spark.doris.connector.artifactId>spark-doris-connector-spark-2</spark.doris.connector.artifactId>
             </properties>
+            <dependencies>
+                <!-- Spark 2.x / 3.x use slf4j 1.7 + log4j 1.2 -->
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                    <version>1.7.25</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>spark-3-it</id>
+            <properties>
+                <spark.doris.connector.artifactId>spark-doris-connector-spark-${spark.major.version}</spark.doris.connector.artifactId>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                    <version>1.7.25</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <!-- Spark 4.x brings its own slf4j 2.x + log4j 2.x binding; the slf4j 1.7
+                 binding above would clash (NoSuchFieldError: mdc). -->
+            <id>spark-4-it</id>
             <properties>
                 <spark.doris.connector.artifactId>spark-doris-connector-spark-${spark.major.version}</spark.doris.connector.artifactId>
             </properties>

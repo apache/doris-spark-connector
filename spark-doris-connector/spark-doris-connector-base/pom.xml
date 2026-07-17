@@ -54,6 +54,17 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
             <version>${netty.version}</version>
+            <exclusions>
+                <!-- netty-all 4.2.x (Spark 4.1) is an aggregator that drags BouncyCastle in at
+                     compile scope; it is not relocated by the shade plugin, so it would ship an
+                     unrelocated org.bouncycastle crypto provider that can clash with the one Spark
+                     puts on the classpath. The connector does not use BouncyCastle, so exclude it.
+                     (No-op on netty-all 4.1.x, which does not pull it.) -->
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -101,6 +112,15 @@
             <artifactId>arrow-memory-netty</artifactId>
             <version>${arrow.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Pin arrow-memory-core to the connector's Arrow version so the test classpath stays
+             internally consistent. Spark 4.x ships a newer Arrow (provided), which otherwise
+             leaks a mismatched arrow-memory-core and breaks the allocation-manager lookup. -->
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-core</artifactId>
+            <version>${arrow.version}</version>
         </dependency>
 
         <dependency>

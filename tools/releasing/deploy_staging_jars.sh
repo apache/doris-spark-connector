@@ -17,7 +17,13 @@
 # under the License.
 
 ##############################################################
-# This script is deploy stage jars to repository.apache.org
+# This script deploys the JDK 8 / Scala 2.11-2.12 stage jars
+# (Spark 2.4 - 3.5) to repository.apache.org.
+#
+# Spark 4.x requires JDK 17 and Scala 2.13, so it is deployed
+# by a separate script (deploy_staging_jars_spark4.sh). Keeping
+# the two toolchains in separate scripts lets either release
+# flow be rerun on its own if a JDK-switching issue occurs.
 ##############################################################
 
 MVN=${MVN:-mvn}
@@ -61,5 +67,5 @@ ${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10
 echo "Deploying spark3.5..."
 ${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.5 -pl spark-doris-connector-spark-3.5 -am
 
-echo "Deploy jar finished."
+echo "Deploy jar finished. Run deploy_staging_jars_spark4.sh (with JDK 17) to deploy Spark 4.x."
 cd ${CURR_DIR}
