@@ -38,7 +38,10 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -74,9 +77,11 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -793,7 +798,7 @@ public class RowBatchTest {
 
         LocalDateTime localDateTime = LocalDateTime.of(2024, 3, 20,
                 0, 0, 0, 123456000);
-        long second = localDateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
+        long second = localDateTime.toEpochSecond(ZoneOffset.UTC);
         int nano = localDateTime.getNano();
 
         vector = root.getVector("k2");
@@ -801,9 +806,9 @@ public class RowBatchTest {
         datetimeV2Vector.setInitialCapacity(3);
         datetimeV2Vector.allocateNew();
         datetimeV2Vector.setIndexDefined(0);
-        datetimeV2Vector.setSafe(0, second);
+        datetimeV2Vector.setSafe(0, second * 1000000);
         datetimeV2Vector.setIndexDefined(1);
-        datetimeV2Vector.setSafe(1, second * 1000 + nano / 1000000);
+        datetimeV2Vector.setSafe(1, second * 1000000 + nano / 1000000 * 1000);
         datetimeV2Vector.setIndexDefined(2);
         datetimeV2Vector.setSafe(2, second * 1000000 + nano / 1000);
         vector.setValueCount(3);
@@ -1192,7 +1197,7 @@ public class RowBatchTest {
 
         LocalDateTime localDateTime = LocalDateTime.of(2025, 2, 24,
                 0, 0, 0, 123000000);
-        long second = localDateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
+        long second = localDateTime.toEpochSecond(ZoneOffset.UTC);
         int nano = localDateTime.getNano();
 
         vector = root.getVector("k2");
@@ -1205,7 +1210,7 @@ public class RowBatchTest {
 
         LocalDateTime localDateTime1 = LocalDateTime.of(2025, 2, 24,
                 1, 2, 3, 123456000);
-        long second1 = localDateTime1.atZone(ZoneId.systemDefault()).toEpochSecond();
+        long second1 = localDateTime1.toEpochSecond(ZoneOffset.UTC);
         int nano1 = localDateTime1.getNano();
 
         vector = root.getVector("k3");
@@ -1260,6 +1265,85 @@ public class RowBatchTest {
 
         Assert.assertFalse(rowBatch2.hasNext());
 
+    }
+
+    @Test
+    public void testTimestampTzVector() throws IOException, DorisException {
+        ImmutableList<Field> fields = ImmutableList.of(
+                new Field("k0", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MICROSECOND, "UTC+8")), null),
+                new Field("k1", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC+8")), null),
+                new Field("k2", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.SECOND, "UTC+8")), null));
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(fields, null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter writer = new ArrowStreamWriter(
+                root, new DictionaryProvider.MapDictionaryProvider(), outputStream);
+
+        writer.start();
+        root.setRowCount(1);
+        TimeStampMicroTZVector microVector = (TimeStampMicroTZVector) root.getVector("k0");
+        microVector.allocateNew(1);
+        microVector.setSafe(0, 1721892143586123L);
+        microVector.setValueCount(1);
+        TimeStampMilliTZVector milliVector = (TimeStampMilliTZVector) root.getVector("k1");
+        milliVector.allocateNew(1);
+        milliVector.setSafe(0, 1721892143586L);
+        milliVector.setValueCount(1);
+        TimeStampSecTZVector secVector = (TimeStampSecTZVector) root.getVector("k2");
+        secVector.allocateNew(1);
+        secVector.setSafe(0, 1721892143L);
+        secVector.setValueCount(1);
+        writer.writeBatch();
+        writer.end();
+        writer.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult result = new TScanBatchResult();
+        result.setStatus(status);
+        result.setEos(false);
+        result.setRows(outputStream.toByteArray());
+        Schema schema = MAPPER.readValue(
+                "{\"properties\":["
+                        + "{\"type\":\"TIMESTAMPTZ\",\"name\":\"k0\",\"comment\":\"\"},"
+                        + "{\"type\":\"TIMESTAMPTZ\",\"name\":\"k1\",\"comment\":\"\"},"
+                        + "{\"type\":\"TIMESTAMPTZ\",\"name\":\"k2\",\"comment\":\"\"}],\"status\":200}",
+                Schema.class);
+        Instant microInstant = Instant.ofEpochSecond(1721892143L, 586123000L);
+        Instant milliInstant = Instant.ofEpochSecond(1721892143L, 586000000L);
+        Instant secInstant = Instant.ofEpochSecond(1721892143L);
+
+        List<Object> timestampRow = new RowBatch(result, schema, false).next();
+        Assert.assertEquals(Timestamp.from(microInstant), timestampRow.get(0));
+        Assert.assertEquals(Timestamp.from(milliInstant), timestampRow.get(1));
+        Assert.assertEquals(Timestamp.from(secInstant), timestampRow.get(2));
+
+        List<Object> instantRow = new RowBatch(result, schema, true).next();
+        Assert.assertEquals(microInstant, instantRow.get(0));
+        Assert.assertEquals(milliInstant, instantRow.get(1));
+        Assert.assertEquals(secInstant, instantRow.get(2));
+    }
+
+    @Test
+    public void testLongToLocalDateTimeUsesDeclaredUnit() {
+        ZoneId utc = ZoneId.of("UTC");
+
+        Assert.assertEquals(
+                LocalDateTime.of(1969, 12, 31, 23, 59, 59),
+                RowBatch.longToLocalDateTime(-1L, TimeUnit.SECOND, utc));
+        Assert.assertEquals(
+                LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999000000),
+                RowBatch.longToLocalDateTime(-1L, TimeUnit.MILLISECOND, utc));
+        Assert.assertEquals(
+                LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999999000),
+                RowBatch.longToLocalDateTime(-1L, TimeUnit.MICROSECOND, utc));
+        Assert.assertEquals(
+                LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999999999),
+                RowBatch.longToLocalDateTime(-1L, TimeUnit.NANOSECOND, utc));
     }
 
 }
