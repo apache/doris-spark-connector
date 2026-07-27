@@ -47,7 +47,9 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.slf4j.Logger;
@@ -175,17 +177,29 @@ public class RowBatch implements Serializable {
         readRowCount += root.getRowCount();
     }
 
-    public static LocalDateTime longToLocalDateTime(long time) {
+    public static LocalDateTime longToLocalDateTime(long time, TimeUnit timeUnit, ZoneId zoneId) {
         Instant instant;
-        // Determine the timestamp accuracy and process it
-        if (time < 10_000_000_000L) { // Second timestamp
-            instant = Instant.ofEpochSecond(time);
-        } else if (time < 10_000_000_000_000L) { // milli second
-            instant = Instant.ofEpochMilli(time);
-        } else { // micro second
-            instant = Instant.ofEpochSecond(time / 1_000_000, (time % 1_000_000) * 1_000);
+        switch (timeUnit) {
+            case SECOND:
+                instant = Instant.ofEpochSecond(time);
+                break;
+            case MILLISECOND:
+                instant = Instant.ofEpochMilli(time);
+                break;
+            case MICROSECOND:
+                instant = Instant.ofEpochSecond(
+                        Math.floorDiv(time, 1_000_000L),
+                        Math.floorMod(time, 1_000_000L) * 1_000L);
+                break;
+            case NANOSECOND:
+                instant = Instant.ofEpochSecond(
+                        Math.floorDiv(time, 1_000_000_000L),
+                        Math.floorMod(time, 1_000_000_000L));
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported timestamp unit: " + timeUnit);
         }
-        return LocalDateTime.ofInstant(instant, DEFAULT_ZONE_ID);
+        return LocalDateTime.ofInstant(instant, zoneId);
     }
 
     public boolean hasNext() {
@@ -410,6 +424,7 @@ public class RowBatch implements Serializable {
                         break;
                     case "DATETIME":
                     case "DATETIMEV2":
+                    case "TIMESTAMPTZ":
 
                         if (mt.equals(MinorType.VARCHAR)) {
                             VarCharVector varCharVector = (VarCharVector) curFieldVector;
@@ -587,10 +602,11 @@ public class RowBatch implements Serializable {
         if (vector.isNull(rowIndex)) {
             return null;
         }
-        // todo: Currently, the scale of doris's arrow datetimev2 is hardcoded to 6,
-        // and there is also a time zone problem in arrow, so use timestamp to convert first
-        long time = vector.get(rowIndex);
-        return longToLocalDateTime(time);
+        ArrowType.Timestamp timestampType = (ArrowType.Timestamp) vector.getField().getType();
+        if (timestampType.getTimezone() == null) {
+            return (LocalDateTime) vector.getObject(rowIndex);
+        }
+        return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), DEFAULT_ZONE_ID);
     }
 
     public static String completeMilliseconds(String stringValue) {
