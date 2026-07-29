@@ -117,6 +117,31 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
 
   @Test
   @throws[Exception]
+  def testArrowFlightSqlPortAutoDiscovery(): Unit = {
+    if (!readMode.equals("arrow")) {
+      return
+    }
+    initializeTable(TABLE_READ_TBL, DataModel.UNIQUE)
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      val dorisSparkDF = session.read
+        .format("doris")
+        .option("doris.fenodes", getFenodes)
+        .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL)
+        .option("doris.user", getDorisUsername)
+        .option("doris.password", getDorisPassword)
+        .option("doris.read.mode", "arrow")
+        .load()
+
+      val result = dorisSparkDF.collect().toList.toString()
+      assert("List([doris,18], [spark,10])".equals(result))
+    } finally {
+      session.stop()
+    }
+  }
+
+  @Test
+  @throws[Exception]
   def testSQLSource(): Unit = {
     initializeTable(TABLE_READ_TBL, DataModel.UNIQUE_MOR)
     val session = SparkSession.builder().master("local[*]").getOrCreate()

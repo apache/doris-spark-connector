@@ -18,8 +18,8 @@
 package org.apache.doris.spark.read
 
 import org.apache.doris.spark.client.entity.{Backend, DorisReaderPartition}
-import org.apache.doris.spark.client.read.ReaderPartitionGenerator
-import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
+import org.apache.doris.spark.client.read.{DorisReadModeResolver, ReaderPartitionGenerator}
+import org.apache.doris.spark.config.DorisConfig
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReaderFactory, Scan}
 import org.apache.spark.sql.internal.SQLConf
@@ -29,7 +29,7 @@ import scala.language.implicitConversions
 
 abstract class AbstractDorisScan(config: DorisConfig, schema: StructType) extends Scan with Batch with Logging {
 
-  private val scanMode = ScanMode.valueOf(config.getValue(DorisOptions.READ_MODE).toUpperCase)
+  private val scanMode = ScanMode.valueOf(DorisReadModeResolver.resolve(config).toUpperCase)
 
   override def readSchema(): StructType = schema
 
