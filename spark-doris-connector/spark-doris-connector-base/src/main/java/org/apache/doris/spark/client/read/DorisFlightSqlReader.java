@@ -178,7 +178,8 @@ public class DorisFlightSqlReader extends DorisReader {
             AdbcDatabase database = driver.open(params);
             return database.connect();
         } catch (IOException e) {
-            throw new DorisRuntimeException("Unable to close the Doris TLS CA certificate", e);
+            throw new DorisRuntimeException(
+                    "Unable to close the Doris TLS CA certificate stream", e);
         }
     }
 

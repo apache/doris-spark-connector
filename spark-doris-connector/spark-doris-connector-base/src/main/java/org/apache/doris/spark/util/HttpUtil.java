@@ -29,10 +29,6 @@ import java.net.URL;
 public class HttpUtil {
     private static final Logger LOG = LoggerFactory.getLogger(HttpUtil.class);
 
-    public static boolean tryHttpConnection(String host) {
-        return tryHttpConnection(host, null);
-    }
-
     public static boolean tryHttpConnection(String host, DorisTlsOptions tlsOptions) {
         HttpURLConnection connection = null;
         String endpoint = host;
