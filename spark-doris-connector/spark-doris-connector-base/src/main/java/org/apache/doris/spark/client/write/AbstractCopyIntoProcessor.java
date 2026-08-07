@@ -24,6 +24,7 @@ import org.apache.doris.spark.client.entity.CopyIntoResponse;
 import org.apache.doris.spark.client.entity.Frontend;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.config.DorisTlsOptions;
 import org.apache.doris.spark.exception.CopyIntoException;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.rest.models.RespContent;
@@ -38,10 +39,12 @@ import org.apache.http.client.entity.GzipCompressingEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.BufferedHttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +82,10 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
 
     private final boolean isGzipCompressionEnabled;
 
+    private final boolean isHttpsEnabled;
+
+    private transient CloseableHttpClient storageHttpClient;
+
     private PipedOutputStream output;
 
     private String fileName;
@@ -103,6 +110,8 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
         this.properties = config.getSinkProperties();
         this.format = properties.getOrDefault("format", "csv");
         this.isGzipCompressionEnabled = properties.containsKey("compress_type") && "gzip".equals(properties.get("compress_type"));
+        this.isHttpsEnabled =
+                config.getTlsOptions().isEnabledFor(DorisTlsOptions.Protocol.HTTP);
     }
 
     @Override
@@ -111,7 +120,7 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
             requestFuture = frontend.requestFrontends((frontend, httpClient) -> {
                 try {
                     String uploadUrl = getUploadUrl(frontend, httpClient);
-                    return uploadFile(httpClient, uploadUrl);
+                    return uploadFile(uploadUrl);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -155,36 +164,46 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
     public void close() throws IOException {
         isNewBatch = true;
         frontend.close();
+        if (storageHttpClient != null) {
+            storageHttpClient.close();
+            storageHttpClient = null;
+        }
     }
 
     private String getUploadUrl(Frontend frontend, CloseableHttpClient httpClient) throws Exception {
-        String uploadUrl = URLs.copyIntoUpload(frontend.getHost(), frontend.getHttpPort(), false);
+        String uploadUrl =
+                URLs.copyIntoUpload(
+                        frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
         fileName = UUID.randomUUID().toString();
         HttpPut uploadReq = new HttpPutBuilder().setUrl(uploadUrl).addCommonHeader()
                 .addFileName(fileName).setEntity(new StringEntity("")).baseAuth(getAuthEncoded()).build();
-        CloseableHttpResponse uploadRes = httpClient.execute(uploadReq);
-        if (uploadRes.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-            throw new RuntimeException("upload file failed, status: " + uploadRes.getStatusLine().getStatusCode()
-                    + ", reason: " + uploadRes.getStatusLine().getReasonPhrase());
-        }
-        int statusCode = uploadRes.getStatusLine().getStatusCode();
-        String reasonPhrase = uploadRes.getStatusLine().getReasonPhrase();
-        String content = EntityUtils.toString(new BufferedHttpEntity(uploadRes.getEntity()), StandardCharsets.UTF_8);
-        CopyIntoResponse loadResponse = new CopyIntoResponse(statusCode, reasonPhrase, content);
-        if (loadResponse.getCode() == HttpStatus.SC_TEMPORARY_REDIRECT) {
-            String uploadAddress = uploadRes.getFirstHeader("location").getValue();
-            LOG.info("Get upload address Response: " + loadResponse);
-            LOG.info("Redirect to s3: " + uploadAddress);
-            return uploadAddress;
-        } else {
+        uploadReq.setConfig(RequestConfig.custom().setRedirectsEnabled(false).build());
+        try (CloseableHttpResponse uploadRes = httpClient.execute(uploadReq)) {
+            int statusCode = uploadRes.getStatusLine().getStatusCode();
+            String reasonPhrase = uploadRes.getStatusLine().getReasonPhrase();
+            String content = uploadRes.getEntity() == null
+                    ? ""
+                    : EntityUtils.toString(
+                            new BufferedHttpEntity(uploadRes.getEntity()),
+                            StandardCharsets.UTF_8);
+            CopyIntoResponse loadResponse =
+                    new CopyIntoResponse(statusCode, reasonPhrase, content);
+            if (loadResponse.getCode() == HttpStatus.SC_TEMPORARY_REDIRECT) {
+                if (uploadRes.getFirstHeader("location") == null) {
+                    throw new RuntimeException("Copy upload redirect did not contain a location");
+                }
+                String uploadAddress = uploadRes.getFirstHeader("location").getValue();
+                LOG.info("Get upload address Response: " + loadResponse);
+                LOG.info("Redirect to object storage: " + uploadAddress);
+                return uploadAddress;
+            }
             LOG.error("Failed to get the redirected address, status " + loadResponse.getCode() +
                     ", reason " + loadResponse.getMsg() + ", response " + loadResponse.getContent());
             throw new RuntimeException("Could not get the redirected address.");
         }
-
     }
 
-    private Future<HttpResponse> uploadFile(CloseableHttpClient httpClient, String uploadUrl) throws IOException {
+    private Future<HttpResponse> uploadFile(String uploadUrl) throws IOException {
         switch (format.toLowerCase()) {
             case "csv":
                 if (!properties.containsKey("column_separator")) {
@@ -211,7 +230,15 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
         }
         HttpPut httpPut = new HttpPutBuilder().setUrl(uploadUrl).addCommonHeader()
                 .setEntity(entity).build();
-        return executor.submit(() -> httpClient.execute(httpPut));
+        return executor.submit(() -> getStorageHttpClient().execute(httpPut));
+    }
+
+    private synchronized CloseableHttpClient getStorageHttpClient() {
+        if (storageHttpClient == null) {
+            // Pre-signed object-storage URLs use JVM-default trust, not the Doris private CA.
+            storageHttpClient = HttpClients.createDefault();
+        }
+        return storageHttpClient;
     }
 
     protected abstract String toFormat(R row, String format);
@@ -225,7 +252,9 @@ public abstract class AbstractCopyIntoProcessor<R> extends DorisWriter<R> implem
         LOG.info("build copy sql is " + copySql);
         ObjectNode objectNode = MAPPER.createObjectNode();
         objectNode.put("sql", copySql);
-        String queryUrl = URLs.copyIntoQuery(frontend.getHost(), frontend.getHttpPort(), false);
+        String queryUrl =
+                URLs.copyIntoQuery(
+                        frontend.getHost(), frontend.getHttpPort(), isHttpsEnabled);
         HttpPost queryReq = new HttpPostBuilder().setUrl(queryUrl)
                 .baseAuth(getAuthEncoded())
                 .setEntity(new StringEntity(MAPPER.writeValueAsString(objectNode))).build();

@@ -23,17 +23,21 @@ import org.apache.doris.spark.client.entity.DorisReaderPartition;
 import org.apache.doris.spark.client.entity.Frontend;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.config.DorisTlsOptions;
 import org.apache.doris.spark.exception.DorisException;
+import org.apache.doris.spark.exception.DorisRuntimeException;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.ShouldNeverHappenException;
 import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.Schema;
+import org.apache.doris.spark.util.DorisTlsContextFactory;
 
 import org.apache.arrow.adbc.core.AdbcConnection;
 import org.apache.arrow.adbc.core.AdbcDatabase;
 import org.apache.arrow.adbc.core.AdbcDriver;
 import org.apache.arrow.adbc.core.AdbcException;
 import org.apache.arrow.adbc.core.AdbcStatement;
+import org.apache.arrow.adbc.driver.flightsql.FlightSqlConnectionProperties;
 import org.apache.arrow.adbc.driver.flightsql.FlightSqlDriver;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
@@ -45,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -148,17 +153,58 @@ public class DorisFlightSqlReader extends DorisReader {
                 log.warn("close adbc connection error", e);
             }
         }
+        try {
+            frontendClient.close();
+        } catch (IOException e) {
+            log.warn("close frontend client error", e);
+        }
     }
 
     private AdbcConnection initializeConnection(Frontend frontend, DorisConfig config) throws OptionRequiredException, AdbcException {
         BufferAllocator allocator = new RootAllocator();
         FlightSqlDriver driver = new FlightSqlDriver(allocator);
+        DorisTlsOptions tlsOptions = config.getTlsOptions();
+        InputStream rootCertificates = null;
+        if (tlsOptions.isEnabledFor(DorisTlsOptions.Protocol.ARROW_FLIGHT)
+                && !tlsOptions.getCaCertificatePath().isEmpty()) {
+            rootCertificates = DorisTlsContextFactory.openCaCertificate(tlsOptions);
+        }
+        try (InputStream certificates = rootCertificates) {
+            Map<String, Object> params = createConnectionParameters(
+                    frontend.getHost(),
+                    frontend.getFlightSqlPort(),
+                    config,
+                    certificates);
+            AdbcDatabase database = driver.open(params);
+            return database.connect();
+        } catch (IOException e) {
+            throw new DorisRuntimeException("Unable to close the Doris TLS CA certificate", e);
+        }
+    }
+
+    static Map<String, Object> createConnectionParameters(
+            String host, int port, DorisConfig config, InputStream rootCertificates)
+            throws OptionRequiredException {
+        DorisTlsOptions tlsOptions = config.getTlsOptions();
+        boolean tlsEnabled =
+                tlsOptions.isEnabledFor(DorisTlsOptions.Protocol.ARROW_FLIGHT);
+        if (tlsEnabled && tlsOptions.isSkipHostnameVerification()) {
+            throw new DorisRuntimeException(
+                    "Arrow Flight does not support doris.tls.skip-hostname-verification "
+                            + "without disabling certificate verification");
+        }
+
         Map<String, Object> params = new HashMap<>();
-        AdbcDriver.PARAM_URI.set(params, Location.forGrpcInsecure(frontend.getHost(), frontend.getFlightSqlPort()).getUri().toString());
+        Location location = tlsEnabled
+                ? Location.forGrpcTls(host, port)
+                : Location.forGrpcInsecure(host, port);
+        AdbcDriver.PARAM_URI.set(params, location.getUri().toString());
         AdbcDriver.PARAM_USERNAME.set(params, config.getValue(DorisOptions.DORIS_USER));
         AdbcDriver.PARAM_PASSWORD.set(params, config.getValue(DorisOptions.DORIS_PASSWORD));
-        AdbcDatabase database = driver.open(params);
-        return database.connect();
+        if (tlsEnabled && rootCertificates != null) {
+            FlightSqlConnectionProperties.TLS_ROOT_CERTS.set(params, rootCertificates);
+        }
+        return params;
     }
 
     private ArrowReader executeQuery() throws AdbcException, OptionRequiredException {

@@ -116,13 +116,13 @@ public class DorisOptions {
      */
     public static final ConfigOption<Boolean> DORIS_SINK_AUTO_REDIRECT = ConfigOptions.name("doris.sink.auto-redirect").booleanType().defaultValue(true).withDescription("");
 
-    public static final ConfigOption<Boolean> DORIS_ENABLE_HTTPS = ConfigOptions.name("doris.enable.https").booleanType().defaultValue(false).withDescription("");
+    public static final ConfigOption<Boolean> DORIS_ENABLE_TLS = ConfigOptions.name("doris.enable.tls").booleanType().defaultValue(false).withDescription("Enable one-way TLS for Doris client protocols.");
 
-    public static final ConfigOption<String> DORIS_HTTPS_KEY_STORE_PATH = ConfigOptions.name("doris.https.key-store-path").stringType().withoutDefaultValue().withDescription("");
+    public static final ConfigOption<String> DORIS_TLS_CA_CERTIFICATE_PATH = ConfigOptions.name("doris.tls.ca-certificate-path").stringType().defaultValue("").withDescription("Path to a PEM CA certificate chain. The JVM default truststore is used when empty.");
 
-    public static final ConfigOption<String> DORIS_HTTPS_KEY_STORE_TYPE = ConfigOptions.name("doris.https.key-store-type").stringType().defaultValue("JKS").withDescription("");
+    public static final ConfigOption<Boolean> DORIS_TLS_SKIP_HOSTNAME_VERIFICATION = ConfigOptions.name("doris.tls.skip-hostname-verification").booleanType().defaultValue(false).withDescription("Skip TLS hostname verification while retaining CA verification.");
 
-    public static final ConfigOption<String> DORIS_HTTPS_KEY_STORE_PASSWORD = ConfigOptions.name("doris.https.key-store-password").stringType().withoutDefaultValue().withDescription("");
+    public static final ConfigOption<String> DORIS_TLS_EXCLUDED_PROTOCOLS = ConfigOptions.name("doris.tls.excluded-protocols").stringType().defaultValue("").withDescription("Comma-separated protocols excluded from TLS: http, mysql, thrift, arrowflight.");
 
     public static final ConfigOption<String> LOAD_MODE = ConfigOptions.name("doris.sink.mode").stringType().defaultValue("stream_load").withDescription("");
 
