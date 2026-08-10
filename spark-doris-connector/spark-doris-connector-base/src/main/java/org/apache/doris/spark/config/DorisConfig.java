@@ -177,6 +177,10 @@ public class DorisConfig implements Serializable {
         return new HashMap<>(configOptions);
     }
 
+    public DorisTlsOptions getTlsOptions() throws OptionRequiredException {
+        return DorisTlsOptions.fromConfig(this);
+    }
+
     public static DorisConfig fromMap(Map<String, String> sparkConfMap, Boolean ignoreTableCheck) throws OptionRequiredException {
         return fromMap(sparkConfMap, Collections.emptyMap(), ignoreTableCheck);
     }

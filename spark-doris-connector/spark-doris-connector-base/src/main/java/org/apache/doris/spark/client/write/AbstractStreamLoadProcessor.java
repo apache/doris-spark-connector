@@ -23,6 +23,7 @@ import org.apache.doris.spark.client.entity.Backend;
 import org.apache.doris.spark.client.entity.StreamLoadResponse;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.config.DorisTlsOptions;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.exception.StreamLoadException;
 import org.apache.doris.spark.rest.models.DataFormat;
@@ -109,8 +110,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         this.frontend = new DorisFrontendClient(config);
         this.autoRedirect = config.getValue(DorisOptions.DORIS_SINK_AUTO_REDIRECT);
         this.properties = config.getSinkProperties();
-        this.backendHttpClient = autoRedirect ? null : new DorisBackendHttpClient(getBackends());
-        this.isHttpsEnabled = config.getValue(DorisOptions.DORIS_ENABLE_HTTPS);
+        this.backendHttpClient = autoRedirect ? null : new DorisBackendHttpClient(getBackends(), config);
+        this.isHttpsEnabled =
+                config.getTlsOptions().isEnabledFor(DorisTlsOptions.Protocol.HTTP);
         // init stream load props
         this.isTwoPhaseCommitEnabled = config.getValue(DorisOptions.DORIS_SINK_ENABLE_2PC);
         this.format = DataFormat.valueOf(properties.getOrDefault("format", "csv").toUpperCase());
