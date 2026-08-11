@@ -17,6 +17,7 @@
 
 package org.apache.doris.spark.testcase
 
+import org.apache.doris.DorisArguments
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 
@@ -29,14 +30,18 @@ object TestStreamLoadForArrowType {
   val spark: SparkSession = SparkSession.builder().master("local[1]").getOrCreate()
   var dorisFeNodes = "127.0.0.1:8030"
   var dorisUser = "root"
-  val dorisPwd = ""
+  var dorisPwd = ""
   var databaseName = ""
+  var dorisTlsOptions = Map.empty[String, String]
 
   def main(args: Array[String]): Unit = {
-
-    dorisFeNodes = args(0)
-    dorisUser = args(1)
-    databaseName = args(2)
+    println(s"Input arguments: ${args.mkString(" ")}")
+    val arguments = DorisArguments.parse(args)
+    dorisFeNodes = arguments.feAddress
+    dorisUser = arguments.user
+    dorisPwd = arguments.password
+    databaseName = arguments.database
+    dorisTlsOptions = arguments.tlsOptions
 
     testDataframeWritePrimitiveType()
     testDataframeWriteArrayTypes()
@@ -145,6 +150,7 @@ object TestStreamLoadForArrowType {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_primitive")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
@@ -250,6 +256,7 @@ object TestStreamLoadForArrowType {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_array")
       .option("doris.sink.batch.size", 30)
       .option("doris.sink.properties.format", "arrow")
@@ -355,6 +362,7 @@ object TestStreamLoadForArrowType {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_map")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
@@ -452,6 +460,7 @@ CREATE TABLE `spark_connector_struct` (
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_struct")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
