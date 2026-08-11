@@ -23,7 +23,7 @@ under the License.
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.apache.doris</groupId>
-    <artifactId>spark-doris-case</artifactId>
+    <artifactId>spark-doris-regression-case</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -61,7 +61,7 @@ under the License.
     </dependencies>
 
     <build>
-        <finalName>spark-doris-case</finalName>
+        <finalName>spark-doris-regression-case</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
