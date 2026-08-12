@@ -155,6 +155,7 @@ object TestStreamLoadForArrowType {
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 
@@ -261,6 +262,7 @@ object TestStreamLoadForArrowType {
       .option("doris.sink.batch.size", 30)
       .option("doris.sink.properties.format", "arrow")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 
@@ -367,6 +369,7 @@ object TestStreamLoadForArrowType {
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 
@@ -465,6 +468,7 @@ CREATE TABLE `spark_connector_struct` (
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 }
