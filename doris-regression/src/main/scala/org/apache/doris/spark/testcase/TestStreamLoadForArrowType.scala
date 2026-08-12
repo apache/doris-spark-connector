@@ -345,8 +345,8 @@ object TestStreamLoadForArrowType {
       Map(6.6.floatValue() -> 8.8.floatValue(), 9.9.floatValue() -> 10.1.floatValue()),
       Map(7.7.doubleValue() -> 1.1.doubleValue(), 2.2 -> 3.3.doubleValue()),
       Map(Decimal.apply(3.12) -> Decimal.apply(1.23), Decimal.apply(2.34) -> Decimal.apply(5.67)),
-      Map(Date.valueOf("2023-09-08") -> Date.valueOf("2024-09-08"), Date.valueOf("1023-09-08") -> Date.valueOf("2023-09-08")),
-      Map(Timestamp.valueOf("1023-09-08 17:12:34.123456") -> Timestamp.valueOf("2023-09-08 17:12:34.123456"), Timestamp.valueOf("3023-09-08 17:12:34.123456") -> Timestamp.valueOf("4023-09-08 17:12:34.123456")),
+      Map(Date.valueOf("2023-09-08") -> Date.valueOf("2024-09-08"), Date.valueOf("2022-09-08") -> Date.valueOf("2023-09-08")),
+      Map(Timestamp.valueOf("2022-09-08 17:12:34.123456") -> Timestamp.valueOf("2023-09-08 17:12:34.123456"), Timestamp.valueOf("2024-09-08 17:12:34.123456") -> Timestamp.valueOf("2025-09-08 17:12:34.123456")),
       Map("char" -> "char2", "char2" -> "char3"),
       Map("varchar" -> "varchar2", "varchar3" -> "varchar4"),
       Map("string" -> "string2", "string3" -> "string4")
