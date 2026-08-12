@@ -154,6 +154,7 @@ object TestStreamLoadForArrowType {
       .option("doris.table.identifier", s"$databaseName.spark_connector_primitive")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
       .mode("append")
       .save()
@@ -234,7 +235,7 @@ object TestStreamLoadForArrowType {
       Array(4.toLong, 5.toLong, 6.toLong),
       Array("123456789", "987654321", "123789456"),
       Array(6.6.floatValue(), 6.7.floatValue(), 7.8.floatValue()),
-      Array(7.7.doubleValue(), 8.8.doubleValue(), 8.9.floatValue()),
+      Array(7.5, 8.5, 9.25),
       Array(Decimal.apply(3.12), Decimal.apply(1.12345)),
       Array(Date.valueOf("2023-09-08"), Date.valueOf("2027-10-28")),
       Array(Timestamp.valueOf("2023-09-08 17:12:34.123456"), Timestamp.valueOf("2024-09-08 18:12:34.123456")),
@@ -261,6 +262,7 @@ object TestStreamLoadForArrowType {
       .option("doris.table.identifier", s"$databaseName.spark_connector_array")
       .option("doris.sink.batch.size", 30)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
       .mode("append")
       .save()
@@ -368,6 +370,7 @@ object TestStreamLoadForArrowType {
       .option("doris.table.identifier", s"$databaseName.spark_connector_map")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
       .mode("append")
       .save()
@@ -467,6 +470,7 @@ CREATE TABLE `spark_connector_struct` (
       .option("doris.table.identifier", s"$databaseName.spark_connector_struct")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
       .mode("append")
       .save()
