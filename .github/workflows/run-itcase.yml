@@ -32,6 +32,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@master
 
+    - name: Configure Doris prerequisites
+      run: sudo sysctl -w vm.max_map_count=2000000
+
     - name: Setup java
       uses: actions/setup-java@v2
       with:
@@ -40,27 +43,27 @@ jobs:
 
     - name: Run ITCases for spark 2
       run: |
-        cd spark-doris-connector && mvn clean test -Pspark-2-it,spark-2.4_2.11 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+        cd spark-doris-connector && mvn clean test -Pspark-2-it,spark-2.4_2.11 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="jnsimba/doris-all-in-one:4.1.3"
 
     - name: Run ITCases for spark 3.1
       run: |
-        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.1 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.1 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="jnsimba/doris-all-in-one:4.1.3"
 
     - name: Run ITCases for spark 3.2
       run: |
-        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.2 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.2 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="jnsimba/doris-all-in-one:4.1.3"
 
     - name: Run ITCases for spark 3.3
       run: |
-        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.3 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.3 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="jnsimba/doris-all-in-one:4.1.3"
 
     - name: Run ITCases for spark 3.4
       run: |
-        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.4 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.4 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="jnsimba/doris-all-in-one:4.1.3"
 
     - name: Run ITCases for spark 3.5
       run: |
-        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.5 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
+        cd spark-doris-connector && mvn clean test -Pspark-3-it,spark-3.5 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="jnsimba/doris-all-in-one:4.1.3"
 
   run-itcase-spark4:
     name: "Run ITCases (Spark 4.x)"
@@ -72,6 +75,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@master
 
+    - name: Configure Doris prerequisites
+      run: sudo sysctl -w vm.max_map_count=2000000
+
     # Spark 4.x requires JDK 17.
     - name: Setup java
       uses: actions/setup-java@v3
@@ -81,5 +87,4 @@ jobs:
 
     - name: Run ITCases for spark 4.1
       run: |
-        cd spark-doris-connector && mvn clean test -Pspark-4-it,spark-4.1 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="apache/doris:doris-all-in-one-2.1.0"
-
+        cd spark-doris-connector && mvn clean test -Pspark-4-it,spark-4.1 -pl spark-doris-connector-it -am -DfailIfNoTests=false -Dtest="*ITCase" -Dimage="jnsimba/doris-all-in-one:4.1.3"
