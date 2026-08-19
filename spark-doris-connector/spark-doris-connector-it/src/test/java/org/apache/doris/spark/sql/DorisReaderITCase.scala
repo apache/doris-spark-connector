@@ -370,7 +370,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |select * from test_source order by hour
           |""".stripMargin).collect()
 
-      assert("List([20200622,1,AfMAAAA=], [20200622,2,AjswAQABAAAEAAYAAAABAAEABABvoQ==], [20200622,3,A91yV/pCAAAA])"
+      assert("List([20200622,1,BQHzAAAAAAAAAA==], [20200622,2,BQYEAAAAAAAAAAEAAAAAAAAABQAAAAAAAAACAAAAAAAAAG+hBgAAAAAAAwAAAAAAAAA=], [20200622,3,BQHdclf6QgAAAA==])"
         .equals(actualData.toList.toString()))
     } finally {
       session.stop()
