@@ -22,8 +22,11 @@ import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUti
 import org.apache.doris.spark.rest.models.DataModel
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.streaming.{StreamingQueryListener, StreamingQueryProgress}
+import org.junit.Assert.assertTrue
 import org.junit.{Before, Test}
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.TimeUnit
 
 /**
  * Doris Structured Streaming Test Case.
@@ -83,9 +86,18 @@ class DorisStreamingWriterITCase extends AbstractContainerTestBase {
         override def onQueryTerminated(event: StreamingQueryListener.QueryTerminatedEvent): Unit = {}
       })
 
-    dorissink.awaitTermination()
-
-    spark.stop()
+    try {
+      assertTrue("Streaming query did not terminate within 60 seconds",
+        dorissink.awaitTermination(TimeUnit.SECONDS.toMillis(60)))
+    } finally {
+      try {
+        if (dorissink.isActive) {
+          dorissink.stop()
+        }
+      } finally {
+        spark.stop()
+      }
+    }
     val cnt = ContainerUtils.executeSQLStatement(
       getDorisQueryConnection(DATABASE),
       LOG,
