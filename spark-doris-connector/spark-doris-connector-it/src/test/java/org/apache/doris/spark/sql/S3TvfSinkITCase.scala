@@ -20,6 +20,7 @@ package org.apache.doris.spark.sql
 import org.apache.doris.spark.container.{AbstractS3TvfTestBase, ContainerUtils}
 import org.apache.doris.spark.container.AbstractContainerTestBase.getDorisQueryConnection
 import org.apache.doris.spark.container.AbstractS3TvfTestBase.uniqueName
+import org.apache.spark.TaskContext
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.{Before, Test}
@@ -174,21 +175,24 @@ class S3TvfSinkITCase extends AbstractS3TvfTestBase {
   }
 
   @Test
-  def testInsertFailureRetainsObjectsAndTaskRetryUsesNewUuid(): Unit = {
-    val table = uniqueName("missing_table")
+  def testInsertFailureRetainsObjects(): Unit = {
+    val table = uniqueName("failed_insert")
     val prefix = uniqueName("failed_objects")
     val labelPrefix = uniqueName("failed_label")
+    createDuplicateTable(table, "`id` INT, `name` VARCHAR(128)")
 
     var writeFailed = false
-    withSpark("local[1,2]") { session =>
+    withSpark("local[1]") { session =>
       import session.implicits._
+      val options = s3TvfSinkOptions(
+        s"$database.$table", prefix, labelPrefix, 100)
+      options.put("sink.properties.invalid-variable", "true")
       try {
         Seq((1, "failed-row"))
           .toDF("id", "name")
           .write
           .format("doris")
-          .options(s3TvfSinkOptions(
-            s"$database.$table", prefix, labelPrefix, 100).asScala)
+          .options(options.asScala)
           .mode(SaveMode.Append)
           .save()
       } catch {
@@ -199,6 +203,48 @@ class S3TvfSinkITCase extends AbstractS3TvfTestBase {
 
     val keys = listObjectKeys(prefix + "/").asScala
     assertTrue("Expected failed task attempts to retain staged objects", keys.nonEmpty)
+  }
+
+  @Test
+  def testTaskRetryUsesNewUuid(): Unit = {
+    val table = uniqueName("task_retry")
+    val prefix = uniqueName("retry_objects")
+    val labelPrefix = uniqueName("retry_label")
+    createDuplicateTable(table, "`id` INT, `name` VARCHAR(128)")
+
+    withSpark("local[1,2]") { session =>
+      import session.implicits._
+      session.sparkContext.parallelize(Seq(
+        (1, "doris"),
+        (2, "spark"),
+        (3, "catalog")
+      ), 1).mapPartitions { records =>
+        val attempt = TaskContext.get().attemptNumber()
+        var emitted = 0
+        new Iterator[(Int, String)] {
+          override def hasNext: Boolean = {
+            if (attempt == 0 && emitted == 1) {
+              throw new RuntimeException("Trigger task retry after the first row")
+            }
+            records.hasNext
+          }
+
+          override def next(): (Int, String) = {
+            emitted += 1
+            records.next()
+          }
+        }
+      }.toDF("id", "name")
+        .write
+        .format("doris")
+        .options(s3TvfSinkOptions(
+          s"$database.$table", prefix, labelPrefix, 1).asScala)
+        .mode(SaveMode.Append)
+        .save()
+    }
+
+    assertEquals("3", querySingleValue(s"SELECT COUNT(*) FROM $database.$table"))
+    val keys = listObjectKeys(prefix + "/").asScala
     val keyPattern =
       (Pattern.quote(prefix + "/" + labelPrefix + "_" + table + "_") +
         "([0-9a-f-]{36})_[0-9]+_[0-9]+\\.json").r
