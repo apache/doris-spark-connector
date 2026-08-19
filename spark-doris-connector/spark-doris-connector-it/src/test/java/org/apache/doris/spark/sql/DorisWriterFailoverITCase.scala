@@ -29,9 +29,8 @@ import org.slf4j.LoggerFactory
 
 import java.util
 import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{Executors, Future, TimeUnit}
 import scala.collection.JavaConverters._
-import scala.util.control.Breaks._
 
 /**
  * Test DorisWriter failover.
@@ -99,30 +98,28 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
     val query = String.format("SELECT * FROM %s.%s", DATABASE, TABLE_WRITE_TBL_RETRY)
     var result: util.List[String] = null
     val connection = getDorisQueryConnection(DATABASE)
-    breakable {
-      while (true) {
+    try {
+      waitForCondition(future, "at least one row to be loaded") {
         try {
-          // query may be failed
+          // query may fail while the load is being retried
           result = ContainerUtils.executeSQLStatement(connection, LOG, query, 2)
         } catch {
           case ex: Exception =>
             LOG.error("Failed to query result, cause " + ex.getMessage)
         }
-
-        // until insert 1 rows
-        if (result.size >= 1){
-          Thread.sleep(5000)
-          ContainerUtils.executeSQLStatement(
-            connection,
-            LOG,
-            String.format("ALTER TABLE %s.%s MODIFY COLUMN address varchar(256)", DATABASE, TABLE_WRITE_TBL_RETRY))
-          break
-        }
+        result != null && result.size >= 1
       }
-    }
+      Thread.sleep(5000)
+      ContainerUtils.executeSQLStatement(
+        connection,
+        LOG,
+        String.format("ALTER TABLE %s.%s MODIFY COLUMN address varchar(256)", DATABASE, TABLE_WRITE_TBL_RETRY))
 
-    future.get(60, TimeUnit.SECONDS)
-    session.stop()
+      future.get(60, TimeUnit.SECONDS)
+    } finally {
+      service.shutdownNow()
+      session.stop()
+    }
     val actual = ContainerUtils.executeSQLStatement(
       getDorisQueryConnection,
       LOG,
@@ -174,31 +171,31 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
     })
 
     val query = "show transaction from " + DATABASE + " where label like '" + uuid + "%'"
-    var result: List[String] = null
+    var result = List.empty[String]
     val connection = getDorisQueryConnection(DATABASE)
-    breakable {
-      while (true) {
+    try {
+      waitForCondition(future, "a precommitted transaction") {
         try {
-          // query may be failed
+          // query may fail while the transaction is being created
           result = ContainerUtils.executeSQLStatement(connection, LOG, query, 15).asScala.toList
-          Thread.sleep(10)
         } catch {
           case ex: Exception =>
             LOG.error("Failed to query result, cause " + ex.getMessage)
         }
-
-        // until insert 1 rows
-        if (result.size >= 1 && result.forall(s => s.contains("PRECOMMITTED"))){
-          faultInjectionOpen()
-          Thread.sleep(3000)
-          faultInjectionClear()
-          break
-        }
+        result.exists(_.contains("PRECOMMITTED"))
       }
-    }
+      faultInjectionOpen()
+      try {
+        Thread.sleep(3000)
+      } finally {
+        faultInjectionClear()
+      }
 
-    future.get(60, TimeUnit.SECONDS)
-    session.stop()
+      future.get(60, TimeUnit.SECONDS)
+    } finally {
+      service.shutdownNow()
+      session.stop()
+    }
 
     //make sure publish success
     Thread.sleep(5000)
@@ -211,6 +208,24 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
     checkResultInAnyOrder("testFailoverForTaskRetry", expected.toArray, actual.toArray)
   }
 
+  private def waitForCondition(future: Future[_], description: String)(condition: => Boolean): Unit = {
+    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60)
+    while (System.nanoTime() < deadline) {
+      if (future.isDone) {
+        future.get()
+        throw new AssertionError(s"Load completed before observing $description")
+      }
+      if (condition) {
+        if (future.isDone) {
+          future.get()
+          throw new AssertionError(s"Load completed before observing $description")
+        }
+        return
+      }
+      Thread.sleep(100)
+    }
+    throw new AssertionError(s"Timed out waiting for $description")
+  }
 
   private def initializeTable(table: String, dataModel: DataModel): Unit = {
     val max = if (DataModel.AGGREGATE == dataModel) "MAX" else ""
