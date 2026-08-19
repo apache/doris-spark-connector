@@ -33,7 +33,9 @@ jobs:
       uses: actions/checkout@master
 
     - name: Configure Doris prerequisites
-      run: sudo sysctl -w vm.max_map_count=2000000
+      run: |
+        sudo sysctl -w vm.max_map_count=2000000
+        sudo swapoff -a
 
     - name: Setup java
       uses: actions/setup-java@v2
@@ -76,7 +78,9 @@ jobs:
       uses: actions/checkout@master
 
     - name: Configure Doris prerequisites
-      run: sudo sysctl -w vm.max_map_count=2000000
+      run: |
+        sudo sysctl -w vm.max_map_count=2000000
+        sudo swapoff -a
 
     # Spark 4.x requires JDK 17.
     - name: Setup java
