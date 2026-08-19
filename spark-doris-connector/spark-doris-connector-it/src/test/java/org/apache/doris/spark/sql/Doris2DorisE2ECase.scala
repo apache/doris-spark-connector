@@ -20,17 +20,14 @@ package org.apache.doris.spark.sql
 import org.apache.doris.spark.container.AbstractContainerTestBase.getDorisQueryConnection
 import org.apache.doris.spark.container.{AbstractContainerTestBase, ContainerUtils}
 import org.apache.spark.sql.SparkSession
-import org.junit.{AfterClass, Before, BeforeClass, Test}
+import org.junit.{Before, Test}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.slf4j.LoggerFactory
 
 import java.util
-import java.util.TimeZone
 
 object Doris2DorisE2ECase {
-  private var originalTimeZone: TimeZone = _
-
   @Parameterized.Parameters(name = "readMode: {0}, flightSqlPort: {1}")
   def parameters(): java.util.Collection[Array[AnyRef]] = {
     import java.util.Arrays
@@ -38,18 +35,6 @@ object Doris2DorisE2ECase {
       Array("thrift": java.lang.String, -1: java.lang.Integer),
       Array("arrow": java.lang.String, 9611: java.lang.Integer)
     )
-  }
-
-  @BeforeClass
-  def setUpTimeZone(): Unit = {
-    originalTimeZone = TimeZone.getDefault
-    // TODO: Remove this workaround after Doris preserves DATETIME values across time zones.
-    TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"))
-  }
-
-  @AfterClass
-  def restoreTimeZone(): Unit = {
-    TimeZone.setDefault(originalTimeZone)
   }
 }
 
