@@ -23,6 +23,7 @@ import org.apache.doris.spark.load.CommitMessage
 import org.apache.doris.spark.sql.DorisSourceProvider.SHORT_NAME
 import org.apache.doris.spark.sql.sources.{DorisRelation, DorisSourceRegisterTrait}
 import org.apache.doris.spark.writer.DorisWriter
+import org.apache.doris.spark.writer.S3TvfBatchWriter
 import org.apache.spark.sql.execution.streaming.Sink
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.streaming.OutputMode
@@ -62,11 +63,15 @@ private[sql] class DorisSourceProvider extends DorisSourceRegisterTrait
       case _: SaveMode => // do nothing
     }
 
-    // accumulator for transaction handling
-    val acc = sqlContext.sparkContext.collectionAccumulator[CommitMessage]("BatchTxnAcc")
-    // init stream loader
-    val writer = new DorisWriter(config, acc, false)
-    writer.write(data)
+    if (config.getValue(DorisOptions.LOAD_MODE) == "tvf") {
+      new S3TvfBatchWriter(config).write(data)
+    } else {
+      // accumulator for transaction handling
+      val acc = sqlContext.sparkContext.collectionAccumulator[CommitMessage]("BatchTxnAcc")
+      // init stream loader
+      val writer = new DorisWriter(config, acc, false)
+      writer.write(data)
+    }
 
     new BaseRelation {
       override def sqlContext: SQLContext = unsupportedException
@@ -85,7 +90,11 @@ private[sql] class DorisSourceProvider extends DorisSourceRegisterTrait
   }
 
   override def createSink(sqlContext: SQLContext, parameters: Map[String, String], partitionColumns: Seq[String], outputMode: OutputMode): Sink = {
-    new DorisStreamLoadSink(sqlContext, DorisConfig.fromMap(Utils.params(parameters, logger).asJava, false))
+    val config = DorisConfig.fromMap(Utils.params(parameters, logger).asJava, false)
+    if (config.getValue(DorisOptions.LOAD_MODE) == "tvf") {
+      throw new UnsupportedOperationException("tvf write mode does not support Structured Streaming")
+    }
+    new DorisStreamLoadSink(sqlContext, config)
   }
 
   private def truncateTable(config: DorisConfig): Unit = {

@@ -97,6 +97,7 @@
         <fasterxml.jackson.version>2.13.5</fasterxml.jackson.version>
         <thrift-service.version>1.0.1</thrift-service.version>
         <testcontainers.version>1.17.6</testcontainers.version>
+        <awssdk.version>2.29.52</awssdk.version>
         <jmockit.version>1.49</jmockit.version>
         <fe_ut_parallel>1</fe_ut_parallel>
         <argLine>-Xmx512m</argLine>
@@ -602,6 +603,14 @@
                             <relocation>
                                 <pattern>com.google</pattern>
                                 <shadedPattern>org.apache.doris.shaded.com.google</shadedPattern>
+                            </relocation>
+                            <relocation>
+                                <pattern>software.amazon.awssdk</pattern>
+                                <shadedPattern>org.apache.doris.shaded.software.amazon.awssdk</shadedPattern>
+                            </relocation>
+                            <relocation>
+                                <pattern>software.amazon.eventstream</pattern>
+                                <shadedPattern>org.apache.doris.shaded.software.amazon.eventstream</shadedPattern>
                             </relocation>
                         </relocations>
                         <transformers>

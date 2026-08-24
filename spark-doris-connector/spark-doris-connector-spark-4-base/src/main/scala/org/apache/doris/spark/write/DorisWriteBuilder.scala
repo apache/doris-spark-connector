@@ -37,6 +37,9 @@ class DorisWriteBuilder(config: DorisConfig, schema: StructType) extends WriteBu
   }
 
   override def buildForStreaming(): StreamingWrite = {
+    if (config.getValue(DorisOptions.LOAD_MODE) == "tvf") {
+      throw new UnsupportedOperationException("tvf write mode does not support Structured Streaming")
+    }
     new DorisWrite(config, schema)
   }
 

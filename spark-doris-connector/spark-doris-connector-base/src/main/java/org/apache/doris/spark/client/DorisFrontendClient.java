@@ -72,6 +72,11 @@ import java.util.stream.Collectors;
 
 public class DorisFrontendClient implements Serializable {
 
+    @FunctionalInterface
+    public interface JdbcAction {
+        void execute(Connection connection) throws SQLException;
+    }
+
     private static final Logger LOG = LoggerFactory.getLogger(DorisFrontendClient.class);
 
     private static final ObjectMapper MAPPER = JsonMapper.builder().build();
@@ -216,6 +221,36 @@ public class DorisFrontendClient implements Serializable {
             }
         }
         throw ex;
+    }
+
+    /**
+     * Executes a JDBC action against one selected frontend without failover. This is intended for
+     * non-idempotent statements whose outcome may be ambiguous after a connection failure.
+     */
+    public void executeFrontendOnce(JdbcAction action) throws Exception {
+        if (jdbcTlsAdapter == null) {
+            jdbcTlsAdapter = DorisJdbcTlsAdapter.create(tlsOptions);
+        }
+        Iterator<Frontend> iterator = frontends.iterator();
+        if (!iterator.hasNext()) {
+            throw new DorisException("No frontend is available for JDBC query.");
+        }
+        Frontend frontEnd = iterator.next();
+        if (frontEnd.getQueryPort() == -1) {
+            throw new OptionRequiredException(DorisOptions.DORIS_QUERY_PORT.getName());
+        }
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            Class.forName("com.mysql.jdbc.Driver");
+        }
+        String jdbcUrl = "jdbc:mysql://" + frontEnd.getHost() + ":" + frontEnd.getQueryPort();
+        jdbcTlsAdapter.validateJdbcUrl(jdbcUrl);
+        try (Connection conn = DriverManager.getConnection(
+                jdbcUrl,
+                jdbcTlsAdapter.createConnectionProperties(username, password))) {
+            action.execute(conn);
+        }
     }
 
     public List<Pair<String[], String>> listTables(String[] databases) throws Exception {
