@@ -17,6 +17,7 @@
 
 package org.apache.doris.spark.client.read;
 
+import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.junit.Assert;
@@ -92,6 +93,17 @@ public class DorisReadModeResolverTest {
     }
 
     @Test
+    public void closesFrontendClientAfterPortDiscovery() throws Exception {
+        DorisConfig config = createConfig("arrow", null);
+        TrackingFrontendClient frontendClient = new TrackingFrontendClient();
+
+        String mode = DorisReadModeResolver.resolve(config, frontendClient);
+
+        Assert.assertEquals("arrow", mode);
+        Assert.assertTrue(frontendClient.closed);
+    }
+
+    @Test
     public void unknownReadModeIsRejected() throws Exception {
         DorisConfig config = createConfig("unknown", null);
 
@@ -116,5 +128,19 @@ public class DorisReadModeResolverTest {
             options.put("doris.read.arrow-flight-sql.port", flightSqlPort.toString());
         }
         return DorisConfig.fromMap(options, false);
+    }
+
+    private static class TrackingFrontendClient extends DorisFrontendClient {
+        private boolean closed;
+
+        @Override
+        public int tryGetArrowFlightSqlPort() {
+            return 9040;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
     }
 }
