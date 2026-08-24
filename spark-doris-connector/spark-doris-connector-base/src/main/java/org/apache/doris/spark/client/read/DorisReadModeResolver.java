@@ -35,7 +35,7 @@ public class DorisReadModeResolver {
     private DorisReadModeResolver() {
     }
 
-    public static String resolve(DorisConfig config) throws Exception {
+    public static String resolve(DorisConfig config) {
         return resolve(config, () -> discoverPort(new DorisFrontendClient(config)));
     }
 
@@ -47,7 +47,7 @@ public class DorisReadModeResolver {
         }
     }
 
-    static String resolve(DorisConfig config, FlightSqlPortSupplier portSupplier) throws Exception {
+    static String resolve(DorisConfig config, FlightSqlPortSupplier portSupplier) {
         String readMode = config.getValue(DorisOptions.READ_MODE).toLowerCase(Locale.ROOT);
         if (THRIFT.equals(readMode)) {
             return THRIFT;
