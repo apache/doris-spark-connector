@@ -34,11 +34,9 @@ import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.DorisInternalException;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.util.ErrorMessages;
-import org.apache.thrift.TConfiguration;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
-import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
@@ -74,14 +72,11 @@ public class DorisBackendThriftClient {
             logger.debug("Attempt {} to connect {}.", attempt, backend);
             try {
                 TBinaryProtocol.Factory factory = new TBinaryProtocol.Factory();
-                TConfiguration tConf = new TConfiguration();
-                Integer maxMessageSize = config.getValue(DorisOptions.DORIS_THRIFT_MAX_MESSAGE_SIZE);
-                tConf.setMaxMessageSize(maxMessageSize);
                 Integer connectTimeout = config.getValue(DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS);
                 Integer socketTimeout = config.getValue(DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS);
                 logger.trace("connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",
                         connectTimeout, socketTimeout, this.retries);
-                transport = new TSocket(tConf, backend.getHost(), backend.getRpcPort(), socketTimeout, connectTimeout);
+                transport = DorisThriftTransportFactory.create(backend, config);
                 TProtocol protocol = factory.getProtocol(transport);
                 client = new TDorisExternalService.Client(protocol);
                 logger.trace("Connect status before open transport to {} is '{}'.", backend, isConnected);

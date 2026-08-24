@@ -28,7 +28,9 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
 
   private val LOG = LoggerFactory.getLogger(classOf[DorisWrite])
 
-  private val committer: DorisCommitter = config.getValue(DorisOptions.LOAD_MODE) match {
+  private val loadMode = config.getValue(DorisOptions.LOAD_MODE)
+
+  private lazy val driverCommitter: DorisCommitter = loadMode match {
     case "stream_load" => new StreamLoadProcessor(config, schema)
     case "copy_into" => new CopyIntoProcessor(config, schema)
     case _ => throw new IllegalArgumentException()
@@ -39,29 +41,36 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
   private val committedEpochLock = new AnyRef
 
   override def createBatchWriterFactory(physicalWriteInfo: PhysicalWriteInfo): DataWriterFactory = {
-    new DorisDataWriterFactory(config, schema)
+    if (loadMode == "tvf") {
+      new S3TvfDataWriterFactory(config, schema)
+    } else {
+      new DorisDataWriterFactory(config, schema)
+    }
   }
 
   // for batch write
   override def commit(writerCommitMessages: Array[WriterCommitMessage]): Unit = {
-    if (writerCommitMessages != null && writerCommitMessages.nonEmpty) {
+    if (loadMode != "tvf" && writerCommitMessages != null && writerCommitMessages.nonEmpty) {
       writerCommitMessages.filter(_ != null)
-        .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.commit))
+        .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(driverCommitter.commit))
     }
   }
 
   // for batch write
   override def abort(writerCommitMessages: Array[WriterCommitMessage]): Unit = {
-    LOG.info("writerCommitMessages size: " + writerCommitMessages.length)
-    if (writerCommitMessages.exists(_ != null) && writerCommitMessages.nonEmpty) {
+    if (loadMode != "tvf" && writerCommitMessages != null && writerCommitMessages.nonEmpty) {
+      LOG.info("writerCommitMessages size: " + writerCommitMessages.length)
       writerCommitMessages.filter(_ != null)
-        .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.abort))
+        .foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(driverCommitter.abort))
     }
   }
 
   override def useCommitCoordinator(): Boolean = true
 
   override def createStreamingWriterFactory(physicalWriteInfo: PhysicalWriteInfo): StreamingDataWriterFactory = {
+    if (loadMode == "tvf") {
+      throw new UnsupportedOperationException("tvf write mode does not support Structured Streaming")
+    }
     new DorisDataWriterFactory(config, schema)
   }
 
@@ -69,7 +78,7 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
   override def commit(epochId: Long, writerCommitMessages: Array[WriterCommitMessage]): Unit = {
     committedEpochLock.synchronized {
       if (lastCommittedEpoch.isEmpty || epochId > lastCommittedEpoch.get && writerCommitMessages.exists(_ != null)) {
-        writerCommitMessages.foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.commit))
+        writerCommitMessages.foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(driverCommitter.commit))
         lastCommittedEpoch = Some(epochId)
       }
     }
@@ -79,7 +88,7 @@ class DorisWrite(config: DorisConfig, schema: StructType) extends BatchWrite wit
   override def abort(epochId: Long, writerCommitMessages: Array[WriterCommitMessage]): Unit = {
     committedEpochLock.synchronized {
       if ((lastCommittedEpoch.isEmpty || epochId > lastCommittedEpoch.get) && writerCommitMessages.exists(_ != null)) {
-        writerCommitMessages.foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(committer.abort))
+        writerCommitMessages.foreach(_.asInstanceOf[DorisWriterCommitMessage].commitMessages.foreach(driverCommitter.abort))
       }
     }
   }

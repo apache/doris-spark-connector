@@ -133,6 +133,40 @@ dorisSparkDF = spark.read.format("doris")
 dorisSparkDF.show(5)
 ```
 
+## TLS
+
+The connector supports one-way TLS for Doris HTTP APIs and Stream Load,
+MySQL/JDBC metadata queries, BE Thrift reads, and Arrow Flight SQL reads. TLS is
+disabled by default.
+
+```scala
+spark.read.format("doris")
+  .option("doris.fenodes", "fe.example.com:8040")
+  .option("doris.table.identifier", "database.table")
+  .option("user", "root")
+  .option("password", "")
+  .option("doris.enable.tls", "true")
+  .option("doris.tls.ca-certificate-path", "/etc/doris-tls/ca.pem")
+  .load()
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `doris.enable.tls` | `false` | Enables TLS for all Doris protocols not listed in `doris.tls.excluded-protocols`. |
+| `doris.tls.ca-certificate-path` | empty | Path to a PEM file containing one or more trusted X.509 CA certificates. An empty value uses the JVM or client-library default trust roots. |
+| `doris.tls.skip-hostname-verification` | `false` | Disables hostname verification while retaining CA verification. This mode is not supported by Arrow Flight SQL. |
+| `doris.tls.excluded-protocols` | empty | Comma-separated plaintext exceptions: `http`, `mysql`, `thrift`, and `arrowflight`. |
+
+The connector validates certificate chains and hostnames by default and does not
+modify JVM-global TLS settings. Client certificates and mutual TLS are not
+supported.
+
+The CA file must be available at the same path on the Spark driver and every
+executor. For YARN, distribute it with `--files /local/path/ca.pem#ca.pem` and
+configure `doris.tls.ca-certificate-path=ca.pem`. For Kubernetes, mount the CA
+from a Secret or volume into both driver and executor pods and configure the
+mounted path.
+
 ## type convertion for writing to doris using arrow
 |doris|spark|
 |---|---|

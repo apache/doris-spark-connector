@@ -20,6 +20,7 @@ package org.apache.doris.spark.util
 
 import org.apache.spark.sql.types.{ArrayType, DataTypes, DecimalType, MapType}
 import org.junit.Assert
+import org.junit.{Test => JUnit4Test}
 import org.junit.jupiter.api.Test
 
 class SchemaConvertorsTest {
@@ -67,6 +68,11 @@ class SchemaConvertorsTest {
   def toCatalystTypeArrayNativeTypeTest(): Unit = {
     Assert.assertEquals(SchemaConvertors.toCatalystType("ARRAY", -1, -1, true), ArrayType(DataTypes.StringType, true))
     Assert.assertEquals(SchemaConvertors.toCatalystType("ARRAY", -1, -1, false), DataTypes.StringType)
+  }
+
+  @JUnit4Test
+  def timestampTzToCatalystTypeTest(): Unit = {
+    Assert.assertEquals(DataTypes.TimestampType, SchemaConvertors.toCatalystType("TIMESTAMPTZ", -1, -1))
   }
 
 }

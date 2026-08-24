@@ -21,11 +21,13 @@ import org.apache.doris.spark.client.entity.Backend;
 import org.apache.doris.spark.client.entity.Frontend;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.config.DorisTlsOptions;
 import org.apache.doris.spark.exception.DorisException;
 import org.apache.doris.spark.exception.OptionRequiredException;
 import org.apache.doris.spark.rest.models.Field;
 import org.apache.doris.spark.rest.models.QueryPlan;
 import org.apache.doris.spark.rest.models.Schema;
+import org.apache.doris.spark.util.DorisJdbcTlsAdapter;
 import org.apache.doris.spark.util.HttpUtil;
 import org.apache.doris.spark.util.HttpUtils;
 import org.apache.doris.spark.util.LoadBalanceList;
@@ -70,6 +72,11 @@ import java.util.stream.Collectors;
 
 public class DorisFrontendClient implements Serializable {
 
+    @FunctionalInterface
+    public interface JdbcAction {
+        void execute(Connection connection) throws SQLException;
+    }
+
     private static final Logger LOG = LoggerFactory.getLogger(DorisFrontendClient.class);
 
     private static final ObjectMapper MAPPER = JsonMapper.builder().build();
@@ -82,14 +89,18 @@ public class DorisFrontendClient implements Serializable {
     private final String password;
     private final LoadBalanceList<Frontend> frontends;
     private final boolean isHttpsEnabled;
+    private final DorisTlsOptions tlsOptions;
     private transient CloseableHttpClient httpClient;
+    private transient DorisJdbcTlsAdapter jdbcTlsAdapter;
 
     public DorisFrontendClient() {
         this.config = null;
         this.username = null;
         this.password = null;
         this.httpClient = null;
+        this.jdbcTlsAdapter = null;
         this.isHttpsEnabled = false;
+        this.tlsOptions = null;
         this.frontends = new LoadBalanceList<>(Collections.emptyList());
     }
 
@@ -97,7 +108,8 @@ public class DorisFrontendClient implements Serializable {
         this.config = config;
         this.username = config.getValue(DorisOptions.DORIS_USER);
         this.password = config.getValue(DorisOptions.DORIS_PASSWORD);
-        this.isHttpsEnabled = config.getValue(DorisOptions.DORIS_ENABLE_HTTPS);
+        this.tlsOptions = config.getTlsOptions();
+        this.isHttpsEnabled = tlsOptions.isEnabledFor(DorisTlsOptions.Protocol.HTTP);
         this.frontends = initFrontends(config);
     }
 
@@ -192,7 +204,7 @@ public class DorisFrontendClient implements Serializable {
         Exception ex = null;
         for (Frontend frontEnd : frontEnds) {
             try {
-                if(HttpUtil.tryHttpConnection(frontEnd.hostHttpPortString())){
+                if (HttpUtil.tryHttpConnection(frontEnd.hostHttpPortString(), tlsOptions)) {
                     return reqFunc.apply(frontEnd, httpClient);
                 }
             } catch (Exception e) {
@@ -208,6 +220,9 @@ public class DorisFrontendClient implements Serializable {
     }
 
     public <T> T queryFrontends(Function<Connection, T> function) throws Exception {
+        if (jdbcTlsAdapter == null) {
+            jdbcTlsAdapter = DorisJdbcTlsAdapter.create(tlsOptions);
+        }
         Exception ex = null;
         for (Frontend frontEnd : frontends) {
             if (frontEnd.getQueryPort() == -1) {
@@ -219,7 +234,12 @@ public class DorisFrontendClient implements Serializable {
             } catch (ClassNotFoundException e) {
                 Class.forName("com.mysql.jdbc.Driver");
             }
-            try (Connection conn = DriverManager.getConnection("jdbc:mysql://" + frontEnd.getHost() + ":" + frontEnd.getQueryPort(), username, password)) {
+            String jdbcUrl =
+                    "jdbc:mysql://" + frontEnd.getHost() + ":" + frontEnd.getQueryPort();
+            jdbcTlsAdapter.validateJdbcUrl(jdbcUrl);
+            try (Connection conn = DriverManager.getConnection(
+                    jdbcUrl,
+                    jdbcTlsAdapter.createConnectionProperties(username, password))) {
                 return function.apply(conn);
             } catch (SQLException e) {
                 LOG.warn("fe jdbc query on {} failed, err: {}", frontEnd.hostQueryPortString(), e.getMessage());
@@ -227,6 +247,36 @@ public class DorisFrontendClient implements Serializable {
             }
         }
         throw ex;
+    }
+
+    /**
+     * Executes a JDBC action against one selected frontend without failover. This is intended for
+     * non-idempotent statements whose outcome may be ambiguous after a connection failure.
+     */
+    public void executeFrontendOnce(JdbcAction action) throws Exception {
+        if (jdbcTlsAdapter == null) {
+            jdbcTlsAdapter = DorisJdbcTlsAdapter.create(tlsOptions);
+        }
+        Iterator<Frontend> iterator = frontends.iterator();
+        if (!iterator.hasNext()) {
+            throw new DorisException("No frontend is available for JDBC query.");
+        }
+        Frontend frontEnd = iterator.next();
+        if (frontEnd.getQueryPort() == -1) {
+            throw new OptionRequiredException(DorisOptions.DORIS_QUERY_PORT.getName());
+        }
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            Class.forName("com.mysql.jdbc.Driver");
+        }
+        String jdbcUrl = "jdbc:mysql://" + frontEnd.getHost() + ":" + frontEnd.getQueryPort();
+        jdbcTlsAdapter.validateJdbcUrl(jdbcUrl);
+        try (Connection conn = DriverManager.getConnection(
+                jdbcUrl,
+                jdbcTlsAdapter.createConnectionProperties(username, password))) {
+            action.execute(conn);
+        }
     }
 
     public List<Pair<String[], String>> listTables(String[] databases) throws Exception {
@@ -619,6 +669,10 @@ public class DorisFrontendClient implements Serializable {
     public void close() throws IOException {
         if (httpClient != null) {
             httpClient.close();
+        }
+        if (jdbcTlsAdapter != null) {
+            jdbcTlsAdapter.close();
+            jdbcTlsAdapter = null;
         }
     }
 

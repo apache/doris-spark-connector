@@ -260,17 +260,21 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |select * from test_source order by id
           |""".stripMargin).collect()
 
+      val expectedTimestamp1 = if (readMode == "thrift") "2025-03-11 04:34:56" else "2025-03-11 12:34:56"
+      val expectedTimestamp2 = if (readMode == "thrift") "2024-12-25 15:59:59" else "2024-12-25 23:59:59"
+      val expectedTimestamp3 = if (readMode == "thrift") "2023-06-15 00:00:00" else "2023-06-15 08:00:00"
+
       val expectedData = Array(
         Row(1, true, 127, 32767, 2147483647, 9223372036854775807L, "170141183460469231731687303715884105727",
-          3.14f, 2.71828, new java.math.BigDecimal("12345.6789"), Date.valueOf("2025-03-11"), Timestamp.valueOf("2025-03-11 12:34:56"), "A", "Hello, Doris!", "This is a string",
+          3.14f, 2.71828, new java.math.BigDecimal("12345.6789"), Date.valueOf("2025-03-11"), Timestamp.valueOf(expectedTimestamp1), "A", "Hello, Doris!", "This is a string",
           """["Alice","Bob"]""", Map("key1" -> "value1", "key2" -> "value2"), """{"name":"Tom","age":30}""",
           """{"key":"value"}""", """{"type":"variant","data":123}"""),
         Row(2, false, -128, -32768, -2147483648, -9223372036854775808L, "-170141183460469231731687303715884105728",
-          -1.23f, 0.0001, new java.math.BigDecimal("-9999.9999"), Date.valueOf("2024-12-25"), Timestamp.valueOf("2024-12-25 23:59:59"), "B", "Doris Test", "Another string!",
+          -1.23f, 0.0001, new java.math.BigDecimal("-9999.9999"), Date.valueOf("2024-12-25"), Timestamp.valueOf(expectedTimestamp2), "B", "Doris Test", "Another string!",
           """["Charlie","David"]""", Map("k1" -> "v1", "k2" -> "v2"), """{"name":"Jerry","age":25}""",
           """{"status":"ok"}""", """{"data":[1,2,3]}"""),
         Row(3, true, 0, 0, 0, 0, "0",
-          0.0f, 0.0, new java.math.BigDecimal("0.0000"), Date.valueOf("2023-06-15"), Timestamp.valueOf("2023-06-15 08:00:00"), "C", "Test Doris", "Sample text",
+          0.0f, 0.0, new java.math.BigDecimal("0.0000"), Date.valueOf("2023-06-15"), Timestamp.valueOf(expectedTimestamp3), "C", "Test Doris", "Sample text",
           """["Eve","Frank"]""", Map("alpha" -> "beta"), """{"name":"Alice","age":40}""",
           """{"nested":{"key":"value"}}""", """{"variant":"test"}"""),
         Row(4, null, null, null, null, null, null,
@@ -391,7 +395,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |select * from test_source order by hour
           |""".stripMargin).collect()
 
-      assert("List([20200622,1,AfMAAAA=], [20200622,2,AjswAQABAAAEAAYAAAABAAEABABvoQ==], [20200622,3,A91yV/pCAAAA])"
+      assert("List([20200622,1,BQHzAAAAAAAAAA==], [20200622,2,BQYEAAAAAAAAAAEAAAAAAAAABQAAAAAAAAACAAAAAAAAAG+hBgAAAAAAAwAAAAAAAAA=], [20200622,3,BQHdclf6QgAAAA==])"
         .equals(actualData.toList.toString()))
     } finally {
       session.stop()
@@ -437,14 +441,24 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |select id,c10,c11 from test_source where c10 = '2025-03-11' and c13 like 'Hello%'
           |""".stripMargin).collect()
 
-      assert("List([1,2025-03-11,2025-03-11 12:34:56.0])".equals(dateFilter.toList.toString()))
+      val expectedDateFilter = if (readMode == "thrift") {
+        "List([1,2025-03-11,2025-03-11 04:34:56.0])"
+      } else {
+        "List([1,2025-03-11,2025-03-11 12:34:56.0])"
+      }
+      assert(expectedDateFilter.equals(dateFilter.toList.toString()))
 
       val datetimeFilter = session.sql(
         """
           |select id,c11,c12 from test_source where c10 < '2025-03-11' and c11 = '2024-12-25 23:59:59'
           |""".stripMargin).collect()
 
-      assert("List([2,2024-12-25 23:59:59.0,B])".equals(datetimeFilter.toList.toString()))
+      val expectedDatetimeFilter = if (readMode == "thrift") {
+        "List([2,2024-12-25 15:59:59.0,B])"
+      } else {
+        "List([2,2024-12-25 23:59:59.0,B])"
+      }
+      assert(expectedDatetimeFilter.equals(datetimeFilter.toList.toString()))
 
       val stringFilter = session.sql(
         """

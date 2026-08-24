@@ -14,6 +14,7 @@ header:
     - 'custom_env.sh.tpl'
     - '**/*.csv'
     - '**/jmockit/**'
+    - 'spark-doris-connector/spark-doris-connector-base/src/test/resources/tls/'
     - 'spark-doris-connector/spark-doris-connector-it/src/test/resources/container/'
 
   comment: on-failure

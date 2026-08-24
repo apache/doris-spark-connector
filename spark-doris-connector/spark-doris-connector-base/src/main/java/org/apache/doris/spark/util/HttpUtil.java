@@ -17,40 +17,50 @@
 
 package org.apache.doris.spark.util;
 
+import org.apache.doris.spark.config.DorisTlsOptions;
+import org.apache.doris.spark.exception.DorisRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class HttpUtil {
     private static final Logger LOG = LoggerFactory.getLogger(HttpUtil.class);
 
-    public static boolean tryHttpConnection(String host) {
+    public static boolean tryHttpConnection(String host, DorisTlsOptions tlsOptions) {
+        HttpURLConnection connection = null;
+        String endpoint = host;
         try {
             LOG.debug("try to connect host {}", host);
-            host = "http://" + host;
-            URL url = new URL(host);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            boolean useTls = tlsOptions != null
+                    && tlsOptions.isEnabledFor(DorisTlsOptions.Protocol.HTTP);
+            endpoint = (useTls ? "https://" : "http://") + host;
+            URL url = new URL(endpoint);
+            connection = tlsOptions == null
+                    ? (HttpURLConnection) url.openConnection()
+                    : DorisHttpClientFactory.openConnection(url, tlsOptions);
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(60000);
             connection.setReadTimeout(60000);
             int responseCode = connection.getResponseCode();
             String responseMessage = connection.getResponseMessage();
-            connection.disconnect();
             if (responseCode < 500) {
                 // code greater than 500 means a server-side exception.
                 return true;
             }
-            LOG.warn(
-                    "Failed to connect host {}, responseCode={}, msg={}",
-                    host,
-                    responseCode,
-                    responseMessage);
-            return false;
+            throw new IOException(
+                    String.format(
+                            "Endpoint probe returned responseCode=%d, msg=%s",
+                            responseCode,
+                            responseMessage));
         } catch (Exception ex) {
-            LOG.warn("Failed to connect to host:{}, cause {}", host, ex.getMessage());
-            return false;
+            throw new DorisRuntimeException("Failed to connect to host " + endpoint, ex);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 }

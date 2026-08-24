@@ -116,15 +116,15 @@ public class DorisOptions {
      */
     public static final ConfigOption<Boolean> DORIS_SINK_AUTO_REDIRECT = ConfigOptions.name("doris.sink.auto-redirect").booleanType().defaultValue(true).withDescription("");
 
-    public static final ConfigOption<Boolean> DORIS_ENABLE_HTTPS = ConfigOptions.name("doris.enable.https").booleanType().defaultValue(false).withDescription("");
+    public static final ConfigOption<Boolean> DORIS_ENABLE_TLS = ConfigOptions.name("doris.enable.tls").booleanType().defaultValue(false).withDescription("Enable one-way TLS for Doris client protocols.");
 
-    public static final ConfigOption<String> DORIS_HTTPS_KEY_STORE_PATH = ConfigOptions.name("doris.https.key-store-path").stringType().withoutDefaultValue().withDescription("");
+    public static final ConfigOption<String> DORIS_TLS_CA_CERTIFICATE_PATH = ConfigOptions.name("doris.tls.ca-certificate-path").stringType().defaultValue("").withDescription("Path to a PEM CA certificate chain. The JVM default truststore is used when empty.");
 
-    public static final ConfigOption<String> DORIS_HTTPS_KEY_STORE_TYPE = ConfigOptions.name("doris.https.key-store-type").stringType().defaultValue("JKS").withDescription("");
+    public static final ConfigOption<Boolean> DORIS_TLS_SKIP_HOSTNAME_VERIFICATION = ConfigOptions.name("doris.tls.skip-hostname-verification").booleanType().defaultValue(false).withDescription("Skip TLS hostname verification while retaining CA verification.");
 
-    public static final ConfigOption<String> DORIS_HTTPS_KEY_STORE_PASSWORD = ConfigOptions.name("doris.https.key-store-password").stringType().withoutDefaultValue().withDescription("");
+    public static final ConfigOption<String> DORIS_TLS_EXCLUDED_PROTOCOLS = ConfigOptions.name("doris.tls.excluded-protocols").stringType().defaultValue("").withDescription("Comma-separated protocols excluded from TLS: http, mysql, thrift, arrowflight.");
 
-    public static final ConfigOption<String> LOAD_MODE = ConfigOptions.name("doris.sink.mode").stringType().defaultValue("stream_load").withDescription("");
+    public static final ConfigOption<String> LOAD_MODE = ConfigOptions.name("doris.sink.mode").stringType().defaultValue("stream_load").withDescription("Write mode, supports stream_load, copy_into and tvf.");
 
     public static final ConfigOption<String> READ_MODE = ConfigOptions.name("doris.read.mode").stringType().defaultValue("arrow").withDescription("");
 
@@ -132,7 +132,21 @@ public class DorisOptions {
 
     public static final ConfigOption<Integer> DORIS_READ_FLIGHT_SQL_PORT = ConfigOptions.name("doris.read.arrow-flight-sql.port").intType().defaultValue(-1).withDescription("");
 
-    public static final ConfigOption<String> DORIS_SINK_LABEL_PREFIX = ConfigOptions.name("doris.sink.label.prefix").stringType().defaultValue("spark-doris").withDescription("");
+    public static final ConfigOption<String> DORIS_SINK_LABEL_PREFIX = ConfigOptions.name("doris.sink.label.prefix").stringType().defaultValue("spark-doris").withDescription("Label prefix used by Doris sink writes.");
+
+    public static final ConfigOption<String> DORIS_SINK_S3_ENDPOINT = ConfigOptions.name("doris.sink.s3.endpoint").stringType().withoutDefaultValue().withDescription("Endpoint of the S3-compatible object storage.");
+
+    public static final ConfigOption<String> DORIS_SINK_S3_REGION = ConfigOptions.name("doris.sink.s3.region").stringType().withoutDefaultValue().withDescription("Region of the S3-compatible object storage.");
+
+    public static final ConfigOption<String> DORIS_SINK_S3_BUCKET = ConfigOptions.name("doris.sink.s3.bucket").stringType().withoutDefaultValue().withDescription("Bucket used to stage files for the S3 TVF.");
+
+    public static final ConfigOption<String> DORIS_SINK_S3_PREFIX = ConfigOptions.name("doris.sink.s3.prefix").stringType().withoutDefaultValue().withDescription("Object key path prefix used to stage TVF files.");
+
+    public static final ConfigOption<String> DORIS_SINK_S3_ACCESS_KEY = ConfigOptions.name("doris.sink.s3.access-key").stringType().withoutDefaultValue().withDescription("Access key of the S3-compatible object storage.");
+
+    public static final ConfigOption<String> DORIS_SINK_S3_SECRET_KEY = ConfigOptions.name("doris.sink.s3.secret-key").stringType().withoutDefaultValue().withDescription("Secret key of the S3-compatible object storage.");
+
+    public static final ConfigOption<Boolean> DORIS_SINK_S3_PATH_STYLE_ACCESS = ConfigOptions.name("doris.sink.s3.path-style-access").booleanType().defaultValue(false).withDescription("Whether to use path-style access for object storage.");
 
     public static final ConfigOption<Integer> DORIS_THRIFT_MAX_MESSAGE_SIZE = ConfigOptions.name("doris.thrift.max.message.size").intType().defaultValue(Integer.MAX_VALUE).withDescription("") ;
 

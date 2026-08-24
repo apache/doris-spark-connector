@@ -18,8 +18,11 @@
 package org.apache.doris.spark.client;
 
 import org.apache.doris.spark.client.entity.Backend;
-import org.apache.doris.spark.util.LoadBalanceList;
+import org.apache.doris.spark.config.DorisConfig;
+import org.apache.doris.spark.config.DorisTlsOptions;
 import org.apache.doris.spark.util.HttpUtil;
+import org.apache.doris.spark.util.HttpUtils;
+import org.apache.doris.spark.util.LoadBalanceList;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
@@ -35,21 +38,33 @@ public class DorisBackendHttpClient implements Serializable {
     private static final Logger log = LoggerFactory.getLogger(DorisBackendHttpClient.class);
 
     private final LoadBalanceList<Backend> backends;
+    private final DorisConfig config;
+    private final DorisTlsOptions tlsOptions;
 
     private transient CloseableHttpClient httpClient;
 
     public DorisBackendHttpClient(List<Backend> backends) {
         this.backends = new LoadBalanceList<>(backends);
+        this.config = null;
+        this.tlsOptions = null;
+    }
+
+    public DorisBackendHttpClient(List<Backend> backends, DorisConfig config) throws Exception {
+        this.backends = new LoadBalanceList<>(backends);
+        this.config = config;
+        this.tlsOptions = config.getTlsOptions();
     }
 
     public <T> T executeReq(BiFunction<Backend, CloseableHttpClient, T> reqFunc) throws Exception {
         if (httpClient == null) {
-            httpClient = HttpClients.createDefault();
+            httpClient = config == null ? HttpClients.createDefault() : HttpUtils.getHttpClient(config);
         }
         Exception ex = null;
         for (Backend backend : backends) {
             try {
-                if(HttpUtil.tryHttpConnection(backend.hostHttpPortString())){
+                boolean reachable = HttpUtil.tryHttpConnection(
+                        backend.hostHttpPortString(), tlsOptions);
+                if (reachable) {
                     return reqFunc.apply(backend, httpClient);
                 }
             } catch (Exception e) {

@@ -106,6 +106,10 @@ public class DorisConfig implements Serializable {
         if (!options.containsKey(DorisOptions.DORIS_PASSWORD.getName())) {
             throw new OptionRequiredException(DorisOptions.DORIS_PASSWORD.getName());
         }
+        if ("tvf".equalsIgnoreCase(options.get(DorisOptions.LOAD_MODE.getName()))
+                && !options.containsKey(DorisOptions.DORIS_QUERY_PORT.getName())) {
+            throw new OptionRequiredException(DorisOptions.DORIS_QUERY_PORT.getName());
+        }
         if ("thrift".equalsIgnoreCase(options.get(DorisOptions.READ_MODE.getName()))) {
             if (Boolean.parseBoolean(options.get(DorisOptions.DORIS_READ_BITMAP_TO_STRING.getName()))) {
                 throw new IllegalArgumentException(String.format("option [%s] is invalid in thrift read mode",
@@ -175,6 +179,10 @@ public class DorisConfig implements Serializable {
 
     public Map<String, String> toMap() {
         return new HashMap<>(configOptions);
+    }
+
+    public DorisTlsOptions getTlsOptions() throws OptionRequiredException {
+        return DorisTlsOptions.fromConfig(this);
     }
 
     public static DorisConfig fromMap(Map<String, String> sparkConfMap, Boolean ignoreTableCheck) throws OptionRequiredException {

@@ -17,6 +17,7 @@
 
 package org.apache.doris.spark.testcase
 
+import org.apache.doris.DorisArguments
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 
@@ -29,14 +30,18 @@ object TestStreamLoadForArrowType {
   val spark: SparkSession = SparkSession.builder().master("local[1]").getOrCreate()
   var dorisFeNodes = "127.0.0.1:8030"
   var dorisUser = "root"
-  val dorisPwd = ""
+  var dorisPwd = ""
   var databaseName = ""
+  var dorisTlsOptions = Map.empty[String, String]
 
   def main(args: Array[String]): Unit = {
-
-    dorisFeNodes = args(0)
-    dorisUser = args(1)
-    databaseName = args(2)
+    println(s"Input arguments: ${args.mkString(" ")}")
+    val arguments = DorisArguments.parse(args)
+    dorisFeNodes = arguments.feAddress
+    dorisUser = arguments.user
+    dorisPwd = arguments.password
+    databaseName = arguments.database
+    dorisTlsOptions = arguments.tlsOptions
 
     testDataframeWritePrimitiveType()
     testDataframeWriteArrayTypes()
@@ -145,10 +150,13 @@ object TestStreamLoadForArrowType {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_primitive")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 
@@ -227,7 +235,7 @@ object TestStreamLoadForArrowType {
       Array(4.toLong, 5.toLong, 6.toLong),
       Array("123456789", "987654321", "123789456"),
       Array(6.6.floatValue(), 6.7.floatValue(), 7.8.floatValue()),
-      Array(7.7.doubleValue(), 8.8.doubleValue(), 8.9.floatValue()),
+      Array(7.5, 8.5, 9.25),
       Array(Decimal.apply(3.12), Decimal.apply(1.12345)),
       Array(Date.valueOf("2023-09-08"), Date.valueOf("2027-10-28")),
       Array(Timestamp.valueOf("2023-09-08 17:12:34.123456"), Timestamp.valueOf("2024-09-08 18:12:34.123456")),
@@ -250,10 +258,13 @@ object TestStreamLoadForArrowType {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_array")
       .option("doris.sink.batch.size", 30)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 
@@ -334,8 +345,8 @@ object TestStreamLoadForArrowType {
       Map(6.6.floatValue() -> 8.8.floatValue(), 9.9.floatValue() -> 10.1.floatValue()),
       Map(7.7.doubleValue() -> 1.1.doubleValue(), 2.2 -> 3.3.doubleValue()),
       Map(Decimal.apply(3.12) -> Decimal.apply(1.23), Decimal.apply(2.34) -> Decimal.apply(5.67)),
-      Map(Date.valueOf("2023-09-08") -> Date.valueOf("2024-09-08"), Date.valueOf("1023-09-08") -> Date.valueOf("2023-09-08")),
-      Map(Timestamp.valueOf("1023-09-08 17:12:34.123456") -> Timestamp.valueOf("2023-09-08 17:12:34.123456"), Timestamp.valueOf("3023-09-08 17:12:34.123456") -> Timestamp.valueOf("4023-09-08 17:12:34.123456")),
+      Map(Date.valueOf("2023-09-08") -> Date.valueOf("2024-09-08"), Date.valueOf("2022-09-08") -> Date.valueOf("2023-09-08")),
+      Map(Timestamp.valueOf("2022-09-08 17:12:34.123456") -> Timestamp.valueOf("2023-09-08 17:12:34.123456"), Timestamp.valueOf("2024-09-08 17:12:34.123456") -> Timestamp.valueOf("2025-09-08 17:12:34.123456")),
       Map("char" -> "char2", "char2" -> "char3"),
       Map("varchar" -> "varchar2", "varchar3" -> "varchar4"),
       Map("string" -> "string2", "string3" -> "string4")
@@ -355,10 +366,13 @@ object TestStreamLoadForArrowType {
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_map")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 
@@ -452,10 +466,13 @@ CREATE TABLE `spark_connector_struct` (
       .option("doris.fenodes", dorisFeNodes)
       .option("user", dorisUser)
       .option("password", dorisPwd)
+      .options(dorisTlsOptions)
       .option("doris.table.identifier", s"$databaseName.spark_connector_struct")
       .option("doris.sink.batch.size", 3)
       .option("doris.sink.properties.format", "arrow")
+      .option("doris.write.schemaless", "true")
       .option("doris.sink.max-retries", 0)
+      .mode("append")
       .save()
   }
 }
