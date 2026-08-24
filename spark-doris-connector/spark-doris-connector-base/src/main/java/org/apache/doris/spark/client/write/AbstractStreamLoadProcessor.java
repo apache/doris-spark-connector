@@ -98,6 +98,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     private Future<StreamLoadResponse> requestFuture = null;
     private volatile String currentLabel;
+    private volatile boolean closing;
     private Exception unexpectedException = null;
 
     public AbstractStreamLoadProcessor(DorisConfig config) throws Exception {
@@ -429,9 +430,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                                     + ", msg: " + streamLoadResponse.getMessage());
                 }
             } catch (Exception e) {
-                logger.error("stream load exception", e);
-                unexpectedException = e;
-                currentThread.interrupt();
+                if (!closing) {
+                    logger.error("stream load exception", e);
+                    unexpectedException = e;
+                    currentThread.interrupt();
+                }
                 throw e;
             }
             return streamLoadResponse;
@@ -440,6 +443,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
 
     @Override
     public void close() throws IOException {
+        closing = true;
         createNewBatch = true;
         isFirstRecordOfBatch = true;
         unexpectedException = null;
