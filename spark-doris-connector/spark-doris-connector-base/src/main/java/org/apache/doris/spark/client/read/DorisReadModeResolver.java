@@ -20,6 +20,8 @@ package org.apache.doris.spark.client.read;
 import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
+import org.apache.doris.spark.exception.DorisRuntimeException;
+import org.apache.doris.spark.exception.OptionRequiredException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +38,11 @@ public class DorisReadModeResolver {
     }
 
     public static String resolve(DorisConfig config) {
-        return resolve(config, () -> discoverPort(new DorisFrontendClient(config)));
+        try {
+            return resolve(config, () -> discoverPort(new DorisFrontendClient(config)));
+        } catch (OptionRequiredException e) {
+            throw new DorisRuntimeException("failed to resolve Doris read mode", e);
+        }
     }
 
     private static int discoverPort(DorisFrontendClient frontendClient) throws Exception {
@@ -47,7 +53,8 @@ public class DorisReadModeResolver {
         }
     }
 
-    static String resolve(DorisConfig config, FlightSqlPortSupplier portSupplier) {
+    static String resolve(DorisConfig config, FlightSqlPortSupplier portSupplier)
+            throws OptionRequiredException {
         String readMode = config.getValue(DorisOptions.READ_MODE).toLowerCase(Locale.ROOT);
         if (THRIFT.equals(readMode)) {
             return THRIFT;
