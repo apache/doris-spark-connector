@@ -39,10 +39,6 @@ public class DorisReadModeResolver {
         return resolve(config, () -> discoverPort(new DorisFrontendClient(config)));
     }
 
-    static String resolve(DorisConfig config, DorisFrontendClient frontendClient) throws Exception {
-        return resolve(config, () -> discoverPort(frontendClient));
-    }
-
     private static int discoverPort(DorisFrontendClient frontendClient) throws Exception {
         try {
             return frontendClient.tryGetArrowFlightSqlPort();
