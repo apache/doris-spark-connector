@@ -186,11 +186,7 @@ public class DorisFrontendClient implements Serializable {
     }
 
     static int findArrowFlightSqlPort(List<Frontend> frontends) {
-        return frontends.stream()
-                .mapToInt(Frontend::getFlightSqlPort)
-                .filter(port -> port > 0)
-                .findFirst()
-                .orElse(-1);
+        return frontends.isEmpty() ? -1 : frontends.get(0).getFlightSqlPort();
     }
 
     public <T> T requestFrontends(BiFunction<Frontend, CloseableHttpClient, T> reqFunc) throws Exception {

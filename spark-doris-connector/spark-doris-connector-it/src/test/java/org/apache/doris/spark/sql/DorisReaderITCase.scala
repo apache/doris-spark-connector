@@ -117,7 +117,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
 
   @Test
   @throws[Exception]
-  def testArrowFlightSqlPortAutoDiscovery(): Unit = {
+  def testDefaultReadModeUsesAutoDiscoveredArrowFlightSqlPort(): Unit = {
     if (!readMode.equals("arrow")) {
       return
     }
@@ -130,7 +130,6 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
         .option("doris.table.identifier", DATABASE + "." + TABLE_READ_TBL)
         .option("doris.user", getDorisUsername)
         .option("doris.password", getDorisPassword)
-        .option("doris.read.mode", "arrow")
         .load()
 
       val result = dorisSparkDF.collect().toList.toString()

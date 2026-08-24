@@ -136,12 +136,12 @@ public class DorisFrontendClientTest {
     }
 
     @Test
-    public void findArrowFlightSqlPortReturnsFirstValidPort() {
+    public void findArrowFlightSqlPortReturnsFirstFrontendPort() {
         List<Frontend> frontends = Arrays.asList(
                 new Frontend("192.168.1.1", 8030, 9030, -1),
                 new Frontend("192.168.1.2", 8030, 9030, 9040));
 
-        Assert.assertEquals(9040, DorisFrontendClient.findArrowFlightSqlPort(frontends));
+        Assert.assertEquals(-1, DorisFrontendClient.findArrowFlightSqlPort(frontends));
     }
 
     @Test
