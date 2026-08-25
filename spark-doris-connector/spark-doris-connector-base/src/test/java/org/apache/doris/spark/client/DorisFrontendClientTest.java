@@ -18,14 +18,19 @@
 package org.apache.doris.spark.client;
 
 import org.apache.doris.spark.client.entity.Backend;
+import org.apache.doris.spark.client.entity.Frontend;
 import org.apache.doris.spark.testutil.HttpsTestServer;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
 import javax.net.ssl.SSLHandshakeException;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class DorisFrontendClientTest {
@@ -128,6 +133,37 @@ public class DorisFrontendClientTest {
         } catch (RuntimeException e) {
             Assert.assertTrue(e.getMessage().contains("no alive backend found"));
         }
+    }
+
+    @Test
+    public void findArrowFlightSqlPortReturnsFirstFrontendPort() {
+        List<Frontend> frontends = Arrays.asList(
+                new Frontend("192.168.1.1", 8030, 9030, -1),
+                new Frontend("192.168.1.2", 8030, 9030, 9040));
+
+        Assert.assertEquals(-1, DorisFrontendClient.findArrowFlightSqlPort(frontends));
+    }
+
+    @Test
+    public void findArrowFlightSqlPortReturnsInvalidPortWhenMissing() {
+        List<Frontend> frontends = Arrays.asList(
+                new Frontend("192.168.1.1", 8030, 9030, -1),
+                new Frontend("192.168.1.2", 8030, 9030, 0));
+
+        Assert.assertEquals(-1, DorisFrontendClient.findArrowFlightSqlPort(frontends));
+    }
+
+    @Test
+    public void parseFrontendsIncludesArrowFlightSqlPort() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ArrayNode columnNames = (ArrayNode) mapper.readTree(
+                "[\"Host\",\"HttpPort\",\"QueryPort\",\"ArrowFlightSqlPort\"]");
+        ArrayNode rows = (ArrayNode) mapper.readTree(
+                "[[\"192.168.1.1\",\"8030\",\"9030\",\"9040\"]]");
+
+        List<Frontend> frontends = new DorisFrontendClient().parseFrontends(columnNames, rows);
+
+        Assert.assertEquals(9040, DorisFrontendClient.findArrowFlightSqlPort(frontends));
     }
 
     private static boolean hasCause(Throwable failure, Class<? extends Throwable> causeType) {

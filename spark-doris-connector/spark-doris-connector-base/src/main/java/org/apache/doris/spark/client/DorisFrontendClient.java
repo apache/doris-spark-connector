@@ -116,43 +116,8 @@ public class DorisFrontendClient implements Serializable {
     private LoadBalanceList<Frontend> initFrontends(DorisConfig config) throws Exception {
         String frontendNodes = config.getValue(DorisOptions.DORIS_FENODES);
         String[] frontendNodeArray = frontendNodes.split(",");
-        List<Frontend> frontendList = null;
         if (config.getValue(DorisOptions.DORIS_FE_AUTO_FETCH)) {
-            Exception ex = null;
-            for (String frontendNode : frontendNodeArray) {
-                String[] nodeDetails = frontendNode.split(":");
-                try {
-                    LoadBalanceList<Frontend> list = new LoadBalanceList<>(
-                        Collections.singletonList(new Frontend(nodeDetails[0],
-                            nodeDetails.length > 1 ? Integer.parseInt(nodeDetails[1]) : -1)));
-                    frontendList = requestFrontends(list, (frontend, client) -> {
-                        String url = URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(),
-                                isHttpsEnabled);
-                        HttpGet httpGet = new HttpGet(url);
-                        HttpUtils.setAuth(httpGet, username, password);
-                        JsonNode dataNode;
-                        try {
-                            HttpResponse response = client.execute(httpGet);
-                            dataNode = extractDataFromResponse(response, url);
-                        } catch (IOException e) {
-                            throw new RuntimeException("fetch fe failed", e);
-                        }
-                        ArrayNode columnNames = (ArrayNode) dataNode.get("columnNames");
-                        ArrayNode rows = (ArrayNode) dataNode.get("rows");
-                        return parseFrontends(columnNames, rows);
-                    });
-                } catch (Exception e) {
-                    LOG.warn("fetch fe request on {} failed, err: {}", frontendNode, e.getMessage());
-                    ex = e;
-                }
-            }
-            if (frontendList == null || frontendList.isEmpty()) {
-                if (ex == null) {
-                    throw new DorisException("frontend init fetch failed, empty frontend list");
-                }
-                throw new DorisException("frontend init fetch failed", ex);
-            }
-            return new LoadBalanceList<>(frontendList);
+            return new LoadBalanceList<>(fetchFrontends(frontendNodeArray));
         } else {
             int queryPort = config.contains(DorisOptions.DORIS_QUERY_PORT) ?
                     config.getValue(DorisOptions.DORIS_QUERY_PORT) : -1;
@@ -165,6 +130,63 @@ public class DorisFrontendClient implements Serializable {
                     })
                     .collect(Collectors.toList()));
         }
+    }
+
+    private List<Frontend> fetchFrontends(String[] frontendNodeArray) throws Exception {
+        List<Frontend> frontendList = null;
+        Exception ex = null;
+        for (String frontendNode : frontendNodeArray) {
+            String[] nodeDetails = frontendNode.split(":");
+            try {
+                LoadBalanceList<Frontend> list = new LoadBalanceList<>(
+                        Collections.singletonList(new Frontend(nodeDetails[0],
+                                nodeDetails.length > 1 ? Integer.parseInt(nodeDetails[1]) : -1)));
+                frontendList = requestFrontends(list, (frontend, client) -> {
+                    String url = URLs.getFrontEndNodes(frontend.getHost(), frontend.getHttpPort(),
+                            isHttpsEnabled);
+                    HttpGet httpGet = new HttpGet(url);
+                    HttpUtils.setAuth(httpGet, username, password);
+                    JsonNode dataNode;
+                    try {
+                        HttpResponse response = client.execute(httpGet);
+                        dataNode = extractDataFromResponse(response, url);
+                    } catch (IOException e) {
+                        throw new RuntimeException("fetch fe failed", e);
+                    }
+                    ArrayNode columnNames = (ArrayNode) dataNode.get("columnNames");
+                    ArrayNode rows = (ArrayNode) dataNode.get("rows");
+                    return parseFrontends(columnNames, rows);
+                });
+            } catch (Exception e) {
+                LOG.warn("fetch fe request on {} failed, err: {}", frontendNode, e.getMessage());
+                ex = e;
+            }
+        }
+        if (frontendList == null || frontendList.isEmpty()) {
+            if (ex == null) {
+                throw new DorisException("frontend init fetch failed, empty frontend list");
+            }
+            throw new DorisException("frontend init fetch failed", ex);
+        }
+        return frontendList;
+    }
+
+    public int tryGetArrowFlightSqlPort() {
+        int flightSqlPort = findArrowFlightSqlPort(frontends.getList());
+        if (flightSqlPort > 0) {
+            return flightSqlPort;
+        }
+        try {
+            String frontendNodes = config.getValue(DorisOptions.DORIS_FENODES);
+            return findArrowFlightSqlPort(fetchFrontends(frontendNodes.split(",")));
+        } catch (Exception e) {
+            LOG.warn("failed to get Arrow Flight SQL port, err: {}", e.getMessage());
+            return -1;
+        }
+    }
+
+    static int findArrowFlightSqlPort(List<Frontend> frontends) {
+        return frontends.isEmpty() ? -1 : frontends.get(0).getFlightSqlPort();
     }
 
     public <T> T requestFrontends(BiFunction<Frontend, CloseableHttpClient, T> reqFunc) throws Exception {
@@ -326,7 +348,7 @@ public class DorisFrontendClient implements Serializable {
         });
     }
 
-    private List<Frontend> parseFrontends(ArrayNode columnNames, ArrayNode rows) {
+    List<Frontend> parseFrontends(ArrayNode columnNames, ArrayNode rows) {
         int hostIdx = -1;
         int httpPortIdx = -1;
         int queryPortIdx = -1;

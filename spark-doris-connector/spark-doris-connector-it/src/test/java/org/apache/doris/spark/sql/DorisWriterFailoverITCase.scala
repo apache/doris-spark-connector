@@ -183,13 +183,33 @@ class DorisWriterFailoverITCase extends AbstractContainerTestBase {
       session.stop()
     }
 
-    val actual = ContainerUtils.executeSQLStatement(
-      getDorisQueryConnection,
-      LOG,
-      String.format("select * from %s.%s", DATABASE, TABLE_WRITE_TBL_TASK_RETRY),
-      2)
     val expected = util.Arrays.asList("doris,cn", "spark,us", "catalog,uk");
+    var actual = util.Collections.emptyList[String]()
+    val connection = getDorisQueryConnection
+    try {
+      waitForCondition("task retry rows to become visible") {
+        actual = ContainerUtils.executeSQLStatement(
+          connection,
+          LOG,
+          String.format("select * from %s.%s", DATABASE, TABLE_WRITE_TBL_TASK_RETRY),
+          2)
+        actual.size() >= expected.size()
+      }
+    } finally {
+      connection.close()
+    }
     checkResultInAnyOrder("testFailoverForTaskRetry", expected.toArray, actual.toArray)
+  }
+
+  private def waitForCondition(description: String)(condition: => Boolean): Unit = {
+    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60)
+    while (System.nanoTime() < deadline) {
+      if (condition) {
+        return
+      }
+      TimeUnit.MILLISECONDS.sleep(100)
+    }
+    throw new AssertionError(s"Timed out waiting for $description")
   }
 
   private def waitForCondition(future: Future[_], description: String)(condition: => Boolean): Unit = {

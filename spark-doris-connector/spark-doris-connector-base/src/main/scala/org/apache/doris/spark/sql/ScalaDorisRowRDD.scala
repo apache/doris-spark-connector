@@ -18,6 +18,7 @@
 package org.apache.doris.spark.sql
 
 import org.apache.doris.spark.client.entity.DorisReaderPartition
+import org.apache.doris.spark.client.read.DorisReadModeResolver
 import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
 import org.apache.doris.spark.rdd.{AbstractDorisRDD, AbstractDorisRDDIterator, DorisPartition}
 import org.apache.spark.sql.Row
@@ -38,7 +39,7 @@ private[spark] class ScalaDorisRowRDDIterator(context: TaskContext,
   extends AbstractDorisRDDIterator[Row](context, partition) {
 
   override def initReader(config: DorisConfig): Unit = {
-    config.getValue(DorisOptions.READ_MODE).toLowerCase match {
+    DorisReadModeResolver.resolve(config) match {
       case "thrift" => config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisRowThriftReader].getName)
       case "arrow" => config.setProperty(DorisOptions.DORIS_VALUE_READER_CLASS, classOf[DorisRowFlightSqlReader].getName)
       case rm: String => throw new IllegalArgumentException("Unknown read mode: " + rm)

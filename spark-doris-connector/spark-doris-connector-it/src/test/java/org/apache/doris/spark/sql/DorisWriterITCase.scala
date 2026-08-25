@@ -171,7 +171,7 @@ class DorisWriterITCase extends AbstractContainerTestBase {
         ("doris_csv", 1),
         ("spark_csv", 2)
       )).toDF("name", "age")
-      df.write
+      df.coalesce(1).write
         .format("doris")
         .option("doris.fenodes", getFenodes)
         .option("doris.table.identifier", DATABASE + "." + TABLE_GROUP_COMMIT)
