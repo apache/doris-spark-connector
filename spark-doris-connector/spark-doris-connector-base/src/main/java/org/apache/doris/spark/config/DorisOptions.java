@@ -116,6 +116,16 @@ public class DorisOptions {
      */
     public static final ConfigOption<Boolean> DORIS_SINK_AUTO_REDIRECT = ConfigOptions.name("doris.sink.auto-redirect").booleanType().defaultValue(true).withDescription("");
 
+    /**
+     * Whether to send the HTTP {@code Expect: 100-continue} header for Stream Load requests.
+     * When disabled, the connector explicitly removes the header instead of setting an empty value.
+     */
+    public static final ConfigOption<Boolean> DORIS_SINK_HTTP_EXPECT_CONTINUE =
+            ConfigOptions.name("doris.sink.http.expect-continue")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("");
+
     public static final ConfigOption<Boolean> DORIS_ENABLE_TLS = ConfigOptions.name("doris.enable.tls").booleanType().defaultValue(false).withDescription("Enable one-way TLS for Doris client protocols.");
 
     public static final ConfigOption<String> DORIS_TLS_CA_CERTIFICATE_PATH = ConfigOptions.name("doris.tls.ca-certificate-path").stringType().defaultValue("").withDescription("Path to a PEM CA certificate chain. The JVM default truststore is used when empty.");
