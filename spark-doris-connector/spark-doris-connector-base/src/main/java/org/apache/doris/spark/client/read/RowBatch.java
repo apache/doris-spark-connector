@@ -598,39 +598,26 @@ public class RowBatch implements Serializable {
     }
 
     public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector) {
-        return getDateTime(rowIndex, fieldVector, "DATETIME");
+        return getDateTime(rowIndex, fieldVector, null);
     }
 
-    /**
-     * Decode an Arrow timestamp into a {@link LocalDateTime} of wall-clock digits.
-     *
-     * <p>Doris {@code DATETIME} / {@code DATETIMEV2} store naive wall-clock values. Some
-     * backends still emit timezone-aware Arrow timestamps (for example {@code +08:00}).
-     * In that case the epoch instant plus the Arrow timezone recover the original digits.
-     * {@code TIMESTAMPTZ} is a true instant, so it stays in the JVM default zone.
-     *
-     * <p>When the Arrow timezone is absent, the vector is treated as a naive timestamp
-     * ({@code getObject()} when that returns {@link LocalDateTime}).
-     */
-    public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector, String dorisType) {
+    private LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector, String dorisType) {
         TimeStampVector vector = (TimeStampVector) fieldVector;
         if (vector.isNull(rowIndex)) {
             return null;
         }
         ArrowType.Timestamp timestampType = (ArrowType.Timestamp) vector.getField().getType();
         String tz = timestampType.getTimezone();
-        if (tz == null || tz.trim().isEmpty()) {
-            Object value = vector.getObject(rowIndex);
-            if (value instanceof LocalDateTime) {
-                return (LocalDateTime) value;
-            }
-            return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), DEFAULT_ZONE_ID);
+        if (tz == null) {
+            return (LocalDateTime) vector.getObject(rowIndex);
         }
-        ZoneId arrowZone = ZoneId.of(tz);
-        if ("TIMESTAMPTZ".equalsIgnoreCase(dorisType)) {
-            return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), DEFAULT_ZONE_ID);
+        // DATETIME is timezone-agnostic. Some Doris versions still attach an Arrow timezone
+        // (apache/doris#38215). Decode in that zone so the LocalDateTime matches stored digits.
+        // TIMESTAMPTZ keeps the instant in the JVM default zone (apache/doris-spark-connector#366).
+        if ("DATETIME".equals(dorisType) || "DATETIMEV2".equals(dorisType)) {
+            return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), ZoneId.of(tz));
         }
-        return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), arrowZone);
+        return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), DEFAULT_ZONE_ID);
     }
 
     public static String completeMilliseconds(String stringValue) {
