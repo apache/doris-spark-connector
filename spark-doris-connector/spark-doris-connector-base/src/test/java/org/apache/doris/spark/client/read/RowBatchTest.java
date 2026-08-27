@@ -1329,6 +1329,61 @@ public class RowBatchTest {
     }
 
     @Test
+    public void testDatetimeTzVectorRecoversWallClock() throws IOException, DorisException {
+        // Instant 2026-08-24T02:00:09Z labeled +08:00 is wall clock 2026-08-24 10:00:09.
+        long milliEpoch = Instant.parse("2026-08-24T02:00:09Z").toEpochMilli();
+        ImmutableList<Field> fields = ImmutableList.of(
+                new Field("k0", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, "+08:00")), null),
+                new Field("k1", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, "+08:00")), null));
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(fields, null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter writer = new ArrowStreamWriter(
+                root, new DictionaryProvider.MapDictionaryProvider(), outputStream);
+
+        writer.start();
+        root.setRowCount(1);
+        TimeStampMilliTZVector datetimeVector = (TimeStampMilliTZVector) root.getVector("k0");
+        datetimeVector.allocateNew(1);
+        datetimeVector.setSafe(0, milliEpoch);
+        datetimeVector.setValueCount(1);
+        TimeStampMilliTZVector datetimeV2Vector = (TimeStampMilliTZVector) root.getVector("k1");
+        datetimeV2Vector.allocateNew(1);
+        datetimeV2Vector.setSafe(0, milliEpoch);
+        datetimeV2Vector.setValueCount(1);
+        writer.writeBatch();
+        writer.end();
+        writer.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult result = new TScanBatchResult();
+        result.setStatus(status);
+        result.setEos(false);
+        result.setRows(outputStream.toByteArray());
+        Schema schema = MAPPER.readValue(
+                "{\"properties\":["
+                        + "{\"type\":\"DATETIME\",\"name\":\"k0\",\"comment\":\"\"},"
+                        + "{\"type\":\"DATETIMEV2\",\"name\":\"k1\",\"comment\":\"\"}],\"status\":200}",
+                Schema.class);
+
+        Timestamp expected = Timestamp.valueOf("2026-08-24 10:00:09");
+        List timestampRow = new RowBatch(result, schema, false).next();
+        Assert.assertEquals(expected, timestampRow.get(0));
+        Assert.assertEquals(expected, timestampRow.get(1));
+
+        Instant expectedInstant = LocalDateTime.of(2026, 8, 24, 10, 0, 9)
+                .atZone(ZoneId.systemDefault())
+                .toInstant();
+        List instantRow = new RowBatch(result, schema, true).next();
+        Assert.assertEquals(expectedInstant, instantRow.get(0));
+        Assert.assertEquals(expectedInstant, instantRow.get(1));
+    }
+
+    @Test
     public void testLongToLocalDateTimeUsesDeclaredUnit() {
         ZoneId utc = ZoneId.of("UTC");
 
