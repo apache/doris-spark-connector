@@ -17,7 +17,9 @@
 
 package org.apache.doris.spark.exception;
 
-public class StreamLoadException extends Exception {
+import scala.util.control.ControlThrowable;
+
+public class StreamLoadException extends Exception implements ControlThrowable {
     public StreamLoadException() {
         super();
     }
