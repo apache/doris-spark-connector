@@ -1334,9 +1334,9 @@ public class RowBatchTest {
                 new Field("k0", FieldType.nullable(
                         new ArrowType.Timestamp(TimeUnit.MICROSECOND, "+08:00")), null),
                 new Field("k1", FieldType.nullable(
-                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, "+08:00")), null),
+                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, "CST")), null),
                 new Field("k2", FieldType.nullable(
-                        new ArrowType.Timestamp(TimeUnit.SECOND, "+08:00")), null));
+                        new ArrowType.Timestamp(TimeUnit.SECOND, "EST")), null));
         VectorSchemaRoot root = VectorSchemaRoot.create(
                 new org.apache.arrow.vector.types.pojo.Schema(fields, null),
                 new RootAllocator(Integer.MAX_VALUE));
@@ -1379,8 +1379,10 @@ public class RowBatchTest {
         Instant secInstant = Instant.ofEpochSecond(1721892143L);
         ZoneId arrowTz = ZoneId.of("+08:00");
         Timestamp microTimestamp = Timestamp.valueOf(LocalDateTime.ofInstant(microInstant, arrowTz));
-        Timestamp milliTimestamp = Timestamp.valueOf(LocalDateTime.ofInstant(milliInstant, arrowTz));
-        Timestamp secTimestamp = Timestamp.valueOf(LocalDateTime.ofInstant(secInstant, arrowTz));
+        Timestamp milliTimestamp = Timestamp.valueOf(
+                LocalDateTime.ofInstant(milliInstant, ZoneId.of("Asia/Shanghai")));
+        Timestamp secTimestamp = Timestamp.valueOf(
+                LocalDateTime.ofInstant(secInstant, ZoneId.of("EST", ZoneId.SHORT_IDS)));
 
         List<Object> timestampRow = new RowBatch(result, schema, false).next();
         Assert.assertEquals(microTimestamp, timestampRow.get(0));
