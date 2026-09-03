@@ -97,11 +97,9 @@ class Doris2DorisE2ECase(readMode: String, flightSqlPort: Int) extends AbstractC
         |""".stripMargin)
     session.stop()
 
-    // TODO: Remove the legacy Scanner expectations after Doris returns DATETIME as a
-    // timezone-naive Arrow timestamp.
-    val datetime1 = if (readMode == "arrow") "2025-03-11T12:34:56" else "2025-03-11T04:34:56"
-    val datetime2 = if (readMode == "arrow") "2024-12-25T23:59:59" else "2024-12-25T15:59:59"
-    val datetime3 = if (readMode == "arrow") "2023-06-15T08:00" else "2023-06-15T00:00"
+    val datetime1 = "2025-03-11T12:34:56"
+    val datetime2 = "2024-12-25T23:59:59"
+    val datetime3 = "2023-06-15T08:00"
     val excepted =
       util.Arrays.asList(
         "1,true,127,32767,2147483647,9223372036854775807,170141183460469231731687303715884105727,3.14,2.71828,12345.6789,2025-03-11," + datetime1 + ",A,Hello, Doris!,This is a string,[\"Alice\", \"Bob\"],{\"key1\":\"value1\", \"key2\":\"value2\"},{\"name\":\"Tom\", \"age\":30},{\"key\":\"value\"},{\"data\":123,\"type\":\"variant\"}",

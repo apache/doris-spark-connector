@@ -1329,6 +1329,134 @@ public class RowBatchTest {
     }
 
     @Test
+    public void testDatetimeTzVector() throws IOException, DorisException {
+        ImmutableList<Field> fields = ImmutableList.of(
+                new Field("k0", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MICROSECOND, "+08:00")), null),
+                new Field("k1", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, "CST")), null),
+                new Field("k2", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.SECOND, "EST")), null));
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(fields, null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter writer = new ArrowStreamWriter(
+                root, new DictionaryProvider.MapDictionaryProvider(), outputStream);
+
+        writer.start();
+        root.setRowCount(1);
+        TimeStampMicroTZVector microVector = (TimeStampMicroTZVector) root.getVector("k0");
+        microVector.allocateNew(1);
+        microVector.setSafe(0, 1721892143586123L);
+        microVector.setValueCount(1);
+        TimeStampMilliTZVector milliVector = (TimeStampMilliTZVector) root.getVector("k1");
+        milliVector.allocateNew(1);
+        milliVector.setSafe(0, 1721892143586L);
+        milliVector.setValueCount(1);
+        TimeStampSecTZVector secVector = (TimeStampSecTZVector) root.getVector("k2");
+        secVector.allocateNew(1);
+        secVector.setSafe(0, 1721892143L);
+        secVector.setValueCount(1);
+        writer.writeBatch();
+        writer.end();
+        writer.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult result = new TScanBatchResult();
+        result.setStatus(status);
+        result.setEos(false);
+        result.setRows(outputStream.toByteArray());
+        Schema schema = MAPPER.readValue(
+                "{\"properties\":["
+                        + "{\"type\":\"DATETIME\",\"name\":\"k0\",\"comment\":\"\"},"
+                        + "{\"type\":\"DATETIMEV2\",\"name\":\"k1\",\"comment\":\"\"},"
+                        + "{\"type\":\"DATETIMEV2\",\"name\":\"k2\",\"comment\":\"\"}],\"status\":200}",
+                Schema.class);
+        Instant microInstant = Instant.ofEpochSecond(1721892143L, 586123000L);
+        Instant milliInstant = Instant.ofEpochSecond(1721892143L, 586000000L);
+        Instant secInstant = Instant.ofEpochSecond(1721892143L);
+        ZoneId arrowTz = ZoneId.of("+08:00");
+        Timestamp microTimestamp = Timestamp.valueOf(LocalDateTime.ofInstant(microInstant, arrowTz));
+        Timestamp milliTimestamp = Timestamp.valueOf(
+                LocalDateTime.ofInstant(milliInstant, ZoneId.of("Asia/Shanghai")));
+        Timestamp secTimestamp = Timestamp.valueOf(
+                LocalDateTime.ofInstant(secInstant, ZoneId.of("EST", ZoneId.SHORT_IDS)));
+
+        List<Object> timestampRow = new RowBatch(result, schema, false).next();
+        Assert.assertEquals(microTimestamp, timestampRow.get(0));
+        Assert.assertEquals(milliTimestamp, timestampRow.get(1));
+        Assert.assertEquals(secTimestamp, timestampRow.get(2));
+
+        List<Object> instantRow = new RowBatch(result, schema, true).next();
+        Assert.assertEquals(microTimestamp.toLocalDateTime().atZone(ZoneId.systemDefault()).toInstant(),
+                instantRow.get(0));
+        Assert.assertEquals(milliTimestamp.toLocalDateTime().atZone(ZoneId.systemDefault()).toInstant(),
+                instantRow.get(1));
+        Assert.assertEquals(secTimestamp.toLocalDateTime().atZone(ZoneId.systemDefault()).toInstant(),
+                instantRow.get(2));
+    }
+
+    @Test
+    public void testTimestampTzAndDatetimeSameArrowBytes() throws IOException, DorisException {
+        Instant milliInstant = Instant.ofEpochMilli(1721892143586L);
+        ZoneOffset systemOffset = ZoneId.systemDefault().getRules().getOffset(milliInstant);
+        String arrowTimezone = ZoneOffset.ofHours(8).equals(systemOffset) ? "+00:00" : "+08:00";
+        ZoneId arrowTz = ZoneId.of(arrowTimezone);
+        ImmutableList<Field> fields = ImmutableList.of(
+                new Field("k0", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, arrowTimezone)), null),
+                new Field("k1", FieldType.nullable(
+                        new ArrowType.Timestamp(TimeUnit.MILLISECOND, arrowTimezone)), null));
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                new org.apache.arrow.vector.types.pojo.Schema(fields, null),
+                new RootAllocator(Integer.MAX_VALUE));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ArrowStreamWriter writer = new ArrowStreamWriter(
+                root, new DictionaryProvider.MapDictionaryProvider(), outputStream);
+
+        writer.start();
+        root.setRowCount(1);
+        TimeStampMilliTZVector timestamptzVector = (TimeStampMilliTZVector) root.getVector("k0");
+        timestamptzVector.allocateNew(1);
+        timestamptzVector.setSafe(0, 1721892143586L);
+        timestamptzVector.setValueCount(1);
+        TimeStampMilliTZVector datetimeVector = (TimeStampMilliTZVector) root.getVector("k1");
+        datetimeVector.allocateNew(1);
+        datetimeVector.setSafe(0, 1721892143586L);
+        datetimeVector.setValueCount(1);
+        writer.writeBatch();
+        writer.end();
+        writer.close();
+
+        TStatus status = new TStatus();
+        status.setStatusCode(TStatusCode.OK);
+        TScanBatchResult result = new TScanBatchResult();
+        result.setStatus(status);
+        result.setEos(false);
+        result.setRows(outputStream.toByteArray());
+        Schema schema = MAPPER.readValue(
+                "{\"properties\":["
+                        + "{\"type\":\"TIMESTAMPTZ\",\"name\":\"k0\",\"comment\":\"\"},"
+                        + "{\"type\":\"DATETIME\",\"name\":\"k1\",\"comment\":\"\"}],\"status\":200}",
+                Schema.class);
+        Timestamp datetimeTimestamp = Timestamp.valueOf(
+                LocalDateTime.ofInstant(milliInstant, arrowTz));
+
+        List<Object> timestampRow = new RowBatch(result, schema, false).next();
+        Assert.assertNotEquals(systemOffset, arrowTz.getRules().getOffset(milliInstant));
+        Assert.assertEquals(Timestamp.from(milliInstant), timestampRow.get(0));
+        Assert.assertEquals(datetimeTimestamp, timestampRow.get(1));
+        Assert.assertNotEquals(timestampRow.get(0), timestampRow.get(1));
+
+        List<Object> instantRow = new RowBatch(result, schema, true).next();
+        Assert.assertEquals(milliInstant, instantRow.get(0));
+        Assert.assertEquals(datetimeTimestamp.toLocalDateTime().atZone(ZoneId.systemDefault()).toInstant(),
+                instantRow.get(1));
+    }
+
+    @Test
     public void testLongToLocalDateTimeUsesDeclaredUnit() {
         ZoneId utc = ZoneId.of("UTC");
 

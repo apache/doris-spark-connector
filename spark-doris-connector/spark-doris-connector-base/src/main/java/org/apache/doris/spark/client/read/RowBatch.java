@@ -71,11 +71,13 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * row batch data container.
@@ -83,6 +85,9 @@ import java.util.Objects;
 public class RowBatch implements Serializable {
     private static final Logger logger = LoggerFactory.getLogger(RowBatch.class);
     private static final ZoneId DEFAULT_ZONE_ID = ZoneId.systemDefault();
+    private static final String DORIS_DEFAULT_TIME_ZONE = "Asia/Shanghai";
+    private static final String UTC_TIME_ZONE = "UTC";
+    private static final Map<String, String> DORIS_TIME_ZONE_ALIASES = buildDorisTimeZoneAliases();
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
             .appendPattern("yyyy-MM-dd HH:mm:ss")
@@ -424,42 +429,30 @@ public class RowBatch implements Serializable {
                         break;
                     case "DATETIME":
                     case "DATETIMEV2":
-                    case "TIMESTAMPTZ":
-
                         if (mt.equals(MinorType.VARCHAR)) {
-                            VarCharVector varCharVector = (VarCharVector) curFieldVector;
-                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                                if (varCharVector.isNull(rowIndex)) {
-                                    addValueToRow(rowIndex, null);
-                                    continue;
-                                }
-                                String stringValue = completeMilliseconds(new String(varCharVector.get(rowIndex),
-                                        StandardCharsets.UTF_8));
-                                LocalDateTime dateTime = LocalDateTime.parse(stringValue, dateTimeV2Formatter);
-                                if (datetimeJava8ApiEnabled) {
-                                    Instant instant = dateTime.atZone(DEFAULT_ZONE_ID).toInstant();
-                                    addValueToRow(rowIndex, instant);
-                                } else {
-                                    addValueToRow(rowIndex, Timestamp.valueOf(dateTime));
-                                }
-                            }
+                            convertVarcharDateTime((VarCharVector) curFieldVector);
                         } else if (curFieldVector instanceof TimeStampVector) {
                             TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
                             for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
-                                if (timeStampVector.isNull(rowIndex)) {
-                                    addValueToRow(rowIndex, null);
-                                    continue;
-                                }
-                                LocalDateTime dateTime = getDateTime(rowIndex, timeStampVector);
-                                if (datetimeJava8ApiEnabled) {
-                                    Instant instant = dateTime.atZone(DEFAULT_ZONE_ID).toInstant();
-                                    addValueToRow(rowIndex, instant);
-                                } else {
-                                    addValueToRow(rowIndex, Timestamp.valueOf(dateTime));
-                                }
+                                addDateTimeValue(rowIndex, getDateTime(rowIndex, timeStampVector));
                             }
                         } else {
                             String errMsg = String.format("Unsupported type for DATETIMEV2, minorType %s, class is %s",
+                                    mt.name(), curFieldVector.getClass());
+                            throw new java.lang.IllegalArgumentException(errMsg);
+                        }
+                        break;
+                    case "TIMESTAMPTZ":
+                        if (mt.equals(MinorType.VARCHAR)) {
+                            convertVarcharDateTime((VarCharVector) curFieldVector);
+                        } else if (curFieldVector instanceof TimeStampVector) {
+                            TimeStampVector timeStampVector = (TimeStampVector) curFieldVector;
+                            for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+                                addDateTimeValue(rowIndex,
+                                        getDateTime(rowIndex, timeStampVector, DEFAULT_ZONE_ID));
+                            }
+                        } else {
+                            String errMsg = String.format("Unsupported type for TIMESTAMPTZ, minorType %s, class is %s",
                                     mt.name(), curFieldVector.getClass());
                             throw new java.lang.IllegalArgumentException(errMsg);
                         }
@@ -597,7 +590,35 @@ public class RowBatch implements Serializable {
         }
     }
 
+    private void convertVarcharDateTime(VarCharVector varCharVector) {
+        for (int rowIndex = 0; rowIndex < rowCountInOneBatch; rowIndex++) {
+            if (varCharVector.isNull(rowIndex)) {
+                addDateTimeValue(rowIndex, null);
+                continue;
+            }
+            String stringValue = completeMilliseconds(new String(varCharVector.get(rowIndex),
+                    StandardCharsets.UTF_8));
+            addDateTimeValue(rowIndex, LocalDateTime.parse(stringValue, dateTimeV2Formatter));
+        }
+    }
+
+    private void addDateTimeValue(int rowIndex, LocalDateTime dateTime) {
+        if (dateTime == null) {
+            addValueToRow(rowIndex, null);
+            return;
+        }
+        if (datetimeJava8ApiEnabled) {
+            addValueToRow(rowIndex, dateTime.atZone(DEFAULT_ZONE_ID).toInstant());
+        } else {
+            addValueToRow(rowIndex, Timestamp.valueOf(dateTime));
+        }
+    }
+
     public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector) {
+        return getDateTime(rowIndex, fieldVector, null);
+    }
+
+    public LocalDateTime getDateTime(int rowIndex, FieldVector fieldVector, ZoneId zoneIdOverride) {
         TimeStampVector vector = (TimeStampVector) fieldVector;
         if (vector.isNull(rowIndex)) {
             return null;
@@ -606,7 +627,21 @@ public class RowBatch implements Serializable {
         if (timestampType.getTimezone() == null) {
             return (LocalDateTime) vector.getObject(rowIndex);
         }
-        return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), DEFAULT_ZONE_ID);
+        ZoneId zoneId = zoneIdOverride == null
+                ? ZoneId.of(timestampType.getTimezone(), DORIS_TIME_ZONE_ALIASES)
+                : zoneIdOverride;
+        return longToLocalDateTime(vector.get(rowIndex), timestampType.getUnit(), zoneId);
+    }
+
+    private static Map<String, String> buildDorisTimeZoneAliases() {
+        Map<String, String> aliases = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        aliases.putAll(ZoneId.SHORT_IDS);
+        // Keep aliases consistent with Doris TimeUtils.timeZoneAliasMap.
+        aliases.put("CST", DORIS_DEFAULT_TIME_ZONE);
+        aliases.put("PRC", DORIS_DEFAULT_TIME_ZONE);
+        aliases.put(UTC_TIME_ZONE, UTC_TIME_ZONE);
+        aliases.put("GMT", UTC_TIME_ZONE);
+        return Collections.unmodifiableMap(aliases);
     }
 
     public static String completeMilliseconds(String stringValue) {

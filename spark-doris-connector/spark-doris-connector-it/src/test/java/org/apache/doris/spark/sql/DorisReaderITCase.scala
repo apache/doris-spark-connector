@@ -235,9 +235,9 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |select * from test_source order by id
           |""".stripMargin).collect()
 
-      val expectedTimestamp1 = if (readMode == "thrift") "2025-03-11 04:34:56" else "2025-03-11 12:34:56"
-      val expectedTimestamp2 = if (readMode == "thrift") "2024-12-25 15:59:59" else "2024-12-25 23:59:59"
-      val expectedTimestamp3 = if (readMode == "thrift") "2023-06-15 00:00:00" else "2023-06-15 08:00:00"
+      val expectedTimestamp1 = "2025-03-11 12:34:56"
+      val expectedTimestamp2 = "2024-12-25 23:59:59"
+      val expectedTimestamp3 = "2023-06-15 08:00:00"
 
       val expectedData = Array(
         Row(1, true, 127, 32767, 2147483647, 9223372036854775807L, "170141183460469231731687303715884105727",
@@ -416,11 +416,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |select id,c10,c11 from test_source where c10 = '2025-03-11' and c13 like 'Hello%'
           |""".stripMargin).collect()
 
-      val expectedDateFilter = if (readMode == "thrift") {
-        "List([1,2025-03-11,2025-03-11 04:34:56.0])"
-      } else {
-        "List([1,2025-03-11,2025-03-11 12:34:56.0])"
-      }
+      val expectedDateFilter = "List([1,2025-03-11,2025-03-11 12:34:56.0])"
       assert(expectedDateFilter.equals(dateFilter.toList.toString()))
 
       val datetimeFilter = session.sql(
@@ -428,11 +424,7 @@ class DorisReaderITCase(readMode: String, flightSqlPort: Int) extends AbstractCo
           |select id,c11,c12 from test_source where c10 < '2025-03-11' and c11 = '2024-12-25 23:59:59'
           |""".stripMargin).collect()
 
-      val expectedDatetimeFilter = if (readMode == "thrift") {
-        "List([2,2024-12-25 15:59:59.0,B])"
-      } else {
-        "List([2,2024-12-25 23:59:59.0,B])"
-      }
+      val expectedDatetimeFilter = "List([2,2024-12-25 23:59:59.0,B])"
       assert(expectedDatetimeFilter.equals(datetimeFilter.toList.toString()))
 
       val stringFilter = session.sql(
