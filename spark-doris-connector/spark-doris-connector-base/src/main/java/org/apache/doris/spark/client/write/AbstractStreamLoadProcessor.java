@@ -88,6 +88,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
     private final DataFormat format;
     private final boolean isGzipCompressionEnabled;
     private final boolean isPassThrough;
+    private final boolean httpExpectContinue;
     private final List<R> recordBuffer = new LinkedList<>();
     private final int pipeSize;
     protected String columnSeparator;
@@ -139,6 +140,7 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
             groupCommit = properties.get(GROUP_COMMIT).toLowerCase();
         }
         this.isPassThrough = config.getValue(DorisOptions.DORIS_SINK_STREAMING_PASSTHROUGH);
+        this.httpExpectContinue = config.getValue(DorisOptions.DORIS_SINK_HTTP_EXPECT_CONTINUE);
         this.pipeSize = config.getValue(DorisOptions.DORIS_SINK_NET_BUFFER_SIZE);
     }
 
@@ -361,6 +363,9 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
                 break;
         }
         properties.forEach(httpPut::setHeader);
+        if (!httpExpectContinue) {
+            httpPut.removeHeaders(HttpHeaders.EXPECT);
+        }
     }
 
     private void handleCommitHeaders(HttpPut httpPut, String transactionId) throws OptionRequiredException {
@@ -379,7 +384,11 @@ public abstract class AbstractStreamLoadProcessor<R> extends DorisWriter<R> impl
         String user = config.getValue(DorisOptions.DORIS_USER);
         String password = config.getValue(DorisOptions.DORIS_PASSWORD);
         HttpUtils.setAuth(req, user, password);
-        req.setHeader(HttpHeaders.EXPECT, "100-continue");
+        if (httpExpectContinue) {
+            req.setHeader(HttpHeaders.EXPECT, "100-continue");
+        } else {
+            req.removeHeaders(HttpHeaders.EXPECT);
+        }
         req.setHeader(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8");
     }
 

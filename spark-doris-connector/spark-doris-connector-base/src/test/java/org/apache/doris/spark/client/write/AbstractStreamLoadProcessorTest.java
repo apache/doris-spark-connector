@@ -21,10 +21,14 @@ import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.rest.models.DataFormat;
 import org.apache.doris.spark.testutil.HttpsTestServer;
+import org.apache.http.HttpHeaders;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +65,70 @@ public class AbstractStreamLoadProcessorTest {
                 processor.close();
             }
         }
+    }
+
+    @Test
+    public void expectContinueHeaderEnabledByDefault() throws Exception {
+        Map<String, String> values = new HashMap<>();
+        values.put(DorisOptions.DORIS_FENODES.getName(), "127.0.0.1:8030");
+        values.put(DorisOptions.DORIS_BENODES.getName(), "127.0.0.1:8040");
+        values.put(DorisOptions.DORIS_TABLE_IDENTIFIER.getName(), "db.tbl");
+        values.put(DorisOptions.DORIS_USER.getName(), "root");
+        values.put(DorisOptions.DORIS_PASSWORD.getName(), "");
+        values.put(DorisOptions.DORIS_SINK_AUTO_REDIRECT.getName(), "false");
+        DorisConfig config = DorisConfig.fromMap(values, false);
+        TestStreamLoadProcessor processor = new TestStreamLoadProcessor(config);
+        Method addCommonHeaders =
+                AbstractStreamLoadProcessor.class.getDeclaredMethod(
+                        "addCommonHeaders", HttpRequestBase.class);
+        addCommonHeaders.setAccessible(true);
+        HttpPut httpPut = new HttpPut("http://127.0.0.1:8040/");
+        addCommonHeaders.invoke(processor, httpPut);
+        Assert.assertEquals(
+                "100-continue", httpPut.getFirstHeader(HttpHeaders.EXPECT).getValue());
+    }
+
+    @Test
+    public void expectContinueHeaderDisabled() throws Exception {
+        Map<String, String> values = new HashMap<>();
+        values.put(DorisOptions.DORIS_FENODES.getName(), "127.0.0.1:8030");
+        values.put(DorisOptions.DORIS_BENODES.getName(), "127.0.0.1:8040");
+        values.put(DorisOptions.DORIS_TABLE_IDENTIFIER.getName(), "db.tbl");
+        values.put(DorisOptions.DORIS_USER.getName(), "root");
+        values.put(DorisOptions.DORIS_PASSWORD.getName(), "");
+        values.put(DorisOptions.DORIS_SINK_AUTO_REDIRECT.getName(), "false");
+        values.put(DorisOptions.DORIS_SINK_HTTP_EXPECT_CONTINUE.getName(), "false");
+        DorisConfig config = DorisConfig.fromMap(values, false);
+        TestStreamLoadProcessor processor = new TestStreamLoadProcessor(config);
+        Method addCommonHeaders =
+                AbstractStreamLoadProcessor.class.getDeclaredMethod(
+                        "addCommonHeaders", HttpRequestBase.class);
+        addCommonHeaders.setAccessible(true);
+        HttpPut httpPut = new HttpPut("http://127.0.0.1:8040/");
+        addCommonHeaders.invoke(processor, httpPut);
+        Assert.assertNull(httpPut.getFirstHeader(HttpHeaders.EXPECT));
+    }
+
+    @Test
+    public void disabledExpectContinueRemovesSinkPropertyExpect() throws Exception {
+        Map<String, String> values = new HashMap<>();
+        values.put(DorisOptions.DORIS_FENODES.getName(), "127.0.0.1:8030");
+        values.put(DorisOptions.DORIS_BENODES.getName(), "127.0.0.1:8040");
+        values.put(DorisOptions.DORIS_TABLE_IDENTIFIER.getName(), "db.tbl");
+        values.put(DorisOptions.DORIS_USER.getName(), "root");
+        values.put(DorisOptions.DORIS_PASSWORD.getName(), "");
+        values.put(DorisOptions.DORIS_SINK_AUTO_REDIRECT.getName(), "false");
+        values.put(DorisOptions.DORIS_SINK_HTTP_EXPECT_CONTINUE.getName(), "false");
+        values.put(DorisOptions.STREAM_LOAD_PROP_PREFIX + "expect", "disabled");
+        DorisConfig config = DorisConfig.fromMap(values, false);
+        TestStreamLoadProcessor processor = new TestStreamLoadProcessor(config);
+        Method handleStreamLoadProperties =
+                AbstractStreamLoadProcessor.class.getDeclaredMethod(
+                        "handleStreamLoadProperties", HttpPut.class);
+        handleStreamLoadProperties.setAccessible(true);
+        HttpPut httpPut = new HttpPut("http://127.0.0.1:8040/");
+        handleStreamLoadProperties.invoke(processor, httpPut);
+        Assert.assertNull(httpPut.getFirstHeader(HttpHeaders.EXPECT));
     }
 
     private static final class TestStreamLoadProcessor
