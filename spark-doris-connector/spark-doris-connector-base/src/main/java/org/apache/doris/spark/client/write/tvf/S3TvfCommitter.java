@@ -19,15 +19,19 @@ package org.apache.doris.spark.client.write.tvf;
 
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.S3TvfOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 
 /** Commits one Spark partition with one Doris INSERT. */
 public final class S3TvfCommitter implements AutoCloseable {
+    private static final Logger LOG = LoggerFactory.getLogger(S3TvfCommitter.class);
     private static final String COLUMNS = "columns";
     private static final String PARTIAL_COLUMNS = "partial_columns";
     private static final String FORMAT = "format";
@@ -59,11 +63,23 @@ public final class S3TvfCommitter implements AutoCloseable {
         if (committable.isEmpty()) {
             return;
         }
+        String insertSql = sqlBuilder.buildInsertSql(committable);
+        long insertStartedAtNanos = System.nanoTime();
         try {
             loadClient.executeInsert(
-                    sqlBuilder.buildInsertSql(committable),
+                    insertSql,
                     sessionVariables);
+            LOG.info("TVF insert completed, label={}, objectCount={}, insertTimeMs={}.",
+                    committable.getLabel(),
+                    committable.getObjectKeys().size(),
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - insertStartedAtNanos));
         } catch (SQLException e) {
+            LOG.warn("TVF insert failed, label={}, objectCount={}, insertTimeMs={}, SQLState={}, errorCode={}.",
+                    committable.getLabel(),
+                    committable.getObjectKeys().size(),
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - insertStartedAtNanos),
+                    e.getSQLState(),
+                    e.getErrorCode());
             throw new IOException(
                     "Doris INSERT failed for S3 TVF label " + committable.getLabel(), e);
         }

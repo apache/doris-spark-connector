@@ -23,15 +23,19 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /** Writes one logical Spark partition as deterministic JSON Lines objects. */
 public final class S3TvfWriter implements AutoCloseable {
+    private static final Logger LOG = LoggerFactory.getLogger(S3TvfWriter.class);
     private static final byte NEW_LINE = '\n';
 
     private final S3TvfOptions options;
@@ -110,7 +114,21 @@ public final class S3TvfWriter implements AutoCloseable {
                 currentFileNumber);
         String prefix = options.getPrefix();
         String objectKey = prefix + (prefix.endsWith("/") ? "" : "/") + fileName;
-        objectStore.put(objectKey, content);
+        long uploadStartedAtNanos = System.nanoTime();
+        try {
+            objectStore.put(objectKey, content);
+            LOG.info("S3 TVF object upload completed, objectKey={}, sizeBytes={}, uploadTimeMs={}.",
+                    objectKey,
+                    content.length,
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - uploadStartedAtNanos));
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("S3 TVF object upload failed, objectKey={}, sizeBytes={}, uploadTimeMs={}.",
+                    objectKey,
+                    content.length,
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - uploadStartedAtNanos),
+                    e);
+            throw e;
+        }
         objectKeys.add(objectKey);
         buffer.reset();
         recordCount = 0;
