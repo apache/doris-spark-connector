@@ -146,6 +146,10 @@ public class DorisOptions {
 
     public static final ConfigOption<String> DORIS_SINK_S3_SECRET_KEY = ConfigOptions.name("doris.sink.s3.secret-key").stringType().withoutDefaultValue().withDescription("Secret key of the S3-compatible object storage.");
 
+    public static final ConfigOption<String> DORIS_SINK_S3_ROLE_ARN = ConfigOptions.name("doris.sink.s3.role-arn").stringType().withoutDefaultValue().withDescription("AWS IAM role ARN used to access the S3 object storage.");
+
+    public static final ConfigOption<String> DORIS_SINK_S3_EXTERNAL_ID = ConfigOptions.name("doris.sink.s3.external-id").stringType().withoutDefaultValue().withDescription("External ID used when assuming the AWS IAM role.");
+
     public static final ConfigOption<Boolean> DORIS_SINK_S3_PATH_STYLE_ACCESS = ConfigOptions.name("doris.sink.s3.path-style-access").booleanType().defaultValue(false).withDescription("Whether to use path-style access for object storage.");
 
     public static final ConfigOption<Integer> DORIS_THRIFT_MAX_MESSAGE_SIZE = ConfigOptions.name("doris.thrift.max.message.size").intType().defaultValue(Integer.MAX_VALUE).withDescription("") ;

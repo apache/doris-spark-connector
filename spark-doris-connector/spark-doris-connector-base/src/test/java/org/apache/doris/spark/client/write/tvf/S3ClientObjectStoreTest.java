@@ -17,18 +17,32 @@
 
 package org.apache.doris.spark.client.write.tvf;
 
+import org.apache.doris.spark.config.S3TvfOptions;
+import org.apache.doris.spark.config.S3TvfOptionsTest;
 import org.junit.Assert;
 import org.junit.Test;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class S3ClientObjectStoreTest {
+    @Test
+    public void buildsAssumeRoleRequest() throws Exception {
+        S3TvfOptions options = S3TvfOptions.fromConfig(S3TvfOptionsTest.configWithRole());
+
+        AssumeRoleRequest request = S3ClientObjectStore.buildAssumeRoleRequest(options);
+
+        Assert.assertEquals("arn:aws:iam::123456789012:role/doris", request.roleArn());
+        Assert.assertEquals("external-id", request.externalId());
+        Assert.assertEquals("doris-spark-connector", request.roleSessionName());
+    }
+
     @Test
     public void uploadBodyIsRepeatableWithoutCopying() throws Exception {
         byte[] content = "{\"id\":1}\n".getBytes(StandardCharsets.UTF_8);

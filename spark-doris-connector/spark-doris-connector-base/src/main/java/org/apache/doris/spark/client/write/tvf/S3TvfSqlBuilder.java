@@ -41,6 +41,7 @@ public final class S3TvfSqlBuilder {
         }
         String columnSql = joinIdentifiers(columns);
         String uri = buildUri(objectKeys);
+        String credentials = buildCredentials();
         return "INSERT INTO "
                 + TvfSqlUtils.quoteIdentifier(committable.getDatabase())
                 + "."
@@ -58,16 +59,32 @@ public final class S3TvfSqlBuilder {
                 + ","
                 + property("read_json_by_line", "true")
                 + ","
+                + (options.isGzipCompressionEnabled()
+                        ? property("compress_type", "gz") + ","
+                        : "")
                 + property("s3.endpoint", options.getEndpoint())
                 + ","
                 + property("s3.region", options.getRegion())
                 + ","
-                + property("s3.access_key", options.getAccessKey())
-                + ","
-                + property("s3.secret_key", options.getSecretKey())
+                + credentials
                 + ","
                 + property("use_path_style", Boolean.toString(options.isPathStyleAccess()))
                 + ")";
+    }
+
+    private String buildCredentials() {
+        StringJoiner credentials = new StringJoiner(",");
+        if (options.hasStaticCredentials()) {
+            credentials.add(property("s3.access_key", options.getAccessKey()));
+            credentials.add(property("s3.secret_key", options.getSecretKey()));
+        }
+        if (options.hasRoleArn()) {
+            credentials.add(property("s3.role_arn", options.getRoleArn()));
+            if (options.getExternalId() != null) {
+                credentials.add(property("s3.external_id", options.getExternalId()));
+            }
+        }
+        return credentials.toString();
     }
 
     private String buildUri(List<String> objectKeys) {
