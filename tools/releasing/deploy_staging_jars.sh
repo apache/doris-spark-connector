@@ -50,22 +50,22 @@ cd ${PROJECT_ROOT}/spark-doris-connector
 echo "Deploying to repository.apache.org"
 
 echo "Deploying spark2.4..."
-${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-2.4_2.11 -pl spark-doris-connector-spark-2 -am
+${MVN} clean deploy -Daether.connector.basic.parallelPut=false -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-2.4_2.11 -pl spark-doris-connector-spark-2 -am
 
 echo "Deploying spark3.1..."
-${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.1 -pl spark-doris-connector-spark-3.1 -am
+${MVN} clean deploy -Daether.connector.basic.parallelPut=false -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.1 -pl spark-doris-connector-spark-3.1 -am
 
 echo "Deploying spark3.2..."
-${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.2 -pl spark-doris-connector-spark-3.2 -am
+${MVN} clean deploy -Daether.connector.basic.parallelPut=false -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.2 -pl spark-doris-connector-spark-3.2 -am
 
 echo "Deploying spark3.3..."
-${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.3 -pl spark-doris-connector-spark-3.3 -am
+${MVN} clean deploy -Daether.connector.basic.parallelPut=false -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.3 -pl spark-doris-connector-spark-3.3 -am
 
 echo "Deploying spark3.4..."
-${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.4 -pl spark-doris-connector-spark-3.4 -am
+${MVN} clean deploy -Daether.connector.basic.parallelPut=false -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.4 -pl spark-doris-connector-spark-3.4 -am
 
 echo "Deploying spark3.5..."
-${MVN} clean deploy -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.5 -pl spark-doris-connector-spark-3.5 -am
+${MVN} clean deploy -Daether.connector.basic.parallelPut=false -Papache-release -DskipTests -DretryFailedDeploymentCount=10 -Pspark-3.5 -pl spark-doris-connector-spark-3.5 -am
 
 echo "Deploy jar finished. Run deploy_staging_jars_spark4.sh (with JDK 17) to deploy Spark 4.x."
 cd ${CURR_DIR}
