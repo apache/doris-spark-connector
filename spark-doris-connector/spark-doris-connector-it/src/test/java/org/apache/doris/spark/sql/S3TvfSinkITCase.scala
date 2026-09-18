@@ -80,9 +80,41 @@ class S3TvfSinkITCase extends AbstractS3TvfTestBase {
     assertEquals(2, keys.size)
     val keyPattern =
       Pattern.quote(prefix + labelPrefix + "_" + table + "_") +
-        "[0-9a-f-]{36}_0_[0-9]+\\.json"
+        "[0-9a-f-]{36}_0_[0-9]+\\.json\\.gz"
     assertTrue(keys.forall(_.matches(keyPattern)))
     assertFalse(keys.exists(_.contains("//")))
+  }
+
+  @Test
+  def testDisablesCompressionWithEmptyCompressType(): Unit = {
+    val table = uniqueName("uncompressed")
+    val prefix = uniqueName("uncompressed_objects")
+    val labelPrefix = uniqueName("uncompressed_label")
+    createDuplicateTable(table, "`id` INT, `name` VARCHAR(128)")
+
+    withSpark("local[1]") { session =>
+      import session.implicits._
+      val options = s3TvfSinkOptions(
+        s"$database.$table", prefix, labelPrefix, 100)
+      options.put("doris.sink.properties.compress_type", "")
+      Seq((1, "doris"))
+        .toDF("id", "name")
+        .write
+        .format("doris")
+        .options(options.asScala)
+        .mode(SaveMode.Append)
+        .save()
+    }
+
+    assertResult(
+      table,
+      "id,name",
+      util.Collections.singletonList("1,doris"),
+      columnCount = 2)
+    val keys = listObjectKeys(prefix + "/").asScala
+    assertEquals(1, keys.size)
+    assertTrue(keys.head.endsWith(".json"))
+    assertFalse(keys.head.endsWith(".json.gz"))
   }
 
   @Test
@@ -111,7 +143,7 @@ class S3TvfSinkITCase extends AbstractS3TvfTestBase {
     assertEquals(2, keys.size)
     val keyPattern =
       (Pattern.quote(prefix + "/" + labelPrefix + "_" + table + "_") +
-        "([0-9a-f-]{36})_([0-9]+)_0\\.json").r
+        "([0-9a-f-]{36})_([0-9]+)_0\\.json\\.gz").r
     val taskFiles = keys.map {
       case keyPattern(uuid, partition) => uuid -> partition
       case key => throw new AssertionError("Unexpected S3 TVF object key: " + key)
@@ -247,7 +279,7 @@ class S3TvfSinkITCase extends AbstractS3TvfTestBase {
     val keys = listObjectKeys(prefix + "/").asScala
     val keyPattern =
       (Pattern.quote(prefix + "/" + labelPrefix + "_" + table + "_") +
-        "([0-9a-f-]{36})_[0-9]+_[0-9]+\\.json").r
+        "([0-9a-f-]{36})_[0-9]+_[0-9]+\\.json\\.gz").r
     val uuids = keys.map {
       case keyPattern(uuid) => uuid
       case key => throw new AssertionError("Unexpected S3 TVF object key: " + key)

@@ -36,6 +36,7 @@ public final class S3TvfCommitter implements AutoCloseable {
     private static final String PARTIAL_COLUMNS = "partial_columns";
     private static final String FORMAT = "format";
     private static final String READ_JSON_BY_LINE = "read_json_by_line";
+    private static final String COMPRESS_TYPE = "compress_type";
     private static final String ENABLE_UNIQUE_KEY_PARTIAL_UPDATE =
             "enable_unique_key_partial_update";
 
@@ -92,7 +93,8 @@ public final class S3TvfCommitter implements AutoCloseable {
             if (!COLUMNS.equals(name)
                     && !PARTIAL_COLUMNS.equals(name)
                     && !FORMAT.equals(name)
-                    && !READ_JSON_BY_LINE.equals(name)) {
+                    && !READ_JSON_BY_LINE.equals(name)
+                    && !COMPRESS_TYPE.equals(name)) {
                 values.put(name, entry.getValue());
             }
         }

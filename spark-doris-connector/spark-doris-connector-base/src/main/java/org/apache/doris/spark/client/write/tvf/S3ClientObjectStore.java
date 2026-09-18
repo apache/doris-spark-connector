@@ -19,6 +19,8 @@ package org.apache.doris.spark.client.write.tvf;
 
 import org.apache.doris.spark.config.S3TvfOptions;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
@@ -26,6 +28,9 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -34,12 +39,17 @@ import java.net.URI;
 /** AWS SDK based implementation for S3-compatible object storage. */
 public final class S3ClientObjectStore implements S3ObjectStore {
     private static final String JSON_LINES_CONTENT_TYPE = "application/x-ndjson";
+    private static final String ROLE_SESSION_NAME = "doris-spark-connector";
 
     private final S3Client client;
     private final String bucket;
+    private DefaultCredentialsProvider defaultCredentialsProvider;
+    private StsClient stsClient;
+    private StsAssumeRoleCredentialsProvider assumeRoleCredentialsProvider;
 
     public S3ClientObjectStore(S3TvfOptions options) {
-        this(createClient(options), options.getBucket());
+        this.bucket = options.getBucket();
+        this.client = createClient(options);
     }
 
     S3ClientObjectStore(S3Client client, String bucket) {
@@ -47,20 +57,55 @@ public final class S3ClientObjectStore implements S3ObjectStore {
         this.bucket = bucket;
     }
 
-    private static S3Client createClient(S3TvfOptions options) {
+    private S3Client createClient(S3TvfOptions options) {
         return S3Client.builder()
                 .endpointOverride(URI.create(options.getEndpoint()))
                 .region(Region.of(options.getRegion()))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(
-                                AwsBasicCredentials.create(
-                                        options.getAccessKey(), options.getSecretKey())))
+                .credentialsProvider(createCredentialsProvider(options))
                 .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .serviceConfiguration(
                         S3Configuration.builder()
                                 .pathStyleAccessEnabled(options.isPathStyleAccess())
                                 .build())
                 .build();
+    }
+
+    private AwsCredentialsProvider createCredentialsProvider(S3TvfOptions options) {
+        if (!options.hasRoleArn()) {
+            return staticCredentialsProvider(options);
+        }
+        AwsCredentialsProvider sourceCredentialsProvider;
+        if (options.hasStaticCredentials()) {
+            sourceCredentialsProvider = staticCredentialsProvider(options);
+        } else {
+            defaultCredentialsProvider = DefaultCredentialsProvider.builder().build();
+            sourceCredentialsProvider = defaultCredentialsProvider;
+        }
+        stsClient = StsClient.builder()
+                .region(Region.of(options.getRegion()))
+                .credentialsProvider(sourceCredentialsProvider)
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
+                .build();
+        assumeRoleCredentialsProvider = StsAssumeRoleCredentialsProvider.builder()
+                .stsClient(stsClient)
+                .refreshRequest(buildAssumeRoleRequest(options))
+                .build();
+        return assumeRoleCredentialsProvider;
+    }
+
+    static AssumeRoleRequest buildAssumeRoleRequest(S3TvfOptions options) {
+        AssumeRoleRequest.Builder request = AssumeRoleRequest.builder()
+                .roleArn(options.getRoleArn())
+                .roleSessionName(ROLE_SESSION_NAME);
+        if (options.getExternalId() != null) {
+            request.externalId(options.getExternalId());
+        }
+        return request.build();
+    }
+
+    private static StaticCredentialsProvider staticCredentialsProvider(S3TvfOptions options) {
+        return StaticCredentialsProvider.create(
+                AwsBasicCredentials.create(options.getAccessKey(), options.getSecretKey()));
     }
 
     @Override
@@ -82,6 +127,18 @@ public final class S3ClientObjectStore implements S3ObjectStore {
 
     @Override
     public void close() {
-        client.close();
+        try {
+            client.close();
+        } finally {
+            if (assumeRoleCredentialsProvider != null) {
+                assumeRoleCredentialsProvider.close();
+            }
+            if (stsClient != null) {
+                stsClient.close();
+            }
+            if (defaultCredentialsProvider != null) {
+                defaultCredentialsProvider.close();
+            }
+        }
     }
 }

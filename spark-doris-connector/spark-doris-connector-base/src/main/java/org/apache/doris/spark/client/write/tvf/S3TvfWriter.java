@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPOutputStream;
 
 /** Writes one logical Spark partition as deterministic JSON Lines objects. */
 public final class S3TvfWriter implements AutoCloseable {
@@ -104,22 +105,25 @@ public final class S3TvfWriter implements AutoCloseable {
             return;
         }
         byte[] content = buffer.toByteArray();
+        boolean gzipEnabled = options.isGzipCompressionEnabled();
         int currentFileNumber = fileNumber++;
         String fileName = String.format(
-                "%s_%s_%s_%d_%d.json",
+                "%s_%s_%s_%d_%d.json%s",
                 labelPrefix,
                 normalizedTable,
                 batchUuid,
                 partitionId,
-                currentFileNumber);
+                currentFileNumber,
+                gzipEnabled ? ".gz" : "");
         String prefix = options.getPrefix();
         String objectKey = prefix + (prefix.endsWith("/") ? "" : "/") + fileName;
         long uploadStartedAtNanos = System.nanoTime();
         try {
-            objectStore.put(objectKey, content);
+            byte[] uploadContent = gzipEnabled ? gzip(content) : content;
+            objectStore.put(objectKey, uploadContent);
             LOG.info("S3 TVF object upload completed, objectKey={}, sizeBytes={}, uploadTimeMs={}.",
                     objectKey,
-                    content.length,
+                    uploadContent.length,
                     TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - uploadStartedAtNanos));
         } catch (IOException | RuntimeException e) {
             LOG.warn("S3 TVF object upload failed, objectKey={}, sizeBytes={}, uploadTimeMs={}.",
@@ -132,6 +136,14 @@ public final class S3TvfWriter implements AutoCloseable {
         objectKeys.add(objectKey);
         buffer.reset();
         recordCount = 0;
+    }
+
+    private static byte[] gzip(byte[] content) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(output)) {
+            gzip.write(content);
+        }
+        return output.toByteArray();
     }
 
     private String label() {

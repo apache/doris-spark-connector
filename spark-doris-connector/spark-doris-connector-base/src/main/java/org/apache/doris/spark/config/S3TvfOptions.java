@@ -28,6 +28,7 @@ public final class S3TvfOptions implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final String FORMAT = "format";
     private static final String READ_JSON_BY_LINE = "read_json_by_line";
+    private static final String COMPRESS_TYPE = "compress_type";
 
     private final String endpoint;
     private final String region;
@@ -35,6 +36,9 @@ public final class S3TvfOptions implements Serializable {
     private final String prefix;
     private final String accessKey;
     private final String secretKey;
+    private final String roleArn;
+    private final String externalId;
+    private final boolean gzipCompressionEnabled;
     private final boolean pathStyleAccess;
 
     private S3TvfOptions(
@@ -44,6 +48,9 @@ public final class S3TvfOptions implements Serializable {
             String prefix,
             String accessKey,
             String secretKey,
+            String roleArn,
+            String externalId,
+            boolean gzipCompressionEnabled,
             boolean pathStyleAccess) {
         this.endpoint = endpoint;
         this.region = region;
@@ -51,6 +58,9 @@ public final class S3TvfOptions implements Serializable {
         this.prefix = prefix;
         this.accessKey = accessKey;
         this.secretKey = secretKey;
+        this.roleArn = roleArn;
+        this.externalId = externalId;
+        this.gzipCompressionEnabled = gzipCompressionEnabled;
         this.pathStyleAccess = pathStyleAccess;
     }
 
@@ -60,8 +70,11 @@ public final class S3TvfOptions implements Serializable {
         String region = required(config, DorisOptions.DORIS_SINK_S3_REGION);
         String bucket = required(config, DorisOptions.DORIS_SINK_S3_BUCKET);
         String prefix = required(config, DorisOptions.DORIS_SINK_S3_PREFIX);
-        String accessKey = required(config, DorisOptions.DORIS_SINK_S3_ACCESS_KEY);
-        String secretKey = required(config, DorisOptions.DORIS_SINK_S3_SECRET_KEY);
+        String accessKey = optional(config, DorisOptions.DORIS_SINK_S3_ACCESS_KEY);
+        String secretKey = optional(config, DorisOptions.DORIS_SINK_S3_SECRET_KEY);
+        String roleArn = optional(config, DorisOptions.DORIS_SINK_S3_ROLE_ARN);
+        String externalId = optional(config, DorisOptions.DORIS_SINK_S3_EXTERNAL_ID);
+        validateCredentials(accessKey, secretKey, roleArn, externalId);
         validatePrefix(prefix);
 
         return new S3TvfOptions(
@@ -71,7 +84,35 @@ public final class S3TvfOptions implements Serializable {
                 prefix,
                 accessKey,
                 secretKey,
+                roleArn,
+                externalId,
+                isGzipCompressionEnabled(config.getSinkProperties()),
                 config.getValue(DorisOptions.DORIS_SINK_S3_PATH_STYLE_ACCESS));
+    }
+
+    private static String optional(DorisConfig config, ConfigOption<String> option)
+            throws OptionRequiredException {
+        if (!config.contains(option)) {
+            return null;
+        }
+        String value = config.getValue(option).trim();
+        return value.isEmpty() ? null : value;
+    }
+
+    private static void validateCredentials(
+            String accessKey, String secretKey, String roleArn, String externalId) {
+        if ((accessKey == null) != (secretKey == null)) {
+            throw new IllegalArgumentException(
+                    "doris.sink.s3.access-key and doris.sink.s3.secret-key must be configured together");
+        }
+        if (accessKey == null && roleArn == null) {
+            throw new IllegalArgumentException(
+                    "S3 TVF requires either access/secret keys or doris.sink.s3.role-arn");
+        }
+        if (externalId != null && roleArn == null) {
+            throw new IllegalArgumentException(
+                    "doris.sink.s3.external-id requires doris.sink.s3.role-arn");
+        }
     }
 
     private static String required(DorisConfig config, ConfigOption<String> option)
@@ -93,6 +134,15 @@ public final class S3TvfOptions implements Serializable {
             throw new IllegalArgumentException(
                     "TVF write mode requires 'doris.sink.properties.read_json_by_line' to be true");
         }
+        String compressType = loadProperties.getOrDefault(COMPRESS_TYPE, "gz").trim();
+        if (!compressType.isEmpty() && !"gz".equalsIgnoreCase(compressType)) {
+            throw new IllegalArgumentException(
+                    "TVF write mode only supports 'gz' or an empty compress_type");
+        }
+    }
+
+    private static boolean isGzipCompressionEnabled(Map<String, String> loadProperties) {
+        return "gz".equalsIgnoreCase(loadProperties.getOrDefault(COMPRESS_TYPE, "gz").trim());
     }
 
     private static void validatePrefix(String prefix) {
@@ -127,6 +177,26 @@ public final class S3TvfOptions implements Serializable {
 
     public String getSecretKey() {
         return secretKey;
+    }
+
+    public String getRoleArn() {
+        return roleArn;
+    }
+
+    public String getExternalId() {
+        return externalId;
+    }
+
+    public boolean hasRoleArn() {
+        return roleArn != null;
+    }
+
+    public boolean hasStaticCredentials() {
+        return accessKey != null;
+    }
+
+    public boolean isGzipCompressionEnabled() {
+        return gzipCompressionEnabled;
     }
 
     public boolean isPathStyleAccess() {
