@@ -52,7 +52,7 @@
         <httpclient.version>4.5.13</httpclient.version>
         <junit.version>5.8.2</junit.version>
         <jmockit.version>1.49</jmockit.version>
-        <log4j.version>2.17.1</log4j.version>
+        <log4j.version>2.25.3</log4j.version>
         <slf4j.version>2.0.7</slf4j.version>
         <commons-logging.version>1.2</commons-logging.version>
         <aws-java-sdk.version>1.12.669</aws-java-sdk.version>
