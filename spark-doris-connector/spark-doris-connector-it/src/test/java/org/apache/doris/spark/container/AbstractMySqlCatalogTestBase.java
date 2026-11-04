@@ -67,7 +67,7 @@ public abstract class AbstractMySqlCatalogTestBase extends AbstractContainerTest
                 .withEnv("MYSQL_ROOT_PASSWORD", MYSQL_PASSWORD)
                 .withEnv("MYSQL_ROOT_HOST", "%")
                 .withEnv("MYSQL_DATABASE", DATABASE)
-                .waitingFor(Wait.forLogMessage(".*ready for connections.*\\n", 2))
+                .waitingFor(Wait.forLogMessage(".*mysqld: ready for connections.*port: 3306 .*\\n", 1))
                 .withStartupTimeout(Duration.ofMinutes(2));
         mysql.start();
         String mysqlUrl = "jdbc:mysql://" + mysql.getHost() + ":" + mysql.getMappedPort(3306)
