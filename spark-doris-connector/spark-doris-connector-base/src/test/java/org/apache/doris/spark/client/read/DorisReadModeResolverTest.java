@@ -103,6 +103,32 @@ public class DorisReadModeResolverTest {
         }
     }
 
+    @Test
+    public void catalogReadRejectsThrift() throws Exception {
+        DorisConfig config = createConfig("thrift", null);
+        config.setProperty(DorisOptions.DORIS_TABLE_IDENTIFIER, "hive.db.tbl");
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> DorisReadModeResolver.resolve(config, () -> 9040));
+    }
+
+    @Test
+    public void catalogReadDoesNotFallBackWhenFlightPortIsUnavailable() throws Exception {
+        DorisConfig config = createConfig("arrow", null);
+        config.setProperty(DorisOptions.DORIS_TABLE_IDENTIFIER, "hive.db.tbl");
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> DorisReadModeResolver.resolve(config, () -> -1));
+    }
+
+    @Test
+    public void catalogReadDoesNotFallBackWhenDiscoveryFails() throws Exception {
+        DorisConfig config = createConfig("arrow", null);
+        config.setProperty(DorisOptions.DORIS_TABLE_IDENTIFIER, "hive.db.tbl");
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> DorisReadModeResolver.resolve(config, () -> {
+                    throw new java.io.IOException("discovery failed");
+                }));
+    }
+
     private DorisConfig createConfig(String readMode, Integer flightSqlPort) throws Exception {
         Map<String, String> options = new HashMap<>();
         options.put("doris.fenodes", "127.0.0.1:8030");

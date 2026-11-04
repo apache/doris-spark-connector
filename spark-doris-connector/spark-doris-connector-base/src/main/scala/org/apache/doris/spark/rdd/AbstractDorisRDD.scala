@@ -39,7 +39,7 @@ protected[spark] abstract class AbstractDorisRDD[T: ClassTag](
 
   override def getPreferredLocations(split: Partition): Seq[String] = {
     val dorisSplit = split.asInstanceOf[DorisPartition]
-    Seq(dorisSplit.dorisPartition.getBackend.hostRpcPortString())
+    Option(dorisSplit.dorisPartition.getBackend).map(_.hostRpcPortString()).toSeq
   }
 
   override def checkpoint(): Unit = {

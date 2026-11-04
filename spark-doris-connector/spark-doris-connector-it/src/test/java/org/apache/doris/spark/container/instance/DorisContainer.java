@@ -65,6 +65,10 @@ public class DorisContainer implements ContainerService {
         dorisContainer = createDorisContainer();
     }
 
+    public GenericContainer<?> getContainer() {
+        return dorisContainer;
+    }
+
     public GenericContainer createDorisContainer() {
         LOG.info("Will create doris containers.");
         GenericContainer container =

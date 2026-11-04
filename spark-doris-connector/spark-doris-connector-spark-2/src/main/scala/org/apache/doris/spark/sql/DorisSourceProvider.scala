@@ -56,6 +56,7 @@ private[sql] class DorisSourceProvider extends DorisSourceRegisterTrait
                               data: DataFrame): BaseRelation = {
 
     val config = DorisConfig.fromMap(sqlContext.sparkContext.getConf.getAll.toMap.asJava, parameters.asJava, false)
+    require(config.getTableIdentifierParts.length == 2, "Writing catalog.db.table is not supported")
 
     mode match {
       case SaveMode.Overwrite =>
@@ -91,6 +92,7 @@ private[sql] class DorisSourceProvider extends DorisSourceRegisterTrait
 
   override def createSink(sqlContext: SQLContext, parameters: Map[String, String], partitionColumns: Seq[String], outputMode: OutputMode): Sink = {
     val config = DorisConfig.fromMap(Utils.params(parameters, logger).asJava, false)
+    require(config.getTableIdentifierParts.length == 2, "Writing catalog.db.table is not supported")
     if (config.getValue(DorisOptions.LOAD_MODE) == "tvf") {
       throw new UnsupportedOperationException("tvf write mode does not support Structured Streaming")
     }

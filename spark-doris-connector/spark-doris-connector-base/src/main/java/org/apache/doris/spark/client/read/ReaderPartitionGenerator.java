@@ -65,25 +65,34 @@ public class ReaderPartitionGenerator {
     public static DorisReaderPartition[] generatePartitions(DorisConfig config,
                                                             String[] fields, String[] filters, Integer limit,
                                                             Boolean datetimeJava8ApiEnabled) throws Exception {
+        String[] tableParts = config.getTableIdentifierParts();
+        String db = tableParts[tableParts.length - 2];
+        String table = tableParts[tableParts.length - 1];
         DorisFrontendClient frontend = new DorisFrontendClient(config);
-        String fullTableName = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
-        String[] tableParts = fullTableName.split("\\.");
-        String db = tableParts[0].replaceAll("`", "");
-        String table = tableParts[1].replaceAll("`", "");
-        String[] originReadCols = fields;
-        if (fields == null || fields.length == 0) {
-            originReadCols = frontend.getTableAllColumns(db, table);
+        try {
+            Schema tableSchema = frontend.getTableSchema(tableParts);
+            String[] originReadCols = fields;
+            if (fields == null || fields.length == 0) {
+                originReadCols = tableSchema.getProperties().stream().map(Field::getName).toArray(String[]::new);
+            }
+            String[] finalReadColumns = getFinalReadColumns(config, tableSchema, originReadCols);
+            if (tableParts.length == 3) {
+                // Doris plans catalog scans without connector-side tablet assignment.
+                return new DorisReaderPartition[]{new DorisReaderPartition(db, table, null,
+                        new Long[0], "", finalReadColumns, filters, limit, config, datetimeJava8ApiEnabled)};
+            }
+            String finalReadColumnString = String.join(",", finalReadColumns);
+            String finalWhereClauseString = filters.length == 0 ? "" : " WHERE " + String.join(" AND ", filters);
+            String sql = "SELECT " + finalReadColumnString + " FROM `" + db + "`.`" + table + "`" + finalWhereClauseString;
+            LOG.info("get query plan for table " + db + "." + table + ", sql: " + sql);
+            QueryPlan queryPlan = frontend.getQueryPlan(db, table, sql);
+            Map<String, List<Long>> beToTablets = mappingBeToTablets(queryPlan);
+            int maxTabletSize = config.getValue(DorisOptions.DORIS_TABLET_SIZE);
+            return distributeTabletsToPartitions(db, table, beToTablets, queryPlan.getOpaqued_query_plan(), maxTabletSize,
+                    finalReadColumns, filters, config, limit, datetimeJava8ApiEnabled);
+        } finally {
+            frontend.close();
         }
-        String[] finalReadColumns = getFinalReadColumns(config, frontend, db, table, originReadCols);
-        String finalReadColumnString = String.join(",", finalReadColumns);
-        String finalWhereClauseString = filters.length == 0 ? "" : " WHERE " + String.join(" AND ", filters);
-        String sql = "SELECT " + finalReadColumnString + " FROM `" + db + "`.`" + table + "`" + finalWhereClauseString;
-        LOG.info("get query plan for table " + db + "." + table + ", sql: " + sql);
-        QueryPlan queryPlan = frontend.getQueryPlan(db, table, sql);
-        Map<String, List<Long>> beToTablets = mappingBeToTablets(queryPlan);
-        int maxTabletSize = config.getValue(DorisOptions.DORIS_TABLET_SIZE);
-        return distributeTabletsToPartitions(db, table, beToTablets, queryPlan.getOpaqued_query_plan(), maxTabletSize,
-                finalReadColumns, filters, config, limit, datetimeJava8ApiEnabled);
     }
 
     @VisibleForTesting
@@ -130,8 +139,7 @@ public class ReaderPartitionGenerator {
         return partitions.toArray(new DorisReaderPartition[0]);
     }
 
-    protected static String[] getFinalReadColumns(DorisConfig config, DorisFrontendClient frontendClient, String db, String table, String[] readFields) throws Exception {
-        Schema tableSchema = frontendClient.getTableSchema(db, table);
+    protected static String[] getFinalReadColumns(DorisConfig config, Schema tableSchema, String[] readFields) throws Exception {
         Map<String, String> fieldTypeMap = tableSchema.getProperties().stream().collect(
                 Collectors.toMap(Field::getName, Field::getType));
         Boolean bitmapToString = config.getValue(DorisOptions.DORIS_READ_BITMAP_TO_STRING);

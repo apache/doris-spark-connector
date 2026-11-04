@@ -222,7 +222,8 @@ public class DorisFlightSqlReader extends DorisReader {
     protected String generateQuerySql(DorisReaderPartition partition) throws OptionRequiredException {
         String columns = String.join(",", partition.getReadColumns());
         String fullTableName = config.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER);
-        String tablets = String.format("TABLET(%s)", StringUtils.join(partition.getTablets(), ","));
+        String tablets = partition.getTablets().length == 0 ? ""
+                : String.format("TABLET(%s)", StringUtils.join(partition.getTablets(), ","));
         String predicates = partition.getFilters().length == 0 ? "" : " WHERE " + String.join(" AND ", partition.getFilters());
         String limit = partition.getLimit() > 0 ? " LIMIT " + partition.getLimit() : "";
         return generateQueryPrefix() + String.format("SELECT %s FROM %s %s%s%s", columns, fullTableName, tablets, predicates, limit);
@@ -235,7 +236,7 @@ public class DorisFlightSqlReader extends DorisReader {
 
     protected Schema processDorisSchema(DorisReaderPartition partition) throws Exception {
         Schema processedSchema = new Schema();
-        Schema tableSchema = frontendClient.getTableSchema(partition.getDatabase(), partition.getTable());
+        Schema tableSchema = frontendClient.getTableSchema(config.getTableIdentifierParts());
         Map<String, Field> fieldTypeMap = tableSchema.getProperties().stream()
                 .collect(Collectors.toMap(Field::getName, Function.identity()));
         String[] readColumns = partition.getReadColumns();

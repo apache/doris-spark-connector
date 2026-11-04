@@ -17,7 +17,7 @@
 
 package org.apache.doris.spark.catalog
 
-import org.apache.doris.spark.config.{DorisConfig, DorisOptions}
+import org.apache.doris.spark.config.DorisConfig
 import org.apache.spark.sql.connector.catalog.{Identifier, Table, TableProvider}
 import org.apache.spark.sql.connector.expressions.Transform
 import org.apache.spark.sql.types.StructType
@@ -38,9 +38,8 @@ abstract class DorisTableProviderBase extends TableProvider {
     if (t != null) t
     else {
       val dorisConfig = DorisConfig.fromMap(properties, false)
-      val tableIdentifier = dorisConfig.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)
-      val tableIdentifierArr = tableIdentifier.split("\\.")
-      newTableInstance(Identifier.of(Array[String](tableIdentifierArr(0)), tableIdentifierArr(1)), dorisConfig, Some(schema))
+      val tableIdentifierArr = dorisConfig.getTableIdentifierParts
+      newTableInstance(Identifier.of(tableIdentifierArr.dropRight(1), tableIdentifierArr.last), dorisConfig, Some(schema))
     }
   }
 
@@ -48,9 +47,8 @@ abstract class DorisTableProviderBase extends TableProvider {
     if (t != null) t
     else {
       val dorisConfig = DorisConfig.fromMap(options, false)
-      val tableIdentifier = dorisConfig.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)
-      val tableIdentifierArr = tableIdentifier.split("\\.")
-      newTableInstance(Identifier.of(Array[String](tableIdentifierArr(0)), tableIdentifierArr(1)), dorisConfig, None)
+      val tableIdentifierArr = dorisConfig.getTableIdentifierParts
+      newTableInstance(Identifier.of(tableIdentifierArr.dropRight(1), tableIdentifierArr.last), dorisConfig, None)
     }
   }
 

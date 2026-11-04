@@ -332,8 +332,12 @@ public class DorisFrontendClient implements Serializable {
     }
 
     public Schema getTableSchema(String db, String table) throws Exception {
+        return getTableSchema(new String[]{db, table});
+    }
+
+    public Schema getTableSchema(String[] tableIdentifier) throws Exception {
         return requestFrontends((frontend, httpClient) -> {
-            String url = URLs.tableSchema(frontend.getHost(), frontend.getHttpPort(), db, table, isHttpsEnabled);
+            String url = URLs.tableSchema(frontend.getHost(), frontend.getHttpPort(), tableIdentifier, isHttpsEnabled);
             HttpGet httpGet = new HttpGet(url);
             HttpUtils.setAuth(httpGet, username, password);
             Schema dorisSchema;

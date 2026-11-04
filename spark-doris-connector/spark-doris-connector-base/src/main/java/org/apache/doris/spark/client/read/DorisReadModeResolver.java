@@ -56,7 +56,11 @@ public class DorisReadModeResolver {
     static String resolve(DorisConfig config, FlightSqlPortSupplier portSupplier)
             throws OptionRequiredException {
         String readMode = config.getValue(DorisOptions.READ_MODE).toLowerCase(Locale.ROOT);
+        boolean catalogRead = config.getTableIdentifierParts().length == 3;
         if (THRIFT.equals(readMode)) {
+            if (catalogRead) {
+                throw new IllegalArgumentException("Reading catalog.db.table requires Arrow Flight SQL");
+            }
             return THRIFT;
         }
         if (!ARROW.equals(readMode)) {
@@ -71,6 +75,9 @@ public class DorisReadModeResolver {
         try {
             flightSqlPort = portSupplier.get();
         } catch (Exception e) {
+            if (catalogRead) {
+                throw new IllegalArgumentException("Reading catalog.db.table requires an available Arrow Flight SQL port", e);
+            }
             LOG.warn("failed to discover Arrow Flight SQL port, falling back to Thrift", e);
             return THRIFT;
         }
@@ -80,6 +87,9 @@ public class DorisReadModeResolver {
             return ARROW;
         }
 
+        if (catalogRead) {
+            throw new IllegalArgumentException("Reading catalog.db.table requires an available Arrow Flight SQL port");
+        }
         LOG.warn("Arrow Flight SQL port {} is invalid or unavailable, falling back to Thrift", flightSqlPort);
         return THRIFT;
     }
