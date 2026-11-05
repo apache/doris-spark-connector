@@ -19,7 +19,6 @@ package org.apache.doris.spark.client.read;
 
 import mockit.Expectations;
 import mockit.Mocked;
-import org.apache.doris.spark.client.DorisFrontendClient;
 import org.apache.doris.spark.config.DorisConfig;
 import org.apache.doris.spark.config.DorisOptions;
 import org.apache.doris.spark.rest.models.Field;
@@ -70,7 +69,7 @@ public class ReaderPartitionGeneratorTest {
     }
 
     @Test
-    public void getFinalReadColumnsTest(@Mocked DorisConfig config, @Mocked DorisFrontendClient frontendClient) throws Exception {
+    public void getFinalReadColumnsTest(@Mocked DorisConfig config) throws Exception {
 
         String[] cols = new String[]{"c0", "c1", "c2"};
         Schema schema = new Schema();
@@ -83,11 +82,9 @@ public class ReaderPartitionGeneratorTest {
             result = true;
             config.getValue(DorisOptions.DORIS_READ_BITMAP_TO_STRING);
             result = false;
-            frontendClient.getTableSchema(anyString, anyString);
-            result = schema;
         }};
 
-        String[] finalReadColumns1 = ReaderPartitionGenerator.getFinalReadColumns(config, frontendClient, "db", "tbl", cols);
+        String[] finalReadColumns1 = ReaderPartitionGenerator.getFinalReadColumns(config, schema, cols);
         Assert.assertArrayEquals(new String[]{"`c0`", "bitmap_to_base64(`c1`) AS `c1`", "'Read unsupported' AS `c2`"}, finalReadColumns1);
 
         new Expectations() {{
@@ -95,11 +92,9 @@ public class ReaderPartitionGeneratorTest {
             result = false;
             config.getValue(DorisOptions.DORIS_READ_BITMAP_TO_STRING);
             result = true;
-            frontendClient.getTableSchema(anyString, anyString);
-            result = schema;
         }};
 
-        String[] finalReadColumns2 = ReaderPartitionGenerator.getFinalReadColumns(config, frontendClient, "db", "tbl", cols);
+        String[] finalReadColumns2 = ReaderPartitionGenerator.getFinalReadColumns(config, schema, cols);
         Assert.assertArrayEquals(new String[]{"`c0`", "bitmap_to_string(`c1`) AS `c1`", "'Read unsupported' AS `c2`"}, finalReadColumns2);
 
     }

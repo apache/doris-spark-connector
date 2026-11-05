@@ -35,6 +35,9 @@ object URLs {
   def tableSchema(host: String, port: Int, database: String, table: String, enableHttps: Boolean): String =
     tableSchema(s"${assemblePath(host, port)}", database, table, enableHttps)
 
+  def tableSchema(host: String, port: Int, tableIdentifier: Array[String], enableHttps: Boolean): String =
+    s"${schema(enableHttps)}://${assemblePath(host, port)}/api/${tableIdentifier.mkString("/")}/_schema"
+
   def queryPlan(feNode: String, database: String, table: String, enableHttps: Boolean = false) =
     s"${schema(enableHttps)}://$feNode/api/$database/$table/_query_plan"
 

@@ -133,6 +133,31 @@ dorisSparkDF = spark.read.format("doris")
 dorisSparkDF.show(5)
 ```
 
+## Reading external catalog tables
+
+Use a three-part `catalog.database.table` identifier to read tables from Doris
+external catalogs such as Hive, Iceberg, and Paimon:
+
+```scala
+spark.read.format("doris")
+  .option("doris.fenodes", "127.0.0.1:8030")
+  .option("doris.table.identifier", "hive_catalog.database.table")
+  .option("doris.user", "root")
+  .option("doris.password", "")
+  .load()
+```
+
+Arrow Flight SQL must be enabled on Doris. The connector discovers its port;
+when frontend discovery is disabled, set `doris.read.arrow-flight-sql.port`
+explicitly. Three-part identifiers require Arrow mode and do not fall back to
+Thrift. The same identifier works with SQL `USING doris` and the RDD API.
+
+External reads use one Spark partition. Doris plans and executes the external
+scan. Column projection and filter pushdown are retained. Complex types
+use the existing connector conversions: ARRAY as a string (or an array of
+strings with `doris.read.array.native-type=true`), MAP as a map of strings, and
+STRUCT as a string. Writing through a three-part identifier is not supported.
+
 ## TLS
 
 The connector supports one-way TLS for Doris HTTP APIs and Stream Load,

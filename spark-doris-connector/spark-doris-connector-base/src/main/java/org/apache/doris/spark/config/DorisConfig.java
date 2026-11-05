@@ -40,6 +40,20 @@ public class DorisConfig implements Serializable {
         checkOptions(this.configOptions);
     }
 
+    public String[] getTableIdentifierParts() throws OptionRequiredException {
+        String[] parts = getValue(DorisOptions.DORIS_TABLE_IDENTIFIER).split("\\.", -1);
+        if (parts.length != 2 && parts.length != 3) {
+            throw new IllegalArgumentException("doris.table.identifier must be db.table or catalog.db.table");
+        }
+        for (int i = 0; i < parts.length; i++) {
+            parts[i] = parts[i].replace("`", "");
+            if (parts[i].trim().isEmpty()) {
+                throw new IllegalArgumentException("doris.table.identifier contains an empty name");
+            }
+        }
+        return parts;
+    }
+
     private Map<String, String> processOptions(Map<String, String> options) {
         Map<String, String> dottedOptions = new HashMap<>();
         for (Map.Entry<String, String> entry : options.entrySet()) {

@@ -40,11 +40,14 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
   override def name(): String = identifier.toString
 
   override def schema(): StructType = schema.getOrElse({
-    val dorisSchema = frontend.getTableSchema(identifier.namespace()(0), identifier.name())
+    val dorisSchema = frontend.getTableSchema(identifier.namespace() :+ identifier.name())
     dorisSchemaToStructType(dorisSchema)
   })
 
   override def capabilities(): util.Set[TableCapability] = {
+    if (identifier.namespace().length == 2) {
+      return Set[TableCapability](BATCH_READ).asJava
+    }
     val capabilities = mutable.Set(BATCH_READ,
       BATCH_WRITE,
       STREAMING_WRITE,
@@ -59,7 +62,6 @@ abstract class DorisTableBase(identifier: Identifier, config: DorisConfig, schem
   }
 
   override def newScanBuilder(caseInsensitiveStringMap: CaseInsensitiveStringMap): ScanBuilder = {
-    config.setProperty(DorisOptions.DORIS_TABLE_IDENTIFIER, name())
     createScanBuilder(config, schema())
   }
 

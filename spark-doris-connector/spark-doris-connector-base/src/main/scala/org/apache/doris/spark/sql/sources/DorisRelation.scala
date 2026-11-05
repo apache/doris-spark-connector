@@ -42,9 +42,7 @@ private[sql] class DorisRelation(
   private lazy val frontend: DorisFrontendClient = new DorisFrontendClient(cfg)
 
   private lazy val lazySchema = {
-    val tableIdentifier = cfg.getValue(DorisOptions.DORIS_TABLE_IDENTIFIER)
-    val tableIdentifierArr = tableIdentifier.split("\\.").map(_.replaceAll("`", ""))
-    val dorisSchema = frontend.getTableSchema(tableIdentifierArr(0), tableIdentifierArr(1))
+    val dorisSchema = frontend.getTableSchema(cfg.getTableIdentifierParts)
     val arrayNativeType = cfg.getValue(DorisOptions.DORIS_READ_ARRAY_NATIVE_TYPE)
     StructType(dorisSchema.getProperties.asScala.map(field => {
       StructField(field.getName, SchemaConvertors.toCatalystType(field.getType, field.getPrecision, field.getScale, arrayNativeType))

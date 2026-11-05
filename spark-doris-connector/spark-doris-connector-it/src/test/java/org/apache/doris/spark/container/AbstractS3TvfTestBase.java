@@ -52,7 +52,7 @@ public abstract class AbstractS3TvfTestBase extends AbstractContainerTestBase {
 
     private static final int MINIO_PORT = 9000;
     private static final String MINIO_IMAGE =
-            "quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z";
+            "doristhirdpartydocker/minio:RELEASE.2024-11-07T00-52-20Z";
 
     private static GenericContainer<?> minio;
     private static S3Client s3Client;

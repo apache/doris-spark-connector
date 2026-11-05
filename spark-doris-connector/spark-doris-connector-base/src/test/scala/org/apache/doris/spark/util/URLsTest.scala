@@ -35,6 +35,14 @@ class URLsTest {
   }
 
   @Test
+  def catalogTableSchemaTest(): Unit = {
+    Assert.assertEquals("http://127.0.0.1:8030/api/hive/db/tbl/_schema",
+      URLs.tableSchema("127.0.0.1", 8030, Array("hive", "db", "tbl"), enableHttps = false))
+    Assert.assertEquals("https://127.0.0.1:8030/api/hive/db/tbl/_schema",
+      URLs.tableSchema("127.0.0.1", 8030, Array("hive", "db", "tbl"), enableHttps = true))
+  }
+
+  @Test
   def queryPlanTest(): Unit = {
     Assert.assertEquals(URLs.queryPlan("127.0.0.1", 8030, "db", "tbl", enableHttps = false), "http://127.0.0.1:8030/api/db/tbl/_query_plan")
     Assert.assertEquals(URLs.queryPlan("127.0.0.1", 8030, "db", "tbl", enableHttps = true), "https://127.0.0.1:8030/api/db/tbl/_query_plan")
