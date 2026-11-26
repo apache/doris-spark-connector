@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
@@ -49,7 +50,7 @@ import java.util.concurrent.locks.LockSupport;
 
 public class DorisContainer implements ContainerService {
     private static final Logger LOG = LoggerFactory.getLogger(DorisContainer.class);
-    private static final String DEFAULT_DOCKER_IMAGE = "jnsimba/doris-all-in-one:4.1.3";
+    private static final String DEFAULT_DOCKER_IMAGE = "apache/doris:all-in-one-4.1.5-full";
     private static final String DORIS_DOCKER_IMAGE =
             System.getProperty("image") == null
                     ? DEFAULT_DOCKER_IMAGE
@@ -71,22 +72,36 @@ public class DorisContainer implements ContainerService {
 
     public GenericContainer createDorisContainer() {
         LOG.info("Will create doris containers.");
+        DockerImageName image = DockerImageName.parse(DORIS_DOCKER_IMAGE);
         GenericContainer container =
-                new GenericContainer<>(DORIS_DOCKER_IMAGE)
+                new GenericContainer<>(image)
                         .withNetwork(Network.newNetwork())
                         .withNetworkAliases("DorisContainer")
                         .withPrivilegedMode(true)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(DORIS_DOCKER_IMAGE)))
-                        // use customer conf
-                        .withCopyFileToContainer(
-                                MountableFile.forClasspathResource("docker/doris/be.conf"),
-                                "/opt/apache-doris/be/conf/be.conf")
-                        .withCopyFileToContainer(
-                                MountableFile.forClasspathResource("docker/doris/fe.conf"),
-                                "/opt/apache-doris/fe/conf/fe.conf")
                         .withExposedPorts(8030, 9030, 8040, 9060, 9611, 9610);
+
+        if ("apache/doris".equals(image.getRepository())) {
+            // Append test settings while keeping the official image's CI memory defaults.
+            container.withEnv(
+                            "FE_CONFIG_EXTRA",
+                            String.join("\n", "arrow_flight_sql_port = 9611",
+                                    "enable_debug_points = true", "arrow_flight_token_cache_size = 50"))
+                    .withEnv(
+                            "BE_CONFIG_EXTRA",
+                            String.join("\n", "arrow_flight_sql_port = 9610",
+                                    "enable_debug_points = true", "enable_https = false"))
+                    .withEnv("AWS_EC2_METADATA_DISABLED", "true");
+        } else {
+            container.withCopyFileToContainer(
+                            MountableFile.forClasspathResource("docker/doris/be.conf"),
+                            "/opt/apache-doris/be/conf/be.conf")
+                    .withCopyFileToContainer(
+                            MountableFile.forClasspathResource("docker/doris/fe.conf"),
+                            "/opt/apache-doris/fe/conf/fe.conf");
+        }
 
         container.setPortBindings(
                 Lists.newArrayList(
