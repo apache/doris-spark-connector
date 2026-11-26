@@ -31,11 +31,33 @@ github:
     squash:  true
     merge:   false
     rebase:  false
-  protected_branches:
-    master:
+  rulesets:
+    - name: Default and release branch protection
+      type: branch
+      branches:
+        includes:
+          - "~DEFAULT_BRANCH"
+          - "release-*"
+          - "branch-*"
+      restrict_deletion: true
+      restrict_force_push: true
       required_pull_request_reviews:
         dismiss_stale_reviews: true
-        required_approving_review_count: 0
+        required_approving_review_count: 1
+    - name: Default branch required checks
+      type: branch
+      branches:
+        includes:
+          - "~DEFAULT_BRANCH"
+      restrict_deletion: false
+      restrict_force_push: false
+      required_status_checks:
+        - name: Build Extensions
+          app_slug: 15368 # GitHub Actions
+        - name: Build Extensions (Spark 4.x)
+          app_slug: 15368
+        - name: License Check
+          app_slug: 15368
   features:
     issues: true
     projects: true

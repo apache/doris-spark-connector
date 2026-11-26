@@ -21,6 +21,9 @@ on:
   pull_request:
   push:
 
+permissions:
+  contents: read
+
 env:
   MVN_OPT: --no-transfer-progress
 
@@ -33,10 +36,12 @@ jobs:
         shell: bash
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
 
     - name: Setup java
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3.14.2
       with:
         distribution: temurin
         java-version: '8'
@@ -44,35 +49,35 @@ jobs:
 
     - name: Build spark connector 2.4 2.11
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-2.4_2.11 -pl spark-doris-connector-spark-2 -am
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-2.4_2.11 -pl spark-doris-connector-spark-2 -am
 
     - name: Build spark connector 2.4 2.12
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-2.4_2.12 -pl spark-doris-connector-spark-2 -am   
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-2.4_2.12 -pl spark-doris-connector-spark-2 -am
 
     - name: Build spark connector 3.1
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.1 -pl spark-doris-connector-spark-3.1 -am
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-3.1 -pl spark-doris-connector-spark-3.1 -am
 
     - name: Build spark connector 3.2
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.2 -pl spark-doris-connector-spark-3.2 -am
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-3.2 -pl spark-doris-connector-spark-3.2 -am
 
     - name: Build spark connector 3.3
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.3 -pl spark-doris-connector-spark-3.3 -am
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-3.3 -pl spark-doris-connector-spark-3.3 -am
 
     - name: Build spark connector 3.4
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.4 -pl spark-doris-connector-spark-3.4 -am
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-3.4 -pl spark-doris-connector-spark-3.4 -am
 
     - name: Build spark connector 3.5
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-3.5 -pl spark-doris-connector-spark-3.5 -am
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-3.5 -pl spark-doris-connector-spark-3.5 -am
 
     - name: Build spark load
       run: |
-        cd spark-load && mvn clean package ${MVN_OPT} -Pspark3,scala_2.12
+        cd spark-load && mvn clean package "$MVN_OPT" -Pspark3,scala_2.12
 
   build-extension-spark4:
     name: "Build Extensions (Spark 4.x)"
@@ -82,11 +87,13 @@ jobs:
         shell: bash
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
 
     # Spark 4.x requires JDK 17 and Scala 2.13, so it builds in a separate job.
     - name: Setup java
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3.14.2
       with:
         distribution: temurin
         java-version: '17'
@@ -94,4 +101,4 @@ jobs:
 
     - name: Build spark connector 4.1
       run: |
-        cd spark-doris-connector && mvn clean install ${MVN_OPT} -Pspark-4.1 -pl spark-doris-connector-spark-4.1 -am
+        cd spark-doris-connector && mvn clean install "$MVN_OPT" -Pspark-4.1 -pl spark-doris-connector-spark-4.1 -am

@@ -17,4 +17,4 @@ header:
     - 'spark-doris-connector/spark-doris-connector-base/src/test/resources/tls/'
     - 'spark-doris-connector/spark-doris-connector-it/src/test/resources/container/'
 
-  comment: on-failure
+  comment: never
